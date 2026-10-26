@@ -27,4 +27,5 @@ the test reads.
 
 | Module | Why |
 | --- | --- |
+| `go.yaml.in/yaml/v3` | Reads `subjects.yaml`, the catalogue of subjects (`internal/catalogue`), with unknown keys refused. It is the YAML organisation's maintained continuation of `gopkg.in/yaml.v3`, which is archived. |
 | `google.golang.org/protobuf` | The runtime the generated code under `gen/go` needs. It is the same module as `protoc-gen-go` in `tools/go.mod`, at a released version compatible with it, and the two move together in one PR (ADR 0008 in paddock). |
