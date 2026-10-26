@@ -88,7 +88,8 @@ in paddock mean for a change here:
 - **Every message and field has a comment**, and so does every enum, value,
   service and method. `buf lint` fails without one.
 - **No 64-bit integers** (`int64`, `uint64`, `sint64`, `fixed64`,
-  `sfixed64`): protobuf's JSON form writes them as strings. `int32`, `uint32`
+  `sfixed64`, or the `Int64Value` and `UInt64Value` wrappers): protobuf's JSON
+  form writes them as strings. `int32`, `uint32`
   and `double` are enough, and `make proto` fails on one.
 - **`optional` wherever zero is a real value** distinct from "absent", since the
   JSON form leaves zeros out; every enum starts with `<ENUM>_UNSPECIFIED = 0`.
@@ -98,7 +99,8 @@ in paddock mean for a change here:
   `reserved`, by number and by name, in the same change.
 - **A released message or enum is removed only on purpose:** its full name and
   the reason go in [`removed.txt`](removed.txt) in the same change, and the
-  review sees both. `make proto` fails a removal without its line.
+  review sees both. `make proto` fails a removal without its line, and a line
+  for a name that is still here, which would approve a removal in advance.
 - **Each message has a JSON example** under `examples/`, which
   [`messages_test.go`](messages_test.go) decodes and round-trips, an unknown
   field included.

@@ -197,8 +197,10 @@ type Frame struct {
 	TimeOfDayMs int32 `protobuf:"varint,41,opt,name=time_of_day_ms,json=timeOfDayMs,proto3" json:"time_of_day_ms,omitempty"`
 	// The game's code for the car.
 	CarCode int32 `protobuf:"varint,42,opt,name=car_code,json=carCode,proto3" json:"car_code,omitempty"`
-	// The track, as ecu's track detection names it. Absent while it is not
-	// known.
+	// The track id the decoder gives the frame, as v1's frame column held it:
+	// gt-telem's track detection, from the car's position, since the packet
+	// carries none. Absent while it is not known. ecu's own detection of the
+	// session's track is a separate value, in `session.track` (paddock#69).
 	TrackId *int32 `protobuf:"varint,43,opt,name=track_id,json=trackId,proto3,oneof" json:"track_id,omitempty"`
 	// The x component of the body's rotation, as the game sends it, from -1 to
 	// 1.

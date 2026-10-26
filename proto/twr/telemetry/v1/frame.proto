@@ -125,8 +125,10 @@ message Frame {
   int32 time_of_day_ms = 41;
   // The game's code for the car.
   int32 car_code = 42;
-  // The track, as ecu's track detection names it. Absent while it is not
-  // known.
+  // The track id the decoder gives the frame, as v1's frame column held it:
+  // gt-telem's track detection, from the car's position, since the packet
+  // carries none. Absent while it is not known. ecu's own detection of the
+  // session's track is a separate value, in `session.track` (paddock#69).
   optional int32 track_id = 43;
   // The x component of the body's rotation, as the game sends it, from -1 to
   // 1.

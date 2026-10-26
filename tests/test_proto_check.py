@@ -112,6 +112,25 @@ class ProtoCheck(unittest.TestCase):
                 self.assertIn(f"twr.events.v1.LapCompleted.big ({wide})", out)
                 self.edit(field, "")
 
+    def test_a_wrapper_of_a_64_bit_integer_fails_wide(self):
+        self.edit('package twr.events.v1;\n', 'package twr.events.v1;\n\nimport "google/protobuf/wrappers.proto";\n')
+        for wrapper in ("Int64Value", "UInt64Value"):
+            with self.subTest(type=wrapper):
+                field = f"  // A wrapped wide field.\n  google.protobuf.{wrapper} big = 12;\n"
+                self.edit("  uint32 last_seq = 11;\n", "  uint32 last_seq = 11;\n" + field)
+                code, out = self.check("wide")
+                self.assertEqual(code, 1, out)
+                self.assertIn(f"twr.events.v1.LapCompleted.big (google.protobuf.{wrapper})", out)
+                self.edit(field, "")
+
+    def test_a_removal_cannot_be_listed_in_advance(self):
+        with (self.repo / "removed.txt").open("a", encoding="utf-8") as f:
+            f.write("twr.events.v1.LapCompleted Going in the next change.\n")
+        code, out = self.check("removed", "--against", str(self.before))
+        self.assertEqual(code, 1, out)
+        self.assertIn("lists a name that is still here", out)
+        self.assertIn("twr.events.v1.LapCompleted", out)
+
     def test_removing_a_released_message_needs_a_reason(self):
         extra = self.before / "proto" / "twr" / "extra" / "v1"
         extra.mkdir(parents=True)

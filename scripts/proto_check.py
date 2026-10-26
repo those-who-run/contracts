@@ -41,6 +41,8 @@ BUF = ["go", "tool", "-modfile=tools/go.mod", "github.com/bufbuild/buf/cmd/buf"]
 ENV = {**os.environ, "GOWORK": "off"}
 RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 WIDE = {"TYPE_INT64", "TYPE_UINT64", "TYPE_SINT64", "TYPE_FIXED64", "TYPE_SFIXED64"}
+# The well-known wrappers of a 64-bit integer, whose JSON form is a string too.
+WIDE_WRAPPERS = {".google.protobuf.Int64Value", ".google.protobuf.UInt64Value"}
 REMOVED = "removed.txt"
 
 
@@ -159,16 +161,25 @@ def declarations(files: list[dict]):
         yield from walk(f.get("package", ""), f.get("messageType", []), f.get("enumType", []))
 
 
+def wide_type(field: dict) -> str | None:
+    """The field's type when it is a 64-bit integer or a wrapper of one."""
+    if field.get("type") in WIDE:
+        return field["type"][5:].lower()
+    if field.get("typeName") in WIDE_WRAPPERS:
+        return field["typeName"][1:]
+    return None
+
+
 def check_wide(_: argparse.Namespace) -> bool:
     files = image()
     if files is None:
         return False
     wide = [
-        f"{name}.{field['name']} ({field['type'][5:].lower()})"
+        f"{name}.{field['name']} ({wide_type(field)})"
         for name, message in declarations(files)
         if message
         for field in message.get("field", [])
-        if field.get("type") in WIDE
+        if wide_type(field)
     ]
     if wide:
         print(
@@ -197,14 +208,29 @@ def allowed_removals() -> dict[str, str]:
 
 
 def check_removed(args: argparse.Namespace) -> bool:
+    # Messages and enums only. Services and their methods come with the pit
+    # wall's Connect API, and this check takes them in then.
+    allowed = allowed_removals()
+    now = image()
+    if now is None:
+        return False
+    names_now = {name for name, _ in declarations(now)}
+    # A line for a name that is still here would approve a removal in advance.
+    early = sorted(name for name in allowed if name in names_now)
+    if early:
+        print(
+            f"{REMOVED} lists a name that is still here, which would approve its "
+            "removal before anyone sees it: " + ", ".join(early),
+            file=sys.stderr,
+        )
+        return False
     with against_input(args) as against:
         if against is None:
             return True
-        before, now = image(against), image()
-    if before is None or now is None:
+        before = image(against)
+    if before is None:
         return False
-    gone = sorted({name for name, _ in declarations(before)} - {name for name, _ in declarations(now)})
-    allowed = allowed_removals()
+    gone = sorted({name for name, _ in declarations(before)} - names_now)
     unlisted = [name for name in gone if not allowed.get(name)]
     if unlisted:
         print(

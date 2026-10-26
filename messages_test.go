@@ -155,6 +155,26 @@ func TestMessagesRoundTripThroughJSON(t *testing.T) {
 	}
 }
 
+// Each message survives protobuf's binary form too, which a subject may move to
+// later (ADR 0002, point 2).
+func TestMessagesRoundTripThroughBinary(t *testing.T) {
+	for _, ex := range examples {
+		t.Run(ex.file, func(t *testing.T) {
+			data, err := proto.Marshal(ex.want)
+			if err != nil {
+				t.Fatalf("encoding: %v", err)
+			}
+			got := ex.want.ProtoReflect().New().Interface()
+			if err := proto.Unmarshal(data, got); err != nil {
+				t.Fatalf("decoding: %v", err)
+			}
+			if !proto.Equal(got, ex.want) {
+				t.Errorf("got %v\nwant %v", got, ex.want)
+			}
+		})
+	}
+}
+
 // Zero values that mean something survive the JSON form, which leaves zeros out:
 // an optional field set to 0 is still set, and one left unset is still absent.
 func TestOptionalZeroIsNotAbsent(t *testing.T) {
