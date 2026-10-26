@@ -30,7 +30,7 @@ help:
 	@echo "lint      - golangci-lint, with .golangci.yml"
 	@echo "hooks     - install the commit hooks; a new clone or worktree runs it once"
 	@echo "fmt-check, tidy, vet, go-test, build, vuln - the Go checks one at a time"
-	@echo "proto     - buf's checks: format, lint, breaking changes, gen/ is fresh (in make test)"
+	@echo "proto     - buf's checks: format, lint, breaking changes, no 64-bit integers, no unlisted removal, gen/ is fresh (in make test)"
 	@echo "proto-fmt - format the .proto files with buf format"
 	@echo "generate  - write gen/ from proto/ with buf generate; commit the result"
 	@echo "links     - every internal link and anchor in the Markdown resolves (offline)"

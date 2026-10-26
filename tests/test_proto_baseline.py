@@ -57,22 +57,22 @@ class Baseline(unittest.TestCase):
             self.git("tag", tag)
         self.push("--tags")
         against, line = proto_check.baseline(self.remote)
-        self.assertEqual(against, f"{self.remote}#tag=v0.10.0")
+        self.assertEqual(against, "v0.10.0")
         self.assertIn("the latest release, v0.10.0", line)
 
     def test_main_before_the_first_tag(self):
         self.commit("buf.yaml")
         self.push()
         against, line = proto_check.baseline(self.remote)
-        self.assertEqual(against, f"{self.remote}#branch=main")
-        self.assertIn("No release tag yet: breaking changes are checked against main", line)
+        self.assertEqual(against, "main")
+        self.assertIn("No release tag yet: compared with main", line)
 
     def test_nothing_while_main_has_no_contracts(self):
         self.commit("README.md")
         self.push()
         against, line = proto_check.baseline(self.remote)
         self.assertIsNone(against)
-        self.assertIn("buf breaking has nothing to compare against, so it is skipped", line)
+        self.assertIn("nothing to compare with, so the check is skipped", line)
 
 
 if __name__ == "__main__":
