@@ -41,9 +41,25 @@ A component requires a released tag, never a branch, a pseudo-version or a
 The module also needs `google.golang.org/protobuf`, the runtime the generated
 code is written for, at the version this module's `go.mod` requires or later.
 
-A reader decodes with protobuf's JSON form and ignores unknown fields (Go's
-`protojson.UnmarshalOptions{DiscardUnknown: true}`), so a field added in a
-later release never breaks it (ADR 0002, point 3).
+A Go component encodes and decodes through package [`ce`](ce/ce.go), so every
+component does it the same way: protobuf's JSON form, unknown fields ignored on
+read (a field added in a later release never breaks a reader), and the
+CloudEvents headers set and checked by hand (ADR 0002, points 2 to 4).
+
+```go
+// A producer: the payload and every header, Nats-Msg-Id the same as ce-id.
+h, data, err := ce.Encode(lap, ce.Event{ID: sid + ":lap.completed:3", Source: "/twr/ecu/gt7", Time: received})
+msg := &nats.Msg{Subject: subject, Header: nats.Header(h), Data: data}
+
+// A consumer: the ce-type is checked before the payload is read.
+var lap eventsv1.LapCompleted
+event, err := ce.Decode(ce.Header(msg.Header), msg.Data, &lap) // errors.Is(err, ce.ErrWrongType)
+```
+
+`ce-source` is `/twr/<component>`, with the game after it only where the
+producer is game-specific: `/twr/ecu/gt7`, `/twr/logbook`. `ce.Header` has the
+shape of `nats.Header`, so `ce` needs no NATS client. Encoding a frame with its
+headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 
 ## The messages
 

@@ -2,7 +2,6 @@
 // against; README.md says what they are and how a component pins a release.
 //
 // The messages are generated under gen/go/, one Go package per protobuf
-// package, such as gen/go/twr/events/v1. The helpers that encode, decode and
-// set the CloudEvents headers come in this package with
-// those-who-run/paddock#26.
+// package, such as gen/go/twr/events/v1. Package ce encodes and decodes them
+// with their CloudEvents headers, the same way in every component.
 package contracts

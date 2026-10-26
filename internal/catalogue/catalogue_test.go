@@ -342,3 +342,28 @@ func TestEveryPlaceholderIsExplained(t *testing.T) {
 		}
 	}
 }
+
+// Agrees reports a ce-type that differs, and a message only one side has.
+func TestAgrees(t *testing.T) {
+	c := load(t, repo, subjects)
+	types := map[protoreflect.FullName]string{}
+	for _, s := range c.Subjects {
+		types[protoreflect.FullName(s.Message)] = s.CEType
+	}
+	if err := c.Agrees(types); err != nil {
+		t.Fatalf("the catalogue disagrees with its own ce-types: %v", err)
+	}
+	types["twr.events.v1.LapCompleted"] = "run.thosewho.lap.completed.v2"
+	delete(types, "twr.events.v1.SessionEnded")
+	types["twr.events.v1.PitEntered"] = "run.thosewho.pit.entered.v1"
+	err := c.Agrees(types)
+	for _, want := range []string{
+		"twr.events.v1.LapCompleted: the catalogue's ce-type is run.thosewho.lap.completed.v1, the helper's run.thosewho.lap.completed.v2",
+		"twr.events.v1.SessionEnded (run.thosewho.session.ended.v1) has no ce-type in the helper",
+		"twr.events.v1.PitEntered (run.thosewho.pit.entered.v1) is in the helper but not the catalogue",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("got %v, want an error with %q", err, want)
+		}
+	}
+}
