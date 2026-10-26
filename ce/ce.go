@@ -31,8 +31,9 @@ import (
 	telemetryv1 "github.com/those-who-run/contracts/gen/go/twr/telemetry/v1"
 )
 
-// The headers a message carries (ADR 0002, point 4). NATS header names are case
-// sensitive, so these are the exact keys.
+// The headers a message carries (ADR 0002, point 4). The CloudEvents NATS
+// binding calls header names case-insensitive, but nats.go's Header looks them
+// up by exact match, so these are the exact keys, written and read as they are.
 const (
 	SpecVersionHeader = "ce-specversion"
 	IDHeader          = "ce-id"
@@ -128,6 +129,12 @@ func Encode(m proto.Message, e Event) (Header, []byte, error) {
 	case e.Time.IsZero():
 		return nil, nil, errors.New("the event has no time")
 	}
+	for _, f := range [...]struct{ name, value string }{{"id", e.ID}, {"source", e.Source}} {
+		if !plain(f.value) {
+			return nil, nil, fmt.Errorf("the event's %s %q has a character outside U+0021 to U+007E, or a %%: "+
+				"the NATS binding would need it percent-encoded", f.name, f.value)
+		}
+	}
 	data, err := Marshal(m)
 	if err != nil {
 		return nil, nil, fmt.Errorf("encoding %s: %w", t, err)
@@ -141,6 +148,18 @@ func Encode(m proto.Message, e Event) (Header, []byte, error) {
 		ContentTypeHeader: {ContentType},
 		MsgIDHeader:       {e.ID},
 	}, data, nil
+}
+
+// plain is whether s needs no percent-encoding in a header, by the CloudEvents
+// NATS binding: every character printable ASCII, U+0021 to U+007E, and none of
+// them %. Refusing the rest keeps every producer out of the encoding.
+func plain(s string) bool {
+	for _, r := range s {
+		if r < 0x21 || r > 0x7e || r == '%' {
+			return false
+		}
+	}
+	return true
 }
 
 // ErrWrongType is Decode's error for a message whose ce-type is not the one

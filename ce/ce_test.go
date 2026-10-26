@@ -30,7 +30,7 @@ var messages = []struct {
 	msg     proto.Message
 	event   ce.Event
 }{
-	{"telemetry/v1/frame.json", &telemetryv1.Frame{}, ce.Event{ID: "01JB8Z0000RUN0000000000000:frame:18234", Source: "/twr/ecu/gt7", Time: at}},
+	{"telemetry/v1/frame.json", &telemetryv1.Frame{}, ce.Event{ID: "01JB8Z4W7Q2M9T3XK5R6N8PDHF:frame:18234", Source: "/twr/ecu/gt7", Time: at}},
 	{"events/v1/session_started.json", &eventsv1.SessionStarted{}, ce.Event{ID: "01JB8Z3K5Q9T2M7XW4R6N1PDHE:session.started:1", Source: "/twr/ecu/gt7", Time: at}},
 	{"events/v1/lap_completed.json", &eventsv1.LapCompleted{}, ce.Event{ID: "01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3", Source: "/twr/ecu/gt7", Time: at}},
 	{"events/v1/session_ended.json", &eventsv1.SessionEnded{}, ce.Event{ID: "01JB8Z3K5Q9T2M7XW4R6N1PDHE:session.ended:1", Source: "/twr/ecu/gt7", Time: at}},
@@ -130,6 +130,22 @@ func TestAnUnknownFieldIsIgnored(t *testing.T) {
 	}
 }
 
+// The payload's field names are protobuf's lowerCamelCase JSON names, the
+// decision #26 made: a switch to UseProtoNames (packet_id) fails here.
+func TestFieldNamesAreLowerCamelCase(t *testing.T) {
+	data, err := ce.Marshal(&telemetryv1.Frame{PacketId: 512877})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := fields["packetId"]; !ok {
+		t.Errorf("no packetId in %s", data)
+	}
+}
+
 // A message whose ce-type is not the expected one is refused before its payload
 // is read.
 func TestAMismatchedTypeIsRefused(t *testing.T) {
@@ -143,6 +159,11 @@ func TestAMismatchedTypeIsRefused(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), `"run.thosewho.session.started.v1", want "run.thosewho.session.ended.v1"`) {
 		t.Errorf("the error doesn't name both types: %v", err)
+	}
+	// A body that isn't JSON at all still gets ErrWrongType: the type is
+	// checked before the payload is parsed.
+	if _, err := ce.Decode(h, []byte("\x00not json"), &eventsv1.SessionEnded{}); !errors.Is(err, ce.ErrWrongType) {
+		t.Errorf("with a body that isn't JSON: got %v, want ErrWrongType", err)
 	}
 }
 
@@ -193,6 +214,10 @@ func TestEncodeRefuses(t *testing.T) {
 		{"no id", lap, ce.Event{Source: "/twr/ecu/gt7", Time: at}, "no id"},
 		{"no source", lap, ce.Event{ID: "x", Time: at}, "no source"},
 		{"no time", lap, ce.Event{ID: "x", Source: "/twr/ecu/gt7"}, "no time"},
+		{"a space in the id", lap, ce.Event{ID: "lap 3", Source: "/twr/ecu/gt7", Time: at}, `id "lap 3" has a character outside`},
+		{"a % in the id", lap, ce.Event{ID: "lap%203", Source: "/twr/ecu/gt7", Time: at}, `id "lap%203"`},
+		{"a non-ASCII source", lap, ce.Event{ID: "x", Source: "/twr/écu", Time: at}, `source "/twr/écu" has a character outside`},
+		{"a control character in the source", lap, ce.Event{ID: "x", Source: "/twr/ecu\n", Time: at}, "source"},
 		{"a part of a message", &eventsv1.SessionSummary{}, messages[3].event, "twr.events.v1.SessionSummary has no ce-type"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -57,7 +57,9 @@ event, err := ce.Decode(ce.Header(msg.Header), msg.Data, &lap) // errors.Is(err,
 ```
 
 `ce-source` is `/twr/<component>`, with the game after it only where the
-producer is game-specific: `/twr/ecu/gt7`, `/twr/logbook`. `ce.Header` has the
+producer is game-specific: `/twr/ecu/gt7`, `/twr/logbook`. An id or source is
+printable ASCII without `%` (`Encode` refuses anything else), so no header ever
+needs the NATS binding's percent-encoding. `ce.Header` has the
 shape of `nats.Header`, so `ce` needs no NATS client. Encoding a frame with its
 headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 
