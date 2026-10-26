@@ -1,0 +1,16 @@
+# buf's configuration: the contracts' module, lint and breaking-change rules
+# (ADR 0002 in paddock). `make proto` and CI's `test` run buf, the version
+# tools/go.mod pins, with it.
+version: v2
+modules:
+  - path: proto
+lint:
+  # COMMENTS: every message, field, enum, value, service and method has one.
+  use:
+    - STANDARD
+    - COMMENTS
+breaking:
+  # What a consumer on the wire or reading protobuf's JSON form would notice:
+  # field numbers, names and types, and removed fields or values.
+  use:
+    - WIRE_JSON

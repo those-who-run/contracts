@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+// The placeholder package: one message, so buf's lint, format, breaking and
+// generation checks have something to run on before the first real contracts
+// (paddock#24) replace it.
+package twr.placeholder.v1;
+
+// Placeholder stands in for the first real message.
+message Placeholder {
+  // A note, so the message has a field to check.
+  string note = 1;
+}

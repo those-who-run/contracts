@@ -1,0 +1,15 @@
+# How `make generate` writes the Go code under gen/go (ADR 0008 in paddock):
+# protoc-gen-go is a local plugin, the version tools/go.mod pins, run with
+# `go tool`, so generating needs no network call and a laptop and CI write the
+# same code. The generated files are committed; CI's `test` fails when they are
+# not what buf generates from proto/.
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/those-who-run/contracts/gen/go
+plugins:
+  - local: ["go", "tool", "-modfile=tools/go.mod", "google.golang.org/protobuf/cmd/protoc-gen-go"]
+    out: gen/go
+    opt: paths=source_relative
