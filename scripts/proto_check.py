@@ -50,9 +50,10 @@ def check_lint(_: argparse.Namespace) -> bool:
     return buf("lint")
 
 
-def latest_release_tag() -> str | None:
+def latest_release_tag(repository: str) -> str | None:
+    """The repository's highest `vX.Y.Z` tag, by version, or None."""
     out = subprocess.run(
-        ["git", "ls-remote", "--tags", "--refs", REPOSITORY, "v*"],
+        ["git", "ls-remote", "--tags", "--refs", repository, "v*"],
         capture_output=True,
         text=True,
         check=True,
@@ -65,29 +66,34 @@ def latest_release_tag() -> str | None:
     return max(versions)[1] if versions else None
 
 
-def main_has_contracts() -> bool:
+def main_has_contracts(repository: str) -> bool:
     with tempfile.TemporaryDirectory() as tmp:
         git = ["git", "-C", tmp]
         subprocess.run([*git, "init", "-q"], check=True)
-        subprocess.run([*git, "fetch", "-q", "--depth=1", REPOSITORY, "main"], check=True)
+        subprocess.run([*git, "fetch", "-q", "--depth=1", repository, "main"], check=True)
         found = subprocess.run([*git, "cat-file", "-e", "FETCH_HEAD:buf.yaml"], capture_output=True)
         return found.returncode == 0
+
+
+def baseline(repository: str = REPOSITORY) -> tuple[str | None, str]:
+    """What `buf breaking` compares with, as a buf input, or None when there is
+    nothing yet; and the line that says so in the log."""
+    if tag := latest_release_tag(repository):
+        return f"{repository}#tag={tag}", f"Breaking changes are checked against the latest release, {tag}."
+    if main_has_contracts(repository):
+        return f"{repository}#branch=main", "No release tag yet: breaking changes are checked against main."
+    return None, (
+        "No release tag and no contracts on main yet: buf breaking has nothing to "
+        "compare against, so it is skipped."
+    )
 
 
 def check_breaking(args: argparse.Namespace) -> bool:
     against = args.against
     if not against:
-        if tag := latest_release_tag():
-            print(f"Breaking changes are checked against the latest release, {tag}.")
-            against = f"{REPOSITORY}#tag={tag}"
-        elif main_has_contracts():
-            print("No release tag yet: breaking changes are checked against main.")
-            against = f"{REPOSITORY}#branch=main"
-        else:
-            print(
-                "No release tag and no contracts on main yet: buf breaking has "
-                "nothing to compare against, so it is skipped."
-            )
+        against, line = baseline()
+        print(line)
+        if against is None:
             return True
     return buf("breaking", "--against", against)
 
