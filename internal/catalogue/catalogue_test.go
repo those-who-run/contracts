@@ -192,7 +192,7 @@ func TestCETypesAndMessagesAreOneToOne(t *testing.T) {
 	// session open (the _ token, paddock#70), and one entry per callout level.
 	c = load(t, repo, subjects)
 	noSession := c.Subjects[2]
-	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.lap.completed", "<run>:lap:<n>:completed"
+	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.lap.completed", "<run>:lap.completed:<n>"
 	c.Subjects = append(c.Subjects, noSession)
 	for _, level := range []string{"p0", "p1", "p2"} {
 		callout := c.Subjects[2]
@@ -205,6 +205,37 @@ func TestCETypesAndMessagesAreOneToOne(t *testing.T) {
 	c = load(t, repo, subjects)
 	c.Subjects = append(c.Subjects, c.Subjects[1])
 	assertFails(t, c, protoregistry.GlobalFiles, "subjects[1] is the same subject or key")
+}
+
+// An event's msg_id has the one style (paddock#25, 2026-10-26):
+// `<sid>:<area>.<what>:<part>`, with its ce-type's <area>.<what>.
+func TestEventMsgIDs(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		pattern string
+		msgID   string
+		want    string
+	}{
+		{"the old colon form", "", "<sid>:lap:<n>:completed", `msg_id "<sid>:lap:<n>:completed" is not <sid>:<area>.<what>`},
+		{"no part after the type", "", "<sid>:lap.completed", "is not <sid>:<area>.<what>"},
+		{"another event's area and what", "", "<sid>:lap.started:<n>", "names lap.started, but the ce_type is lap.completed's"},
+		{"<run> on a session's subject", "", "<run>:lap.completed:<n>", "starts with <run>, want <sid>"},
+		{"<sid> with no session open", "twr.v1.<src>.evt._.lap.completed", "<sid>:lap.completed:<n>", "msg_id uses <sid>, which the pattern does not carry"},
+		{"<sid> in its place with no session open", "twr.v1.<src>.evt._.lap.completed", "<n>:lap.completed:<n>", "is not <sid>:<area>.<what>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := load(t, repo, subjects)
+			if tc.pattern != "" {
+				c.Subjects[2].Pattern = tc.pattern
+			}
+			c.Subjects[2].MsgID = tc.msgID
+			assertFails(t, c, protoregistry.GlobalFiles, tc.want)
+		})
+	}
+	// More than one part is fine, as #70's car alarms have.
+	c := load(t, repo, subjects)
+	c.Subjects[2].MsgID = "<sid>:lap.completed:<n>:1"
+	assertPasses(t, c, protoregistry.GlobalFiles)
 }
 
 // A KV entry has its own rules: a bucket, a key, a message, writers, readers and

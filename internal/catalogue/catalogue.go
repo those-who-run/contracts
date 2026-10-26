@@ -110,6 +110,11 @@ var (
 		{"callout", regexp.MustCompile(`^twr\.v1\.<src>\.callout\.p[0-2]$`), "CALLOUTS"},
 	}
 	placeholder = regexp.MustCompile(`<[^<>]*>`)
+	// An event's msg_id (paddock#25, 2026-10-26): its session, its ce-type's
+	// <area>.<what>, then one or more parts, each a word or a placeholder.
+	eventID = regexp.MustCompile(`^(<sid>|<run>):([a-z0-9]+\.[a-z0-9]+):([a-z0-9]+|<[a-z]+>)(:([a-z0-9]+|<[a-z]+>))*$`)
+	// A ce-type's <area>.<what>: what comes between run.thosewho. and the version.
+	typeName = regexp.MustCompile(`^run\.thosewho\.(.+)\.v[1-9][0-9]*$`)
 	// A KV bucket's name, and a key: dot-separated tokens or placeholders.
 	bucket = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 	key    = regexp.MustCompile(`^([a-z0-9_-]+|<[a-z]+>)(\.([a-z0-9_-]+|<[a-z]+>))*$`)
@@ -220,6 +225,9 @@ func checkSubject(s Subject, fail func(string, ...any)) {
 				if s.Stream != scheme.stream {
 					fail("a %s subject is captured by the %s stream, not %q", scheme.kind, scheme.stream, s.Stream)
 				}
+				if scheme.kind == "event" {
+					checkEventID(s, fail)
+				}
 			}
 		}
 		if !matched {
@@ -237,6 +245,28 @@ func checkSubject(s Subject, fail func(string, ...any)) {
 		if (token == "<sid>" || token == "<src>") && !strings.Contains(s.Pattern, token) {
 			fail("msg_id uses %s, which the pattern does not carry", token)
 		}
+	}
+}
+
+// checkEventID checks an event's msg_id against the one style
+// (paddock#25, 2026-10-26): `<sid>:<area>.<what>:<n>`, where <area>.<what> is
+// the event's ce-type's, such as `<sid>:lap.completed:<n>`. An event published
+// with no session open (evt._) has `<run>`, the ecu run, in place of `<sid>`.
+func checkEventID(s Subject, fail func(string, ...any)) {
+	m := eventID.FindStringSubmatch(s.MsgID)
+	if m == nil {
+		fail("msg_id %q is not <sid>:<area>.<what>:<part>[:<part>…]", s.MsgID)
+		return
+	}
+	want := "<sid>"
+	if strings.Contains(s.Pattern, ".evt."+NoSession+".") {
+		want = "<run>"
+	}
+	if m[1] != want {
+		fail("msg_id %q starts with %s, want %s for this subject", s.MsgID, m[1], want)
+	}
+	if t := typeName.FindStringSubmatch(s.CEType); t != nil && t[1] != m[2] {
+		fail("msg_id %q names %s, but the ce_type is %s's", s.MsgID, m[2], t[1])
 	}
 }
 
@@ -305,7 +335,9 @@ func (c *Catalogue) Render() []byte {
 	b.WriteString("Every message is sent as protobuf's JSON form (`ce-datacontenttype: " + ContentType + "`)\n")
 	b.WriteString("with the full CloudEvents header set, and its `Nats-Msg-Id` is the same as its\n")
 	b.WriteString("`ce-id`. An event subject has `" + NoSession + "` in place of `<sid>` when it is published while\n")
-	b.WriteString("no session is open.\n\n")
+	b.WriteString("no session is open. An event's id is `<sid>:<area>.<what>:<part>`, with its\n")
+	b.WriteString("`ce-type`'s `<area>.<what>`, such as `<sid>:lap.completed:<n>`; one that happens once\n")
+	b.WriteString("per session ends in `:1`, and with no session open `<run>` takes `<sid>`'s place.\n\n")
 	b.WriteString("| Subject | Message | `ce-type` | Stream | Producers | Consumers | `ce-id` and `Nats-Msg-Id` |\n")
 	b.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
 	var kv []Subject

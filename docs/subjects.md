@@ -8,14 +8,16 @@ not this one.
 Every message is sent as protobuf's JSON form (`ce-datacontenttype: application/json`)
 with the full CloudEvents header set, and its `Nats-Msg-Id` is the same as its
 `ce-id`. An event subject has `_` in place of `<sid>` when it is published while
-no session is open.
+no session is open. An event's id is `<sid>:<area>.<what>:<part>`, with its
+`ce-type`'s `<area>.<what>`, such as `<sid>:lap.completed:<n>`; one that happens once
+per session ends in `:1`, and with no session open `<run>` takes `<sid>`'s place.
 
 | Subject | Message | `ce-type` | Stream | Producers | Consumers | `ce-id` and `Nats-Msg-Id` |
 | --- | --- | --- | --- | --- | --- | --- |
 | `twr.v1.<src>.frame.gt7` | `twr.telemetry.v1.Frame` | `run.thosewho.frame.gt7.v1` | `TELEMETRY` | ecu | logbook | `<run>:frame:<seq>` |
-| `twr.v1.<src>.evt.<sid>.session.started` | `twr.events.v1.SessionStarted` | `run.thosewho.session.started.v1` | `EVENTS` | ecu | logbook | `<sid>:session:started` |
-| `twr.v1.<src>.evt.<sid>.lap.completed` | `twr.events.v1.LapCompleted` | `run.thosewho.lap.completed.v1` | `EVENTS` | ecu | logbook | `<sid>:lap:<n>:completed` |
-| `twr.v1.<src>.evt.<sid>.session.ended` | `twr.events.v1.SessionEnded` | `run.thosewho.session.ended.v1` | `EVENTS` | ecu | logbook, podium | `<sid>:session:ended` |
+| `twr.v1.<src>.evt.<sid>.session.started` | `twr.events.v1.SessionStarted` | `run.thosewho.session.started.v1` | `EVENTS` | ecu | logbook | `<sid>:session.started:1` |
+| `twr.v1.<src>.evt.<sid>.lap.completed` | `twr.events.v1.LapCompleted` | `run.thosewho.lap.completed.v1` | `EVENTS` | ecu | logbook | `<sid>:lap.completed:<n>` |
+| `twr.v1.<src>.evt.<sid>.session.ended` | `twr.events.v1.SessionEnded` | `run.thosewho.session.ended.v1` | `EVENTS` | ecu | logbook, podium | `<sid>:session.ended:1` |
 
 ## What each one is
 

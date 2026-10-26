@@ -27,7 +27,11 @@
 #                 point 1)
 #   producers     the components that publish it
 #   consumers     the components that read it
-#   msg_id        the ce-id and Nats-Msg-Id scheme
+#   msg_id        the ce-id and Nats-Msg-Id scheme. An event's is
+#                 <sid>:<area>.<what>:<part>, with its ce-type's <area>.<what>
+#                 and at least one part, such as <sid>:lap.completed:<n>; one
+#                 that happens once per session ends in :1. On an evt._
+#                 subject, with no session open, <run> takes <sid>'s place.
 #   description   what it is, for the rendered table
 #
 # A KV key's: kv (the bucket), key (with placeholders), message, content_type,
@@ -56,7 +60,7 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook]
-    msg_id: <sid>:session:started
+    msg_id: <sid>:session.started:1
     description: A session began.
 
   - pattern: twr.v1.<src>.evt.<sid>.lap.completed
@@ -66,7 +70,7 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook]
-    msg_id: <sid>:lap:<n>:completed
+    msg_id: <sid>:lap.completed:<n>
     description: A lap ended, complete or partial.
 
   - pattern: twr.v1.<src>.evt.<sid>.session.ended
@@ -76,7 +80,7 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook, podium]
-    msg_id: <sid>:session:ended
+    msg_id: <sid>:session.ended:1
     description: A session ended, why, and its summary.
 
 helpers:
