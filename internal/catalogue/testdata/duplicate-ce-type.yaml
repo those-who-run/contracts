@@ -5,7 +5,7 @@ subjects:
     message: twr.telemetry.v1.Frame
     content_type: application/json
     stream: TELEMETRY
-    producer: ecu
+    producers: [ecu]
     consumers: [logbook]
     msg_id: <run>:frame:<seq>
     description: Every decoded GT7 packet, about 60 a second.
@@ -15,7 +15,7 @@ subjects:
     message: twr.events.v1.SessionStarted
     content_type: application/json
     stream: EVENTS
-    producer: ecu
+    producers: [ecu]
     consumers: [logbook]
     msg_id: <sid>:session:started
     description: A session began.
@@ -25,7 +25,7 @@ subjects:
     message: twr.events.v1.LapCompleted
     content_type: application/json
     stream: EVENTS
-    producer: ecu
+    producers: [ecu]
     consumers: [logbook]
     msg_id: <sid>:lap:<n>:completed
     description: A lap ended, complete or partial.
@@ -35,7 +35,10 @@ subjects:
     message: twr.events.v1.SessionEnded
     content_type: application/json
     stream: EVENTS
-    producer: ecu
+    producers: [ecu]
     consumers: [logbook, podium]
     msg_id: <sid>:session:ended
     description: A session ended, why, and its summary.
+
+helpers:
+  - twr.events.v1.SessionSummary

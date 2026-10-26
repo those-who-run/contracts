@@ -101,20 +101,16 @@ func assertFails(t *testing.T, c *catalogue.Catalogue, messages catalogue.Messag
 	}
 }
 
-// An event message without an entry fails the check: in a fixture catalogue
-// that leaves one out, and when the generated code has an event the catalogue
-// doesn't list.
-func TestAnEventMessageWithoutAnEntryFails(t *testing.T) {
-	assertFails(t, load(t, testdata, "missing-event.yaml"), protoregistry.GlobalFiles,
-		"event message twr.events.v1.LapCompleted has no entry in the catalogue")
-
-	assertFails(t, load(t, repo, subjects), withEvent(t, "PitEntered"),
-		"event message twr.events.v1.PitEntered has no entry in the catalogue")
+func assertPasses(t *testing.T, c *catalogue.Catalogue, messages catalogue.Messages) {
+	t.Helper()
+	if err := c.Check(messages); err != nil {
+		t.Errorf("the check failed: %v", err)
+	}
 }
 
-// withEvent is the generated messages plus a new event message in the events
-// package, as a later .proto under proto/twr/events/ would add.
-func withEvent(t *testing.T, name string) *protoregistry.Files {
+// withMessage is the generated messages plus a new message in a package, as a
+// later .proto would add.
+func withMessage(t *testing.T, pkg protoreflect.FullName, name string) *protoregistry.Files {
 	t.Helper()
 	files := new(protoregistry.Files)
 	protoregistry.GlobalFiles.RangeFiles(func(f protoreflect.FileDescriptor) bool {
@@ -124,8 +120,8 @@ func withEvent(t *testing.T, name string) *protoregistry.Files {
 		return true
 	})
 	fd, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{
-		Name:        proto.String("twr/events/v1/extra.proto"),
-		Package:     proto.String(catalogue.EventsPackage),
+		Name:        proto.String(strings.ReplaceAll(string(pkg), ".", "/") + "/extra.proto"),
+		Package:     proto.String(string(pkg)),
 		Syntax:      proto.String("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{Name: proto.String(name)}},
 	}, files)
@@ -138,9 +134,114 @@ func withEvent(t *testing.T, name string) *protoregistry.Files {
 	return files
 }
 
-func TestTwoEntriesWithOneCETypeFail(t *testing.T) {
+// An event message without an entry fails the check: in a fixture catalogue
+// that leaves one out, and when the generated code has an event the catalogue
+// doesn't list, in any version of the events package.
+func TestAnEventMessageWithoutAnEntryFails(t *testing.T) {
+	assertFails(t, load(t, testdata, "missing-event.yaml"), protoregistry.GlobalFiles,
+		"event message twr.events.v1.LapCompleted has no entry in the catalogue")
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.events.v1", "PitEntered"),
+		"event message twr.events.v1.PitEntered has no entry in the catalogue")
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.events.v2", "LapCompleted"),
+		"event message twr.events.v2.LapCompleted has no entry in the catalogue")
+	// A message outside the events packages needs none.
+	assertPasses(t, load(t, repo, subjects), withMessage(t, "twr.state.v1", "EcuStatus"))
+}
+
+// helpers names the events-package messages that are not events: they need no
+// entry, and only they may go without one.
+func TestHelpers(t *testing.T) {
+	c := load(t, repo, subjects)
+	c.Helpers = nil
+	assertFails(t, c, protoregistry.GlobalFiles,
+		"event message twr.events.v1.SessionSummary has no entry in the catalogue, and is not a helper")
+
+	for _, tc := range []struct {
+		helper string
+		want   string
+	}{
+		{"twr.events.v1.LapCompleted", "helper twr.events.v1.LapCompleted has an entry: a helper is not an event"},
+		{"twr.telemetry.v1.Frame", "helper twr.telemetry.v1.Frame is not in an events package"},
+		{"twr.events.v1.Summary", "helper twr.events.v1.Summary is not in the generated code"},
+		{"twr.events.v1.PitRole", "helper twr.events.v1.PitRole is not a message"},
+	} {
+		t.Run(tc.helper, func(t *testing.T) {
+			c := load(t, repo, subjects)
+			c.Helpers = append(c.Helpers, tc.helper)
+			assertFails(t, c, protoregistry.GlobalFiles, tc.want)
+		})
+	}
+}
+
+// A ce-type and a message are one to one (ADR 0002, point 4), though a message
+// may travel on several subjects with its one ce-type.
+func TestCETypesAndMessagesAreOneToOne(t *testing.T) {
+	// Two messages with one ce-type, as #25's acceptance criterion has it.
 	assertFails(t, load(t, testdata, "duplicate-ce-type.yaml"), protoregistry.GlobalFiles,
-		`ce_type "run.thosewho.session.started.v1" is subjects[1]'s too`)
+		"ce_type run.thosewho.session.started.v1 is twr.events.v1.SessionStarted's too")
+
+	// One message with two ce-types.
+	c := load(t, repo, subjects)
+	other := c.Subjects[2]
+	other.Pattern, other.CEType = "twr.v1.<src>.evt.<sid>.lap.done", "run.thosewho.lap.done.v1"
+	c.Subjects = append(c.Subjects, other)
+	assertFails(t, c, protoregistry.GlobalFiles,
+		"twr.events.v1.LapCompleted has the ce_type run.thosewho.lap.completed.v1 elsewhere")
+
+	// One message and ce-type on several subjects passes: the same event with no
+	// session open (the _ token, paddock#70), and one entry per callout level.
+	c = load(t, repo, subjects)
+	noSession := c.Subjects[2]
+	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.lap.completed", "<run>:lap:<n>:completed"
+	c.Subjects = append(c.Subjects, noSession)
+	for _, level := range []string{"p0", "p1", "p2"} {
+		callout := c.Subjects[2]
+		callout.Pattern, callout.Stream, callout.MsgID = "twr.v1.<src>.callout."+level, "CALLOUTS", "<run>:"+level
+		c.Subjects = append(c.Subjects, callout)
+	}
+	assertPasses(t, c, protoregistry.GlobalFiles)
+
+	// The same subject twice does not.
+	c = load(t, repo, subjects)
+	c.Subjects = append(c.Subjects, c.Subjects[1])
+	assertFails(t, c, protoregistry.GlobalFiles, "subjects[1] is the same subject or key")
+}
+
+// A KV entry has its own rules: a bucket, a key, a message, writers, readers and
+// a description, and no subject, stream, ce-type or msg_id.
+func TestKVEntries(t *testing.T) {
+	messages := withMessage(t, "twr.state.v1", "EcuStatus")
+	c := load(t, testdata, "kv.yaml")
+	assertPasses(t, c, messages)
+	if doc := string(c.Render()); !strings.Contains(doc, "| `live` | `ecu.status.<src>` | `twr.state.v1.EcuStatus` | ecu | pitwall, dash |") {
+		t.Errorf("the KV key is not in the rendered doc:\n%s", doc)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		change func(*catalogue.Subject)
+		want   string
+	}{
+		{"a ce_type", func(s *catalogue.Subject) { s.CEType = "run.thosewho.ecu.status.v1" }, "a KV entry has no ce_type"},
+		{"a msg_id", func(s *catalogue.Subject) { s.MsgID = "<src>" }, "a KV entry has no msg_id"},
+		{"a stream", func(s *catalogue.Subject) { s.Stream = "EVENTS" }, "a KV entry has no stream"},
+		{"a pattern", func(s *catalogue.Subject) { s.Pattern = "twr.v1.<src>.ecu.status" }, "a KV entry has no pattern"},
+		{"a bucket with capitals", func(s *catalogue.Subject) { s.KV = "Live" }, `kv bucket "Live" is not lower-case`},
+		{"a key with a space", func(s *catalogue.Subject) { s.Key = "ecu status" }, `key "ecu status" is not dot-separated`},
+		{"a placeholder not allowed in a key", func(s *catalogue.Subject) { s.Key = "ecu.frame.<seq>" }, "unknown placeholder <seq> in the key"},
+		{"no writers", func(s *catalogue.Subject) { s.Producers = nil }, "no producers"},
+		{"no readers", func(s *catalogue.Subject) { s.Consumers = nil }, "no consumers"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := load(t, testdata, "kv.yaml")
+			tc.change(&c.Subjects[len(c.Subjects)-1])
+			assertFails(t, c, messages, tc.want)
+		})
+	}
+
+	c = load(t, repo, subjects)
+	c.Subjects[0].Key = "frames"
+	assertFails(t, c, protoregistry.GlobalFiles, "a key without a kv bucket")
 }
 
 // Each of the other checks, on the real catalogue with one entry broken.
@@ -150,20 +251,22 @@ func TestEachCheck(t *testing.T) {
 		change func(*catalogue.Subject)
 		want   string
 	}{
+		{"no pattern", func(s *catalogue.Subject) { s.Pattern = "" }, "no pattern"},
 		{"a pattern outside twr.v1.", func(s *catalogue.Subject) { s.Pattern = "twr.v2.<src>.frame.gt7" }, "does not start with twr.v1."},
 		{"an unknown placeholder", func(s *catalogue.Subject) { s.Pattern = "twr.v1.<source>.frame.gt7" }, "unknown placeholder <source> in the pattern"},
+		{"a msg_id placeholder in the pattern", func(s *catalogue.Subject) { s.Pattern = "twr.v1.<src>.frame.<run>" }, "unknown placeholder <run> in the pattern"},
 		{"a pattern outside ADR 0001's scheme", func(s *catalogue.Subject) { s.Pattern = "twr.v1.<src>.frames.gt7" }, "does not follow ADR 0001's subject scheme"},
+		{"a callout level outside p0 to p2", func(s *catalogue.Subject) { s.Pattern, s.Stream = "twr.v1.<src>.callout.p3", "CALLOUTS" }, "does not follow ADR 0001's subject scheme"},
 		{"a frame in the wrong stream", func(s *catalogue.Subject) { s.Stream = "EVENTS" }, "a frame subject is captured by the TELEMETRY stream"},
-		{"neither a stream nor a kv", func(s *catalogue.Subject) { s.Stream = "" }, "it needs a stream or a kv"},
-		{"a stream and a kv", func(s *catalogue.Subject) { s.KV = "live" }, "it needs a stream or a kv, and not both"},
 		{"a ce_type without a version", func(s *catalogue.Subject) { s.CEType = "run.thosewho.frame.gt7" }, "is not run.thosewho.<area>.<what>.v<N>"},
 		{"another content type", func(s *catalogue.Subject) { s.ContentType = "application/protobuf" }, `content_type "application/protobuf" is not application/json`},
+		{"no message", func(s *catalogue.Subject) { s.Message = "" }, "no message"},
 		{"a message not generated", func(s *catalogue.Subject) { s.Message = "twr.telemetry.v1.Frames" }, "message twr.telemetry.v1.Frames is not in the generated code"},
 		{"an enum named as the message", func(s *catalogue.Subject) { s.Message = "twr.telemetry.v1.Phase" }, "twr.telemetry.v1.Phase is not a message"},
 		{"no msg_id", func(s *catalogue.Subject) { s.MsgID = "" }, "no msg_id"},
 		{"an unknown placeholder in msg_id", func(s *catalogue.Subject) { s.MsgID = "<run>:frame:<n2>" }, "unknown placeholder <n2> in msg_id"},
 		{"<sid> in msg_id without it in the pattern", func(s *catalogue.Subject) { s.MsgID = "<sid>:frame:<seq>" }, "msg_id uses <sid>, which the pattern does not carry"},
-		{"no producer", func(s *catalogue.Subject) { s.Producer = "" }, "no producer"},
+		{"no producers", func(s *catalogue.Subject) { s.Producers = nil }, "no producers"},
 		{"no consumers", func(s *catalogue.Subject) { s.Consumers = nil }, "no consumers"},
 		{"no description", func(s *catalogue.Subject) { s.Description = "" }, "no description"},
 	} {
@@ -175,31 +278,36 @@ func TestEachCheck(t *testing.T) {
 	}
 }
 
-// A key subjects.yaml doesn't define, such as a misspelling, fails to parse
-// rather than being dropped.
+// A key subjects.yaml doesn't define, such as a misspelling or the old
+// singular producer, fails to parse rather than being dropped.
 func TestAnUnknownKeyFails(t *testing.T) {
-	_, err := catalogue.Parse(strings.NewReader("subjects:\n  - pattern: twr.v1.<src>.frame.gt7\n    stram: TELEMETRY\n"))
-	if err == nil || !strings.Contains(err.Error(), "field stram not found") {
-		t.Errorf("got %v, want an error about the unknown key", err)
+	for _, key := range []string{"stram", "producer"} {
+		_, err := catalogue.Parse(strings.NewReader("subjects:\n  - pattern: twr.v1.<src>.frame.gt7\n    " + key + ": x\n"))
+		if err == nil || !strings.Contains(err.Error(), "field "+key+" not found") {
+			t.Errorf("%s: got %v, want an error about the unknown key", key, err)
+		}
 	}
 }
 
-// The event messages are those that travel on their own: SessionSummary, held by
-// SessionEnded, is not one.
+// The event messages are every events-package message but the helpers.
 func TestEventMessages(t *testing.T) {
-	got := catalogue.EventMessages(protoregistry.GlobalFiles)
-	want := []protoreflect.FullName{
-		"twr.events.v1.LapCompleted", "twr.events.v1.SessionEnded", "twr.events.v1.SessionStarted",
+	got := load(t, repo, subjects).EventMessages(protoregistry.GlobalFiles)
+	want := "twr.events.v1.LapCompleted twr.events.v1.SessionEnded twr.events.v1.SessionStarted"
+	var names []string
+	for _, n := range got {
+		names = append(names, string(n))
 	}
-	if strings.Join(names(got), " ") != strings.Join(names(want), " ") {
-		t.Errorf("got %v, want %v", got, want)
+	if strings.Join(names, " ") != want {
+		t.Errorf("got %v, want %s", got, want)
 	}
 }
 
-func names(n []protoreflect.FullName) []string {
-	out := make([]string, len(n))
-	for i, name := range n {
-		out[i] = string(name)
+// The doc explains every placeholder the check knows, from the same list.
+func TestEveryPlaceholderIsExplained(t *testing.T) {
+	doc := string(load(t, repo, subjects).Render())
+	for _, p := range catalogue.Placeholders {
+		if !strings.Contains(doc, "| `"+p.Token+"` | "+p.Meaning+" |") {
+			t.Errorf("%s is not explained in the doc", p.Token)
+		}
 	}
-	return out
 }

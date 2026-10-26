@@ -55,7 +55,8 @@ later release never breaks it (ADR 0002, point 3).
 | `twr.events.v1.SessionEnded` | A session ended, why, and its summary. | [`session_ended.json`](examples/events/v1/session_ended.json) |
 
 Which subject each message travels on, with its `ce-type`, stream,
-producer, consumers and `Nats-Msg-Id` scheme, is in
+producers, consumers and `Nats-Msg-Id` scheme, and which KV key holds which
+value, is in
 [`subjects.yaml`](subjects.yaml), rendered as
 [`docs/subjects.md`](docs/subjects.md).
 
