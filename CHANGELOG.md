@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/those-who-run/contracts/compare/v0.1.1...v0.1.2) (2026-10-26)
+
+
+### Features
+
+* subjects.yaml, the catalogue of subjects, and its checks ([#7](https://github.com/those-who-run/contracts/issues/7)) ([97b9be0](https://github.com/those-who-run/contracts/commit/97b9be07c692884942c283c052982b3e3b71dea0))
+
 ## [0.1.1](https://github.com/those-who-run/contracts/compare/v0.1.0...v0.1.1) (2026-10-26)
 
 
