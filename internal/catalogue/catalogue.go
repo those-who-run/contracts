@@ -388,3 +388,30 @@ func (c *Catalogue) Render() []byte {
 	}
 	return b.Bytes()
 }
+
+// Agrees returns every difference between the catalogue's ce-types and types,
+// a ce-type by message full name such as the ce package's, or nil: a message
+// with another ce-type, or one only one side has. KV entries have no ce-type.
+func (c *Catalogue) Agrees(types map[protoreflect.FullName]string) error {
+	var errs []error
+	listed := map[protoreflect.FullName]bool{}
+	for _, s := range c.Subjects {
+		name := protoreflect.FullName(s.Message)
+		if s.IsKV() || listed[name] {
+			continue
+		}
+		listed[name] = true
+		switch t, ok := types[name]; {
+		case !ok:
+			errs = append(errs, fmt.Errorf("%s (%s) has no ce-type in the helper", name, s.CEType))
+		case t != s.CEType:
+			errs = append(errs, fmt.Errorf("%s: the catalogue's ce-type is %s, the helper's %s", name, s.CEType, t))
+		}
+	}
+	for name, t := range types {
+		if !listed[name] {
+			errs = append(errs, fmt.Errorf("%s (%s) is in the helper but not the catalogue", name, t))
+		}
+	}
+	return errors.Join(errs...)
+}

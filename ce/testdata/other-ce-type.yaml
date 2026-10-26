@@ -1,0 +1,44 @@
+# subjects.yaml with lap.completed's ce-type at v2, which the helper doesn't have.
+subjects:
+  - pattern: twr.v1.<src>.frame.gt7
+    ce_type: run.thosewho.frame.gt7.v1
+    message: twr.telemetry.v1.Frame
+    content_type: application/json
+    stream: TELEMETRY
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <run>:frame:<seq>
+    description: Every decoded GT7 packet, about 60 a second.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.started
+    ce_type: run.thosewho.session.started.v1
+    message: twr.events.v1.SessionStarted
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <sid>:session.started:1
+    description: A session began.
+
+  - pattern: twr.v1.<src>.evt.<sid>.lap.completed
+    ce_type: run.thosewho.lap.completed.v2
+    message: twr.events.v1.LapCompleted
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <sid>:lap.completed:<n>
+    description: A lap ended, complete or partial.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.ended
+    ce_type: run.thosewho.session.ended.v1
+    message: twr.events.v1.SessionEnded
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook, podium]
+    msg_id: <sid>:session.ended:1
+    description: A session ended, why, and its summary.
+
+helpers:
+  - twr.events.v1.SessionSummary

@@ -101,6 +101,10 @@ in paddock mean for a change here:
   the reason go in [`removed.txt`](removed.txt) in the same change, and the
   review sees both. `make proto` fails a removal without its line, and a line
   for a name that is still here, which would approve a removal in advance.
+- **Messages are encoded and decoded through [`ce`](ce/ce.go)**, never with
+  protojson or the headers by hand. A new message that travels on its own gets
+  its `ce-type` in `ce`'s table and in `subjects.yaml` in the same change; a
+  test fails while the two disagree.
 - **Every subject and KV key is in [`subjects.yaml`](subjects.yaml)**, with its
   message, producers and consumers. A subject also has its `ce-type`
   (`run.thosewho.<area>.<what>.v<N>`, one to one with its message), stream and

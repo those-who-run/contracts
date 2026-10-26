@@ -342,3 +342,63 @@ func TestEveryPlaceholderIsExplained(t *testing.T) {
 		}
 	}
 }
+
+// Agrees reports a ce-type that differs, and a message only one side has.
+func TestAgrees(t *testing.T) {
+	c := load(t, repo, subjects)
+	types := ceTypes(c)
+	if err := c.Agrees(types); err != nil {
+		t.Fatalf("the catalogue disagrees with its own ce-types: %v", err)
+	}
+	types["twr.events.v1.LapCompleted"] = "run.thosewho.lap.completed.v2"
+	delete(types, "twr.events.v1.SessionEnded")
+	types["twr.events.v1.PitEntered"] = "run.thosewho.pit.entered.v1"
+	err := c.Agrees(types)
+	for _, want := range []string{
+		"twr.events.v1.LapCompleted: the catalogue's ce-type is run.thosewho.lap.completed.v1, the helper's run.thosewho.lap.completed.v2",
+		"twr.events.v1.SessionEnded (run.thosewho.session.ended.v1) has no ce-type in the helper",
+		"twr.events.v1.PitEntered (run.thosewho.pit.entered.v1) is in the helper but not the catalogue",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("got %v, want an error with %q", err, want)
+		}
+	}
+}
+
+// ceTypes is the catalogue's own ce-type table, as a helper would hold it: one
+// per message, and none for a KV entry, which has no ce-type.
+func ceTypes(c *catalogue.Catalogue) map[protoreflect.FullName]string {
+	types := map[protoreflect.FullName]string{}
+	for _, s := range c.Subjects {
+		if !s.IsKV() {
+			types[protoreflect.FullName(s.Message)] = s.CEType
+		}
+	}
+	return types
+}
+
+// Agrees passes over KV entries, which have no ce-type, and takes a message on
+// several subjects once.
+func TestAgreesSkipsKVAndRepeats(t *testing.T) {
+	c := load(t, testdata, "kv.yaml")
+	types := ceTypes(c)
+	if _, ok := types["twr.state.v1.EcuStatus"]; ok {
+		t.Fatal("the KV entry's message is in the ce-type table")
+	}
+	if err := c.Agrees(types); err != nil {
+		t.Errorf("a catalogue with a KV entry disagrees with its own ce-types: %v", err)
+	}
+
+	// LapCompleted also on evt._, with the same ce-type: still one message.
+	again := c.Subjects[2]
+	again.Pattern = "twr.v1.<src>.evt._.lap.completed"
+	c.Subjects = append(c.Subjects, again)
+	if err := c.Agrees(types); err != nil {
+		t.Errorf("a message on two subjects disagrees: %v", err)
+	}
+	delete(types, "twr.events.v1.LapCompleted")
+	err := c.Agrees(types)
+	if err == nil || strings.Count(err.Error(), "twr.events.v1.LapCompleted") != 1 {
+		t.Errorf("got %v, want LapCompleted reported once", err)
+	}
+}
