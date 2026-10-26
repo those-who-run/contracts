@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+// Events: what ecu decides has happened, published once each.
+package twr.events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Game is the game a session is driven in.
+enum Game {
+  // Not set.
+  GAME_UNSPECIFIED = 0;
+  // Gran Turismo 7.
+  GAME_GT7 = 1;
+}
+
+// SessionType is what kind of session it is.
+enum SessionType {
+  // Not set.
+  SESSION_TYPE_UNSPECIFIED = 0;
+  // A race against other cars.
+  SESSION_TYPE_RACE = 1;
+  // A time trial: the car alone, against the clock.
+  SESSION_TYPE_TIME_TRIAL = 2;
+  // Practice: laps with no result.
+  SESSION_TYPE_PRACTICE = 3;
+  // ecu could not tell.
+  SESSION_TYPE_UNKNOWN = 4;
+}
+
+// EndReason is why a session ended.
+enum EndReason {
+  // Not set.
+  END_REASON_UNSPECIFIED = 0;
+  // The race was finished: the chequered flag fell.
+  END_REASON_FINISHED = 1;
+  // The driver left the session before its end, back to the menus.
+  END_REASON_QUIT = 2;
+  // The telemetry stopped arriving and did not come back in time.
+  END_REASON_TELEMETRY_LOST = 3;
+  // ecu itself stopped, for example on shutdown.
+  END_REASON_ENGINEER_STOPPED = 4;
+  // ecu could not tell.
+  END_REASON_UNKNOWN = 5;
+}
+
+// SessionStarted says a session began: a race, time trial or practice at a
+// track.
+message SessionStarted {
+  // The session's id: a ULID ecu mints, 26 characters of Crockford base32 in
+  // upper case. Every event of the session carries it.
+  string session_id = 1;
+  // Where the telemetry comes from: `live`, `replay-<run>` for a recording
+  // replayed through ecu, or `parity` for the parity harness.
+  string source = 2;
+  // The game (Game).
+  Game game = 3;
+  // What kind of session it is (SessionType).
+  SessionType session_type = 4;
+  // The game's code for the car.
+  int32 car_code = 5;
+  // The laps the race runs. Absent when not known, as in a timed race, a time
+  // trial or practice, where the game reports 0.
+  optional int32 total_laps = 6;
+  // Whether ecu joined the session after it began, so its first laps were not
+  // seen.
+  bool joined_part_way = 7;
+  // The `seq` of the session's first frame, in the ecu run that published
+  // this event.
+  uint32 first_seq = 8;
+  // When ecu received the session's first frame: that frame's `ce-time`. The
+  // session id's embedded time is not the start time.
+  google.protobuf.Timestamp started_at = 9;
+}
+
+// SessionSummary is what a session came to. Later milestones add the fuller
+// summary (stints, pits, times) as new fields.
+message SessionSummary {
+  // The complete laps, as v1 counts them: partial laps are not counted.
+  int32 laps_completed = 1;
+  // The number of the best complete lap. Absent when no lap was complete.
+  optional int32 best_lap = 2;
+  // The best complete lap's time, in milliseconds. Absent when no lap was
+  // complete.
+  optional int32 best_lap_time_ms = 3;
+  // The finishing position, from 1. Absent when the session was not a race,
+  // or ended before the finish.
+  optional int32 finishing_position = 4;
+}
+
+// SessionEnded says a session ended, and what it came to.
+message SessionEnded {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // Why it ended (EndReason).
+  EndReason reason = 2;
+  // What it came to.
+  SessionSummary summary = 3;
+}

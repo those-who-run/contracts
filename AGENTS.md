@@ -28,7 +28,8 @@ and `Part of those-who-run/paddock#N` otherwise, as paddock's `AGENTS.md` says.
 - the repository's own checks (with the Go tests, CI's `test`): every internal
   Markdown link and anchor resolves, the guard and settings in `.claude/` are
   `those-who-run/.github`'s `agent/` at the commit CI pins, buf's checks
-  (`make proto`: format, lint, breaking changes, and `gen/` is fresh), and the
+  (`make proto`: format, lint, breaking changes, no 64-bit integers, no
+  released message removed without its reason, and `gen/` is fresh), and the
   tests in `tests/`.
 
 It needs Go (the version in `go.mod`'s `toolchain` line, which the `go`
@@ -86,8 +87,23 @@ in paddock mean for a change here:
 
 - **Every message and field has a comment**, and so does every enum, value,
   service and method. `buf lint` fails without one.
+- **No 64-bit integers** (`int64`, `uint64`, `sint64`, `fixed64`,
+  `sfixed64`, or the `Int64Value` and `UInt64Value` wrappers): protobuf's JSON
+  form writes them as strings. `int32`, `uint32`
+  and `double` are enough, and `make proto` fails on one.
+- **`optional` wherever zero is a real value** distinct from "absent", since the
+  JSON form leaves zeros out; every enum starts with `<ENUM>_UNSPECIFIED = 0`.
+- **Units go in the field's name or its comment**, such as `speed_kph` or "in
+  litres".
 - **A field number or name is never reused.** A field that is removed is
   `reserved`, by number and by name, in the same change.
+- **A released message or enum is removed only on purpose:** its full name and
+  the reason go in [`removed.txt`](removed.txt) in the same change, and the
+  review sees both. `make proto` fails a removal without its line, and a line
+  for a name that is still here, which would approve a removal in advance.
+- **Each message has a JSON example** under `examples/`, which
+  [`messages_test.go`](messages_test.go) decodes and round-trips, an unknown
+  field included.
 - **A breaking change is a new package version beside the old one**, such as
   `twr.laps.v2` next to `twr.laps.v1`, never an edit of the old one. `buf
   breaking` fails a change a consumer would notice on the wire or in protobuf's

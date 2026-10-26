@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+// Telemetry: what the car reports, decoded from the game's packets. Units are
+// in each field's comment.
+package twr.telemetry.v1;
+
+// Phase is where the game is, decided by ecu from the lap counter and the
+// packet's flags, as v1 did.
+enum Phase {
+  // Not set.
+  PHASE_UNSPECIFIED = 0;
+  // In the game's menus: the lap counter is -1.
+  PHASE_MENU = 1;
+  // A track is loading.
+  PHASE_LOADING = 2;
+  // At a track before the start: the lap counter is 0.
+  PHASE_AT_TRACK = 3;
+  // Driving: the lap counter is 1 or more.
+  PHASE_IN_RACE = 4;
+  // The game is paused.
+  PHASE_PAUSED = 5;
+  // Past the chequered flag: the lap counter is above the race's total laps.
+  PHASE_FINISHED = 6;
+}
+
+// Frame is one decoded telemetry packet: every value v1 stored per frame, plus
+// the frame's sequence number and the packet's raw flags. ecu publishes one
+// per packet, about 60 a second. Positions, velocities and rotations are in the
+// game's own world axes, with y up.
+message Frame {
+  // The frame's sequence number within an ecu run, from 0. Events refer to a
+  // frame by it, and the frame's CloudEvents id is `<run>:frame:<seq>`.
+  uint32 seq = 1;
+  // When ecu received the packet, in seconds on ecu's monotonic clock (v1's
+  // `t`). Differences between frames of one run are meaningful; the origin is
+  // not. The frame's wall-clock time is its `ce-time` header.
+  double t = 2;
+  // The packet's own counter, as the game sends it. It fits a uint32: at 60
+  // packets a second it would take over two years to pass 2^31.
+  uint32 packet_id = 3;
+  // The game's lap counter: -1 in menus, 0 before the start, 1 or more while
+  // driving, and the total laps plus one after the finish.
+  int32 lap = 4;
+  // Where the game is (Phase).
+  Phase phase = 5;
+  // The car's position along the x axis, in metres.
+  double pos_x = 6;
+  // The car's position along the y axis (up), in metres.
+  double pos_y = 7;
+  // The car's position along the z axis, in metres.
+  double pos_z = 8;
+  // The car's velocity along the x axis, in metres per second.
+  double vel_x = 9;
+  // The car's velocity along the y axis (up), in metres per second.
+  double vel_y = 10;
+  // The car's velocity along the z axis, in metres per second.
+  double vel_z = 11;
+  // The car's speed, in kilometres per hour.
+  double speed_kph = 12;
+  // The engine's speed, in revolutions per minute.
+  double engine_rpm = 13;
+  // The gear engaged: 0 is reverse or neutral as the game reports it, 1 and up
+  // the forward gears.
+  int32 gear = 14;
+  // The gear the game suggests, as it reports it (15 when it suggests none).
+  int32 suggested_gear = 15;
+  // The throttle pedal, from 0 (released) to 255 (fully pressed).
+  int32 throttle = 16;
+  // The brake pedal, from 0 (released) to 255 (fully pressed).
+  int32 brake = 17;
+  // The fuel in the tank, in litres.
+  double fuel_level = 18;
+  // The front-left tyre's surface temperature, in degrees Celsius.
+  double tire_fl_temp = 19;
+  // The front-right tyre's surface temperature, in degrees Celsius.
+  double tire_fr_temp = 20;
+  // The rear-left tyre's surface temperature, in degrees Celsius.
+  double tire_rl_temp = 21;
+  // The rear-right tyre's surface temperature, in degrees Celsius.
+  double tire_rr_temp = 22;
+  // The front-left tyre's radius, in metres.
+  double tire_fl_radius = 23;
+  // The front-right tyre's radius, in metres.
+  double tire_fr_radius = 24;
+  // The rear-left tyre's radius, in metres.
+  double tire_rl_radius = 25;
+  // The rear-right tyre's radius, in metres.
+  double tire_rr_radius = 26;
+  // The front-left suspension's height, in metres.
+  double sus_fl = 27;
+  // The front-right suspension's height, in metres.
+  double sus_fr = 28;
+  // The rear-left suspension's height, in metres.
+  double sus_rl = 29;
+  // The rear-right suspension's height, in metres.
+  double sus_rr = 30;
+  // The front-left wheel's rotation speed, in radians per second, signed as
+  // the game sends it.
+  double wheel_fl_rps = 31;
+  // The front-right wheel's rotation speed, in radians per second, signed as
+  // the game sends it.
+  double wheel_fr_rps = 32;
+  // The rear-left wheel's rotation speed, in radians per second, signed as the
+  // game sends it.
+  double wheel_rl_rps = 33;
+  // The rear-right wheel's rotation speed, in radians per second, signed as
+  // the game sends it.
+  double wheel_rr_rps = 34;
+  // The engine's water temperature, in degrees Celsius.
+  double water_temp = 35;
+  // The engine's oil temperature, in degrees Celsius.
+  double oil_temp = 36;
+  // The engine's oil pressure, in bar.
+  double oil_pressure = 37;
+  // The turbo's boost as the game sends it, in bar absolute: 1.0 is
+  // atmospheric pressure, so the boost over it is this value minus 1.
+  double boost_pressure = 38;
+  // The body's height above the ground, in metres.
+  double body_height = 39;
+  // The car's position in the race, from 1. Absent outside a race, where the
+  // game reports -1.
+  optional int32 position = 40;
+  // The time of day on track, in milliseconds since midnight. A day is
+  // 86,400,000 ms, inside an int32.
+  int32 time_of_day_ms = 41;
+  // The game's code for the car.
+  int32 car_code = 42;
+  // The track id the decoder gives the frame, as v1's frame column held it:
+  // gt-telem's track detection, from the car's position, since the packet
+  // carries none. Absent while it is not known. ecu's own detection of the
+  // session's track is a separate value, in `session.track` (paddock#69).
+  optional int32 track_id = 43;
+  // The x component of the body's rotation, as the game sends it, from -1 to
+  // 1.
+  double rot_x = 44;
+  // The y component of the body's rotation, as the game sends it, from -1 to
+  // 1.
+  double rot_y = 45;
+  // The z component of the body's rotation, as the game sends it, from -1 to
+  // 1.
+  double rot_z = 46;
+  // The game's heading-like value, as it sends it, from -1 to 1. Which
+  // combination of it and rot_x, rot_y and rot_z gives the car's heading is
+  // settled from recordings, as in v1.
+  double orientation = 47;
+  // The body's angular velocity about the x axis (pitch), in radians per
+  // second.
+  double ang_vel_x = 48;
+  // The body's angular velocity about the y axis (yaw rate), in radians per
+  // second.
+  double ang_vel_y = 49;
+  // The body's angular velocity about the z axis (roll), in radians per
+  // second.
+  double ang_vel_z = 50;
+  // The packet's flags word, as received (a 16-bit field in the packet). Its
+  // named bits, such as paused, loading and cars on track, are what decides
+  // `phase`; bits nobody has named yet are kept here, so a later rule can use
+  // them without new recordings.
+  uint32 flags = 51;
+}

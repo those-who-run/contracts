@@ -1,0 +1,5 @@
+# Released messages and enums that were removed on purpose, one per line: the
+# full name, then why it went. scripts/proto_check.py's `removed` check fails a
+# change that removes a released one without its line here (AGENTS.md,
+# "Contracts").
+twr.placeholder.v1.Placeholder The foundation's stand-in (those-who-run/paddock#23), replaced by the v0.1 messages (those-who-run/paddock#24). No component used it.

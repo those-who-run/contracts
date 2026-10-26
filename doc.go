@@ -1,11 +1,8 @@
-// Package contracts is the contracts library; README.md says what it is.
+// Package contracts is the contracts every Those Who Run v2 component builds
+// against; README.md says what they are and how a component pins a release.
 //
-// It starts as the template renders it: one placeholder, Name, with its example,
-// so the module builds and every check in `make check` (the tests with the
-// coverage floor among them) has code to run on from the first commit. The
-// library's own API and its tests replace both.
+// The messages are generated under gen/go/, one Go package per protobuf
+// package, such as gen/go/twr/events/v1. The helpers that encode, decode and
+// set the CloudEvents headers come in this package with
+// those-who-run/paddock#26.
 package contracts
-
-// Name returns the module's name. It is the template's placeholder: replace it
-// with the library's own API.
-func Name() string { return "contracts" }

@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package twr.events.v1;
+
+// PitRole is what a lap had to do with the pits.
+enum PitRole {
+  // Not set.
+  PIT_ROLE_UNSPECIFIED = 0;
+  // The lap had nothing to do with the pits.
+  PIT_ROLE_NONE = 1;
+  // The lap ended in the pits.
+  PIT_ROLE_IN_LAP = 2;
+  // The lap started from the pits.
+  PIT_ROLE_OUT_LAP = 3;
+  // The lap started from the pits and ended in them.
+  PIT_ROLE_IN_AND_OUT = 4;
+}
+
+// LapCompleted says a lap ended: the lap counter moved on, or the session ended
+// part way through it.
+message LapCompleted {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The lap's number, from 1.
+  int32 lap = 2;
+  // The lap's time, in milliseconds; an int32 holds about 24 days. 0 when the
+  // lap was not timed: a partial lap, which has no time.
+  int32 lap_time_ms = 3;
+  // Whether it was a full lap, from line to line, rather than a partial one
+  // (the lap ecu joined in, or the one a session ended in).
+  bool complete = 4;
+  // The fuel in the tank when the lap started, in litres.
+  double fuel_at_start = 5;
+  // The fuel in the tank when the lap ended, in litres.
+  double fuel_at_end = 6;
+  // The fuel the lap used, in litres: fuel_at_start minus fuel_at_end, as v1
+  // computed it, so it is negative for a lap in which the car was refuelled.
+  double fuel_used = 7;
+  // The car's position in the race when the lap ended, from 1. Absent outside
+  // a race.
+  optional int32 position = 8;
+  // What the lap had to do with the pits (PitRole).
+  PitRole pit_role = 9;
+  // The `seq` of the lap's first frame, in the ecu run that published this
+  // event.
+  uint32 first_seq = 10;
+  // The `seq` of the lap's last frame, in the same run.
+  uint32 last_seq = 11;
+}
