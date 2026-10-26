@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/those-who-run/contracts/compare/v0.1.2...v0.1.3) (2026-10-26)
+
+
+### Features
+
+* package ce, the Go helpers for the JSON form and CloudEvents headers ([#8](https://github.com/those-who-run/contracts/issues/8)) ([00c74ec](https://github.com/those-who-run/contracts/commit/00c74ec66db97f3cd09f4512a6934e59299ab6e0))
+
 ## [0.1.2](https://github.com/those-who-run/contracts/compare/v0.1.1...v0.1.2) (2026-10-26)
 
 
