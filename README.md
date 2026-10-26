@@ -54,6 +54,11 @@ later release never breaks it (ADR 0002, point 3).
 | `twr.events.v1.LapCompleted` | A lap ended: its time, fuel, position and pit role. | [`lap_completed.json`](examples/events/v1/lap_completed.json) |
 | `twr.events.v1.SessionEnded` | A session ended, why, and its summary. | [`session_ended.json`](examples/events/v1/session_ended.json) |
 
+Which subject each message travels on, with its `ce-type`, stream,
+producer, consumers and `Nats-Msg-Id` scheme, is in
+[`subjects.yaml`](subjects.yaml), rendered as
+[`docs/subjects.md`](docs/subjects.md).
+
 Each field's comment in `proto/` gives its unit. The examples under
 `examples/` are what `nats sub` shows, and the round-trip tests in
 [`messages_test.go`](messages_test.go) decode each one.
@@ -66,6 +71,9 @@ consumer needs them (Python is those-who-run/paddock#265).
 - `proto/twr/<area>/v1/*.proto`: the contracts, one protobuf package per area
   and version.
 - `examples/`: one JSON example of each message, in protobuf's JSON form.
+- [`subjects.yaml`](subjects.yaml): the catalogue of NATS subjects (ADR 0002,
+  point 5), checked by [`internal/catalogue`](internal/catalogue/catalogue_test.go)
+  and rendered to [`docs/subjects.md`](docs/subjects.md) by `make generate`.
 - [`removed.txt`](removed.txt): the released messages and enums removed on
   purpose, each with the reason.
 - [`buf.yaml`](buf.yaml): buf's module, lint rules (`STANDARD` and `COMMENTS`)

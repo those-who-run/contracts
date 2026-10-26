@@ -1,0 +1,69 @@
+# The catalogue of NATS subjects (ADR 0002, point 5, in paddock): one entry per
+# subject pattern, with the message it carries and how it travels. A consumer
+# subscribes by pattern and decodes by ce-type, so a subject is as much a part
+# of the contract as its message.
+#
+# internal/catalogue's tests check every entry (paddock#25): the message exists
+# in the generated code, every ce-type is unique and well formed, the pattern
+# follows ADR 0001's subject scheme and goes to that scheme's stream, every
+# placeholder is a known one, and every event message under twr/events/ has an
+# entry. docs/subjects.md is rendered from this file by `make generate`.
+#
+# Keys:
+#   pattern       the subject, with <placeholders> for its variable tokens:
+#                 <src> is live, replay-<run> or parity; <sid> is the session id
+#   ce_type       the CloudEvents type in the ce-type header, one to one with
+#                 a message: run.thosewho.<area>.<what>.v<N>
+#   message       the protobuf message, fully qualified
+#   content_type  the ce-datacontenttype header: application/json, protobuf's
+#                 JSON form (ADR 0002, point 2)
+#   stream        the JetStream stream that captures the subject (ADR 0001,
+#                 point 1)
+#   kv            the KV bucket instead, for a subject that is a KV key; an
+#                 entry has a stream or a kv, never both
+#   producer      the component that publishes it
+#   consumers     the components that read it
+#   msg_id        the ce-id and Nats-Msg-Id scheme: <run> is the ecu run's id,
+#                 <seq> the frame's seq, <sid> the session id and <n> the lap
+#   description   what it is, for the rendered table
+
+subjects:
+  - pattern: twr.v1.<src>.frame.gt7
+    ce_type: run.thosewho.frame.gt7.v1
+    message: twr.telemetry.v1.Frame
+    content_type: application/json
+    stream: TELEMETRY
+    producer: ecu
+    consumers: [logbook]
+    msg_id: <run>:frame:<seq>
+    description: Every decoded GT7 packet, about 60 a second.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.started
+    ce_type: run.thosewho.session.started.v1
+    message: twr.events.v1.SessionStarted
+    content_type: application/json
+    stream: EVENTS
+    producer: ecu
+    consumers: [logbook]
+    msg_id: <sid>:session:started
+    description: A session began.
+
+  - pattern: twr.v1.<src>.evt.<sid>.lap.completed
+    ce_type: run.thosewho.lap.completed.v1
+    message: twr.events.v1.LapCompleted
+    content_type: application/json
+    stream: EVENTS
+    producer: ecu
+    consumers: [logbook]
+    msg_id: <sid>:lap:<n>:completed
+    description: A lap ended, complete or partial.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.ended
+    ce_type: run.thosewho.session.ended.v1
+    message: twr.events.v1.SessionEnded
+    content_type: application/json
+    stream: EVENTS
+    producer: ecu
+    consumers: [logbook, podium]
+    msg_id: <sid>:session:ended
+    description: A session ended, why, and its summary.

@@ -101,6 +101,12 @@ in paddock mean for a change here:
   the reason go in [`removed.txt`](removed.txt) in the same change, and the
   review sees both. `make proto` fails a removal without its line, and a line
   for a name that is still here, which would approve a removal in advance.
+- **Every subject is in [`subjects.yaml`](subjects.yaml)**, with its message,
+  `ce-type` (`run.thosewho.<area>.<what>.v<N>`, one per message), stream,
+  producer, consumers and `Nats-Msg-Id` scheme. A new event message under
+  `proto/twr/events/` needs its entry in the same change: `internal/catalogue`'s
+  test fails without it, and on a pattern outside ADR 0001's subject scheme.
+  `make generate` renders `docs/subjects.md` from it.
 - **Each message has a JSON example** under `examples/`, which
   [`messages_test.go`](messages_test.go) decodes and round-trips, an unknown
   field included.

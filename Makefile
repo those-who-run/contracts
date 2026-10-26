@@ -32,7 +32,7 @@ help:
 	@echo "fmt-check, tidy, vet, go-test, build, vuln - the Go checks one at a time"
 	@echo "proto     - buf's checks: format, lint, breaking changes, no 64-bit integers, no unlisted removal, gen/ is fresh (in make test)"
 	@echo "proto-fmt - format the .proto files with buf format"
-	@echo "generate  - write gen/ from proto/ with buf generate; commit the result"
+	@echo "generate  - write gen/ from proto/ with buf generate, and docs/subjects.md from subjects.yaml; commit the result"
 	@echo "links     - every internal link and anchor in the Markdown resolves (offline)"
 	@echo "guard     - .claude/ holds those-who-run/.github's guard and settings at the pinned commit"
 
@@ -108,11 +108,14 @@ proto:
 proto-fmt:
 	$(GO_TOOL) $(BUF) format --write
 
-# gen/ is only ever written by buf: stale files go first.
+# gen/ is only ever written by buf: stale files go first. docs/subjects.md is
+# rendered from subjects.yaml by internal/catalogue's test, which fails while
+# the committed copy differs.
 .PHONY: generate
 generate:
 	rm -rf gen
 	$(GO_TOOL) $(BUF) generate
+	go test ./internal/catalogue -run TestSubjectsDocIsFresh -update
 
 .PHONY: links
 links:
