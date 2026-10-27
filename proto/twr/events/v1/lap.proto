@@ -26,8 +26,10 @@ message LapCompleted {
   // The lap's time, in milliseconds; an int32 holds about 24 days. 0 when the
   // lap was not timed: a partial lap, which has no time.
   int32 lap_time_ms = 3;
-  // Whether it was a full lap, from line to line, rather than a partial one
-  // (the lap ecu joined in, or the one a session ended in).
+  // Whether it was a full lap, from line to line, rather than a partial one:
+  // false for the lap a session ended in part way. The lap ecu joined a
+  // session in counts as complete, with the game's time for it, as v1 stored
+  // it (kept for parity with v1, paddock#276).
   bool complete = 4;
   // The fuel in the tank when the lap started, in litres.
   double fuel_at_start = 5;

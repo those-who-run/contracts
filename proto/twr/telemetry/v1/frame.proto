@@ -28,8 +28,9 @@ enum Phase {
 // per packet, about 60 a second. Positions, velocities and rotations are in the
 // game's own world axes, with y up.
 message Frame {
-  // The frame's sequence number within an ecu run, from 0. Events refer to a
-  // frame by it, and the frame's CloudEvents id is `<run>:frame:<seq>`.
+  // The frame's sequence number within an ecu run, from 1, so 0 always means
+  // not set. Events refer to a frame by it, and the frame's CloudEvents id is
+  // `<run>:frame:<seq>`.
   uint32 seq = 1;
   // When ecu received the packet, in seconds on ecu's monotonic clock (v1's
   // `t`). Differences between frames of one run are meaningful; the origin is

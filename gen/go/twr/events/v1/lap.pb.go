@@ -93,8 +93,10 @@ type LapCompleted struct {
 	// The lap's time, in milliseconds; an int32 holds about 24 days. 0 when the
 	// lap was not timed: a partial lap, which has no time.
 	LapTimeMs int32 `protobuf:"varint,3,opt,name=lap_time_ms,json=lapTimeMs,proto3" json:"lap_time_ms,omitempty"`
-	// Whether it was a full lap, from line to line, rather than a partial one
-	// (the lap ecu joined in, or the one a session ended in).
+	// Whether it was a full lap, from line to line, rather than a partial one:
+	// false for the lap a session ended in part way. The lap ecu joined a
+	// session in counts as complete, with the game's time for it, as v1 stored
+	// it (kept for parity with v1, paddock#276).
 	Complete bool `protobuf:"varint,4,opt,name=complete,proto3" json:"complete,omitempty"`
 	// The fuel in the tank when the lap started, in litres.
 	FuelAtStart float64 `protobuf:"fixed64,5,opt,name=fuel_at_start,json=fuelAtStart,proto3" json:"fuel_at_start,omitempty"`
