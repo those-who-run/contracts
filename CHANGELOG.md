@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.4](https://github.com/those-who-run/contracts/compare/v0.1.3...v0.1.4) (2026-10-27)
+
+
+### Features
+
+* EndReason RESTARTED (6), NEXT_SESSION_STARTED (7) and INPUT_ENDED (8) ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+* Frame.seq counts from 1; finishing_position only for a final LAP_RACE at the flag; the joined lap is complete; position absent outside a field, unlike v1 ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+* SessionEnded.last_seq (4), the seq of the session's last frame ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+* SessionStarted.fuel_at_start (10), the fuel on the session's first frame, in litres ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+* SessionSummary.final_position (6), the position on the last frame, absent outside a field ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+* SessionSummary.fuel_used (5), the session's fuel, in litres, as v1 computes it ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+* SessionSummary.session_type (7), ecu's final verdict on the session's type ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+* SessionType LAP_RACE (5), SOLO_LAPS (6), TIMED_FIELD (7) and SOLO_TIMED (8), one to one with v1's session kinds ([#15](https://github.com/those-who-run/contracts/issues/15)) ([491cd3c](https://github.com/those-who-run/contracts/commit/491cd3cdaa0ffc71f4e39783f6a052736436d7a4))
+
 ## [0.1.3](https://github.com/those-who-run/contracts/compare/v0.1.2...v0.1.3) (2026-10-26)
 
 
