@@ -93,18 +93,25 @@ type LapCompleted struct {
 	// The lap's time, in milliseconds; an int32 holds about 24 days. 0 when the
 	// lap was not timed: a partial lap, which has no time.
 	LapTimeMs int32 `protobuf:"varint,3,opt,name=lap_time_ms,json=lapTimeMs,proto3" json:"lap_time_ms,omitempty"`
-	// Whether it was a full lap, from line to line, rather than a partial one
-	// (the lap ecu joined in, or the one a session ended in).
+	// Whether it was a full lap, from line to line, rather than a partial one:
+	// false for the lap a session ended in part way. The lap ecu joined a
+	// session in counts as complete, with the game's time for it, as v1 stored
+	// it (kept for parity with v1, paddock#276).
 	Complete bool `protobuf:"varint,4,opt,name=complete,proto3" json:"complete,omitempty"`
 	// The fuel in the tank when the lap started, in litres.
 	FuelAtStart float64 `protobuf:"fixed64,5,opt,name=fuel_at_start,json=fuelAtStart,proto3" json:"fuel_at_start,omitempty"`
 	// The fuel in the tank when the lap ended, in litres.
 	FuelAtEnd float64 `protobuf:"fixed64,6,opt,name=fuel_at_end,json=fuelAtEnd,proto3" json:"fuel_at_end,omitempty"`
-	// The fuel the lap used, in litres: fuel_at_start minus fuel_at_end, as v1
-	// computed it, so it is negative for a lap in which the car was refuelled.
+	// The fuel the lap used, in litres: fuel_at_start minus fuel_at_end,
+	// rounded to 3 decimals, as v1 computed it. It is negative for a lap in
+	// which the car was refuelled. SessionSummary's fuel_used is the sum of
+	// these rounded values.
 	FuelUsed float64 `protobuf:"fixed64,7,opt,name=fuel_used,json=fuelUsed,proto3" json:"fuel_used,omitempty"`
-	// The car's position in the race when the lap ended, from 1. Absent outside
-	// a race.
+	// The car's position when the lap ended, from 1. Absent outside a field,
+	// when ecu's verdict on the session's type at the lap's end is
+	// SESSION_TYPE_SOLO_LAPS or SESSION_TYPE_SOLO_TIMED, and when the game
+	// reported no position. This differs from v1 on purpose: GT7 reports 1 in a
+	// solo session and v1 stored it; the parity harness (paddock#40) maps it.
 	Position *int32 `protobuf:"varint,8,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	// What the lap had to do with the pits (PitRole).
 	PitRole PitRole `protobuf:"varint,9,opt,name=pit_role,json=pitRole,proto3,enum=twr.events.v1.PitRole" json:"pit_role,omitempty"`

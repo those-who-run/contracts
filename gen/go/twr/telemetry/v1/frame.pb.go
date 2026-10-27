@@ -100,8 +100,9 @@ func (Phase) EnumDescriptor() ([]byte, []int) {
 // game's own world axes, with y up.
 type Frame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The frame's sequence number within an ecu run, from 0. Events refer to a
-	// frame by it, and the frame's CloudEvents id is `<run>:frame:<seq>`.
+	// The frame's sequence number within an ecu run, from 1, so 0 always means
+	// not set. Events refer to a frame by it, and the frame's CloudEvents id is
+	// `<run>:frame:<seq>`.
 	Seq uint32 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
 	// When ecu received the packet, in seconds on ecu's monotonic clock (v1's
 	// `t`). Differences between frames of one run are meaningful; the origin is

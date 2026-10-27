@@ -5,6 +5,10 @@
     "lapsCompleted": 10,
     "bestLap": 4,
     "bestLapTimeMs": 97412,
-    "finishingPosition": 1
-  }
+    "finishingPosition": 1,
+    "fuelUsed": 37.625,
+    "finalPosition": 1,
+    "sessionType": "SESSION_TYPE_LAP_RACE"
+  },
+  "lastSeq": 61840
 }

@@ -41,12 +41,13 @@ var examples = []struct {
 		SessionId:     "01JB8Z3K5Q9T2M7XW4R6N1PDHE",
 		Source:        "live",
 		Game:          eventsv1.Game_GAME_GT7,
-		SessionType:   eventsv1.SessionType_SESSION_TYPE_RACE,
+		SessionType:   eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
 		CarCode:       3431,
 		TotalLaps:     proto.Int32(10),
 		JoinedPartWay: false,
 		FirstSeq:      1200,
 		StartedAt:     timestamppb.New(time.Date(2026, 10, 26, 19, 30, 5, 250_000_000, time.UTC)),
+		FuelAtStart:   100,
 	}},
 	{"events/v1/lap_completed.json", &eventsv1.LapCompleted{
 		SessionId:   "01JB8Z3K5Q9T2M7XW4R6N1PDHE",
@@ -69,7 +70,11 @@ var examples = []struct {
 			BestLap:           proto.Int32(4),
 			BestLapTimeMs:     proto.Int32(97412),
 			FinishingPosition: proto.Int32(1),
+			FuelUsed:          37.625,
+			FinalPosition:     proto.Int32(1),
+			SessionType:       eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
 		},
+		LastSeq: 61840,
 	}},
 }
 
