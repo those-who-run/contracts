@@ -181,8 +181,8 @@ const (
 	// ecu could not tell.
 	EndReason_END_REASON_UNKNOWN EndReason = 5
 	// The session was restarted: the game's lap counter jumped back to a lower
-	// lap while driving (v1's race_restarted). A new session starts on the same
-	// frame.
+	// lap while driving (v1's race_restarted). This session ended on the frame
+	// before the jump, and the next session starts on the jump's frame.
 	EndReason_END_REASON_RESTARTED EndReason = 6
 	// The next session started while this one was still open (v1's
 	// race_started), so this one ended on the frame before it.
@@ -256,7 +256,10 @@ type SessionStarted struct {
 	Source string `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
 	// The game (Game).
 	Game Game `protobuf:"varint,3,opt,name=game,proto3,enum=twr.events.v1.Game" json:"game,omitempty"`
-	// What kind of session it is (SessionType).
+	// What kind of session it is (SessionType), as ecu tells it on the
+	// session's first frame. It may change: GT7 can post the lap total a moment
+	// after the start, and a field shows only once the driver has been anything
+	// but first. SessionSummary's session_type is ecu's final verdict.
 	SessionType SessionType `protobuf:"varint,4,opt,name=session_type,json=sessionType,proto3,enum=twr.events.v1.SessionType" json:"session_type,omitempty"`
 	// The game's code for the car.
 	CarCode int32 `protobuf:"varint,5,opt,name=car_code,json=carCode,proto3" json:"car_code,omitempty"`
@@ -392,12 +395,13 @@ type SessionSummary struct {
 	// The best complete lap's time, in milliseconds. Absent until ecu decides
 	// it, as best_lap.
 	BestLapTimeMs *int32 `protobuf:"varint,3,opt,name=best_lap_time_ms,json=bestLapTimeMs,proto3,oneof" json:"best_lap_time_ms,omitempty"`
-	// The finishing position, from 1. Set only for a lap race with a field
-	// (SESSION_TYPE_LAP_RACE) that ended at the chequered flag
-	// (END_REASON_FINISHED). Absent for every other session: a timed session
-	// (a timed race, qualifying, a time trial or practice), solo laps, and a
-	// lap race that ended any other way. final_position is the position on the
-	// last frame whatever the session.
+	// The finishing position, from 1. Set only when this summary's session_type
+	// is SESSION_TYPE_LAP_RACE, a lap race with a field, and the session ended
+	// at the chequered flag (END_REASON_FINISHED). Absent for every other
+	// session: a timed session (a timed race, qualifying, a time trial or
+	// practice), solo laps, and a lap race that ended any other way.
+	// final_position is the position on the last frame in any session with a
+	// field.
 	FinishingPosition *int32 `protobuf:"varint,4,opt,name=finishing_position,json=finishingPosition,proto3,oneof" json:"finishing_position,omitempty"`
 	// The fuel the session used, in litres: the sum of its laps' fuel_used,
 	// partial laps included, in the order they ended, rounded to 3 decimals,
@@ -405,11 +409,18 @@ type SessionSummary struct {
 	// the laps used.
 	FuelUsed float64 `protobuf:"fixed64,5,opt,name=fuel_used,json=fuelUsed,proto3" json:"fuel_used,omitempty"`
 	// The car's position on the session's last frame, from 1, or the last
-	// position seen in the session when that frame has none (v1's
-	// final_position). Absent outside a field (SESSION_TYPE_SOLO_LAPS,
-	// SESSION_TYPE_SOLO_TIMED), and when the game reported no position. Not a
+	// position seen in the session when that frame has none. Absent outside a
+	// field, when this summary's session_type is SESSION_TYPE_SOLO_LAPS or
+	// SESSION_TYPE_SOLO_TIMED, and when the game reported no position. This
+	// differs from v1 on purpose: GT7 reports 1 in a solo session and v1 stored
+	// it as final_position; the parity harness (paddock#40) maps it. Not a
 	// result: finishing_position is that.
 	FinalPosition *int32 `protobuf:"varint,6,opt,name=final_position,json=finalPosition,proto3,oneof" json:"final_position,omitempty"`
+	// What kind of session it was (SessionType): ecu's final verdict, from all
+	// the session's frames. It can differ from SessionStarted's session_type,
+	// the verdict on the first frame. finishing_position and final_position
+	// follow this one.
+	SessionType   SessionType `protobuf:"varint,7,opt,name=session_type,json=sessionType,proto3,enum=twr.events.v1.SessionType" json:"session_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -484,6 +495,13 @@ func (x *SessionSummary) GetFinalPosition() int32 {
 		return *x.FinalPosition
 	}
 	return 0
+}
+
+func (x *SessionSummary) GetSessionType() SessionType {
+	if x != nil {
+		return x.SessionType
+	}
+	return SessionType_SESSION_TYPE_UNSPECIFIED
 }
 
 // SessionEnded says a session ended, and what it came to.
@@ -581,14 +599,15 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"started_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12\"\n" +
 	"\rfuel_at_start\x18\n" +
 	" \x01(\x01R\vfuelAtStartB\r\n" +
-	"\v_total_laps\"\xce\x02\n" +
+	"\v_total_laps\"\x8d\x03\n" +
 	"\x0eSessionSummary\x12%\n" +
 	"\x0elaps_completed\x18\x01 \x01(\x05R\rlapsCompleted\x12\x1e\n" +
 	"\bbest_lap\x18\x02 \x01(\x05H\x00R\abestLap\x88\x01\x01\x12,\n" +
 	"\x10best_lap_time_ms\x18\x03 \x01(\x05H\x01R\rbestLapTimeMs\x88\x01\x01\x122\n" +
 	"\x12finishing_position\x18\x04 \x01(\x05H\x02R\x11finishingPosition\x88\x01\x01\x12\x1b\n" +
 	"\tfuel_used\x18\x05 \x01(\x01R\bfuelUsed\x12*\n" +
-	"\x0efinal_position\x18\x06 \x01(\x05H\x03R\rfinalPosition\x88\x01\x01B\v\n" +
+	"\x0efinal_position\x18\x06 \x01(\x05H\x03R\rfinalPosition\x88\x01\x01\x12=\n" +
+	"\fsession_type\x18\a \x01(\x0e2\x1a.twr.events.v1.SessionTypeR\vsessionTypeB\v\n" +
 	"\t_best_lapB\x13\n" +
 	"\x11_best_lap_time_msB\x15\n" +
 	"\x13_finishing_positionB\x11\n" +
@@ -651,13 +670,14 @@ var file_twr_events_v1_session_proto_depIdxs = []int32{
 	0, // 0: twr.events.v1.SessionStarted.game:type_name -> twr.events.v1.Game
 	1, // 1: twr.events.v1.SessionStarted.session_type:type_name -> twr.events.v1.SessionType
 	6, // 2: twr.events.v1.SessionStarted.started_at:type_name -> google.protobuf.Timestamp
-	2, // 3: twr.events.v1.SessionEnded.reason:type_name -> twr.events.v1.EndReason
-	4, // 4: twr.events.v1.SessionEnded.summary:type_name -> twr.events.v1.SessionSummary
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	1, // 3: twr.events.v1.SessionSummary.session_type:type_name -> twr.events.v1.SessionType
+	2, // 4: twr.events.v1.SessionEnded.reason:type_name -> twr.events.v1.EndReason
+	4, // 5: twr.events.v1.SessionEnded.summary:type_name -> twr.events.v1.SessionSummary
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_twr_events_v1_session_proto_init() }

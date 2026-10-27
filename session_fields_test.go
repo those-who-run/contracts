@@ -19,18 +19,22 @@ import (
 // session's start and end, the end reasons for a restart, the next start and
 // the end of the input, and the session types telemetry can tell apart.
 
-// Each new field and value keeps the number it was released with: a consumer
-// built against one release reads the next by these numbers.
+// Each new field and value keeps the number and type it was released with: a
+// consumer built against one release reads the next by these. buf breaking
+// guards them only once a release holds them.
 func TestNewFieldAndValueNumbers(t *testing.T) {
 	for _, tc := range []struct {
-		msg   proto.Message
-		field protoreflect.Name
-		want  protoreflect.FieldNumber
+		msg      proto.Message
+		field    protoreflect.Name
+		want     protoreflect.FieldNumber
+		kind     protoreflect.Kind
+		optional bool
 	}{
-		{&eventsv1.SessionStarted{}, "fuel_at_start", 10},
-		{&eventsv1.SessionEnded{}, "last_seq", 4},
-		{&eventsv1.SessionSummary{}, "fuel_used", 5},
-		{&eventsv1.SessionSummary{}, "final_position", 6},
+		{&eventsv1.SessionStarted{}, "fuel_at_start", 10, protoreflect.DoubleKind, false},
+		{&eventsv1.SessionEnded{}, "last_seq", 4, protoreflect.Uint32Kind, false},
+		{&eventsv1.SessionSummary{}, "fuel_used", 5, protoreflect.DoubleKind, false},
+		{&eventsv1.SessionSummary{}, "final_position", 6, protoreflect.Int32Kind, true},
+		{&eventsv1.SessionSummary{}, "session_type", 7, protoreflect.EnumKind, false},
 	} {
 		desc := tc.msg.ProtoReflect().Descriptor()
 		fd := desc.Fields().ByName(tc.field)
@@ -40,6 +44,15 @@ func TestNewFieldAndValueNumbers(t *testing.T) {
 		}
 		if fd.Number() != tc.want {
 			t.Errorf("%s.%s is field %d, want %d", desc.FullName(), tc.field, fd.Number(), tc.want)
+		}
+		if fd.Kind() != tc.kind {
+			t.Errorf("%s.%s is a %v, want a %v", desc.FullName(), tc.field, fd.Kind(), tc.kind)
+		}
+		if fd.HasPresence() != tc.optional {
+			t.Errorf("%s.%s optional is %v, want %v", desc.FullName(), tc.field, fd.HasPresence(), tc.optional)
+		}
+		if tc.kind == protoreflect.EnumKind && fd.Enum().FullName() != "twr.events.v1.SessionType" {
+			t.Errorf("%s.%s is a %s, want twr.events.v1.SessionType", desc.FullName(), tc.field, fd.Enum().FullName())
 		}
 	}
 	for _, tc := range []struct {
@@ -100,11 +113,15 @@ func TestNewFieldsRoundTrip(t *testing.T) {
 		{"SessionSummary.fuel_used negative", &eventsv1.SessionSummary{FuelUsed: -12.5}},
 		{"SessionSummary.final_position", &eventsv1.SessionSummary{FinalPosition: proto.Int32(7)}},
 		{"SessionSummary.final_position absent", &eventsv1.SessionSummary{}},
+		{"SessionSummary.session_type", &eventsv1.SessionSummary{SessionType: eventsv1.SessionType_SESSION_TYPE_TIMED_FIELD}},
 		{"SessionEnded with every new field", &eventsv1.SessionEnded{
 			SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE",
 			Reason:    eventsv1.EndReason_END_REASON_RESTARTED,
-			Summary:   &eventsv1.SessionSummary{LapsCompleted: 2, FuelUsed: 6.25, FinalPosition: proto.Int32(3)},
-			LastSeq:   4211,
+			Summary: &eventsv1.SessionSummary{
+				LapsCompleted: 2, FuelUsed: 6.25, FinalPosition: proto.Int32(3),
+				SessionType: eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
+			},
+			LastSeq: 4211,
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) { roundTrip(t, tc.msg) })
@@ -120,9 +137,13 @@ func TestNewValuesRoundTrip(t *testing.T) {
 		eventsv1.SessionType_SESSION_TYPE_SOLO_TIMED,
 	} {
 		t.Run(st.String(), func(t *testing.T) {
-			msg := &eventsv1.SessionStarted{SessionType: st}
-			roundTrip(t, msg)
-			assertJSONNames(t, msg, st.String())
+			for _, msg := range []proto.Message{
+				&eventsv1.SessionStarted{SessionType: st},
+				&eventsv1.SessionSummary{SessionType: st},
+			} {
+				roundTrip(t, msg)
+				assertJSONNames(t, msg, st.String())
+			}
 		})
 	}
 	for _, r := range []eventsv1.EndReason{
@@ -187,7 +208,13 @@ func leadingComment(t *testing.T, file, name string) string {
 		t.Fatal(err)
 	}
 	defer func() { _ = f.Close() }()
-	decl := regexp.MustCompile(`\b` + regexp.QuoteMeta(name) + `\s*=\s*\d+;`)
+	// name is a declaration's name, or its name and number ("session_type = 4")
+	// where one file declares the name twice.
+	pattern := regexp.QuoteMeta(name) + `\s*=\s*\d+;`
+	if strings.Contains(name, "=") {
+		pattern = regexp.QuoteMeta(name) + `;`
+	}
+	decl := regexp.MustCompile(`\b` + pattern)
 	var comment []string
 	scan := bufio.NewScanner(f)
 	for scan.Scan() {
@@ -226,7 +253,17 @@ func TestCommentsSayWhatEcuSends(t *testing.T) {
 		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_TIMED_FIELD", []string{"timed race or qualifying", "v1's `timed_field`", "ecu sends it"}},
 		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_SOLO_TIMED", []string{"time trial or practice", "v1's `solo_timed`", "ecu sends it"}},
 		// R6: a finishing position only for a lap race with a field, at the flag.
-		{"R6", "twr/events/v1/session.proto", "finishing_position", []string{"Set only for a lap race with a field", "SESSION_TYPE_LAP_RACE", "END_REASON_FINISHED", "qualifying", "solo laps"}},
+		{"R6", "twr/events/v1/session.proto", "finishing_position", []string{"Set only when this summary's session_type is SESSION_TYPE_LAP_RACE", "END_REASON_FINISHED", "qualifying", "solo laps"}},
+		// R5 and R6: the first-frame verdict may change; the summary's is final.
+		{"R5", "twr/events/v1/session.proto", "session_type = 4", []string{"first frame", "may change", "lap total", "anything but first", "final verdict"}},
+		{"R5", "twr/events/v1/session.proto", "session_type = 7", []string{"final verdict", "first frame", "finishing_position and final_position follow this one"}},
+		// R2: position is absent outside a field, on purpose unlike v1.
+		{"R2", "twr/events/v1/session.proto", "final_position", []string{"Absent outside a field", "SESSION_TYPE_SOLO_LAPS", "SESSION_TYPE_SOLO_TIMED", "differs from v1 on purpose", "paddock#40"}},
+		{"R2", "twr/events/v1/lap.proto", "position", []string{"Absent outside a field", "SESSION_TYPE_SOLO_LAPS", "SESSION_TYPE_SOLO_TIMED", "differs from v1 on purpose", "paddock#40"}},
+		// R3: where a restart splits the frames.
+		{"R3", "twr/events/v1/session.proto", "END_REASON_RESTARTED", []string{"frame before the jump", "the jump's frame"}},
+		// R2: the lap's fuel is rounded, and the session's total sums the rounded values.
+		{"R2", "twr/events/v1/lap.proto", "fuel_used", []string{"rounded to 3 decimals", "sum of these rounded values"}},
 		// R7: seq counts from 1.
 		{"R7", "twr/telemetry/v1/frame.proto", "seq", []string{"from 1, so 0 always means not set"}},
 		// R8: the joined lap is complete, as v1 stored it; the best lap is absent

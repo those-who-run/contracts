@@ -64,8 +64,8 @@ enum EndReason {
   // ecu could not tell.
   END_REASON_UNKNOWN = 5;
   // The session was restarted: the game's lap counter jumped back to a lower
-  // lap while driving (v1's race_restarted). A new session starts on the same
-  // frame.
+  // lap while driving (v1's race_restarted). This session ended on the frame
+  // before the jump, and the next session starts on the jump's frame.
   END_REASON_RESTARTED = 6;
   // The next session started while this one was still open (v1's
   // race_started), so this one ended on the frame before it.
@@ -85,7 +85,10 @@ message SessionStarted {
   string source = 2;
   // The game (Game).
   Game game = 3;
-  // What kind of session it is (SessionType).
+  // What kind of session it is (SessionType), as ecu tells it on the
+  // session's first frame. It may change: GT7 can post the lap total a moment
+  // after the start, and a field shows only once the driver has been anything
+  // but first. SessionSummary's session_type is ecu's final verdict.
   SessionType session_type = 4;
   // The game's code for the car.
   int32 car_code = 5;
@@ -118,12 +121,13 @@ message SessionSummary {
   // The best complete lap's time, in milliseconds. Absent until ecu decides
   // it, as best_lap.
   optional int32 best_lap_time_ms = 3;
-  // The finishing position, from 1. Set only for a lap race with a field
-  // (SESSION_TYPE_LAP_RACE) that ended at the chequered flag
-  // (END_REASON_FINISHED). Absent for every other session: a timed session
-  // (a timed race, qualifying, a time trial or practice), solo laps, and a
-  // lap race that ended any other way. final_position is the position on the
-  // last frame whatever the session.
+  // The finishing position, from 1. Set only when this summary's session_type
+  // is SESSION_TYPE_LAP_RACE, a lap race with a field, and the session ended
+  // at the chequered flag (END_REASON_FINISHED). Absent for every other
+  // session: a timed session (a timed race, qualifying, a time trial or
+  // practice), solo laps, and a lap race that ended any other way.
+  // final_position is the position on the last frame in any session with a
+  // field.
   optional int32 finishing_position = 4;
   // The fuel the session used, in litres: the sum of its laps' fuel_used,
   // partial laps included, in the order they ended, rounded to 3 decimals,
@@ -131,11 +135,18 @@ message SessionSummary {
   // the laps used.
   double fuel_used = 5;
   // The car's position on the session's last frame, from 1, or the last
-  // position seen in the session when that frame has none (v1's
-  // final_position). Absent outside a field (SESSION_TYPE_SOLO_LAPS,
-  // SESSION_TYPE_SOLO_TIMED), and when the game reported no position. Not a
+  // position seen in the session when that frame has none. Absent outside a
+  // field, when this summary's session_type is SESSION_TYPE_SOLO_LAPS or
+  // SESSION_TYPE_SOLO_TIMED, and when the game reported no position. This
+  // differs from v1 on purpose: GT7 reports 1 in a solo session and v1 stored
+  // it as final_position; the parity harness (paddock#40) maps it. Not a
   // result: finishing_position is that.
   optional int32 final_position = 6;
+  // What kind of session it was (SessionType): ecu's final verdict, from all
+  // the session's frames. It can differ from SessionStarted's session_type,
+  // the verdict on the first frame. finishing_position and final_position
+  // follow this one.
+  SessionType session_type = 7;
 }
 
 // SessionEnded says a session ended, and what it came to.

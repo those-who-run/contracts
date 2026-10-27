@@ -72,6 +72,7 @@ var examples = []struct {
 			FinishingPosition: proto.Int32(1),
 			FuelUsed:          37.625,
 			FinalPosition:     proto.Int32(1),
+			SessionType:       eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
 		},
 		LastSeq: 61840,
 	}},
