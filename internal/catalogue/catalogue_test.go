@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -49,7 +50,8 @@ func load(t *testing.T, fsys fs.FS, name string) *catalogue.Catalogue {
 	return c
 }
 
-// The catalogue lists v0.1's four subjects (paddock#25, R1) and passes every check.
+// The catalogue lists v0.1's four subjects (paddock#25, R1) and the session and
+// race events (paddock#69, R4), and passes every check.
 func TestTheCatalogueChecksOut(t *testing.T) {
 	c := load(t, repo, subjects)
 	if err := c.Check(protoregistry.GlobalFiles); err != nil {
@@ -60,6 +62,17 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"twr.v1.<src>.evt.<sid>.session.started": "twr.events.v1.SessionStarted",
 		"twr.v1.<src>.evt.<sid>.lap.completed":   "twr.events.v1.LapCompleted",
 		"twr.v1.<src>.evt.<sid>.session.ended":   "twr.events.v1.SessionEnded",
+		// paddock#69.
+		"twr.v1.<src>.evt.<sid>.session.continued": "twr.events.v1.SessionContinued",
+		"twr.v1.<src>.evt.<sid>.session.discarded": "twr.events.v1.SessionDiscarded",
+		"twr.v1.<src>.evt.<sid>.session.kind":      "twr.events.v1.SessionKindChanged",
+		"twr.v1.<src>.evt.<sid>.session.track":     "twr.events.v1.SessionTrackChanged",
+		"twr.v1.<src>.evt.<sid>.session.paused":    "twr.events.v1.SessionPaused",
+		"twr.v1.<src>.evt.<sid>.session.resumed":   "twr.events.v1.SessionResumed",
+		"twr.v1.<src>.evt.<sid>.lap.best":          "twr.events.v1.LapBestImproved",
+		"twr.v1.<src>.evt.<sid>.race.final_lap":    "twr.events.v1.RaceFinalLapStarted",
+		"twr.v1.<src>.evt.<sid>.race.position":     "twr.events.v1.RacePositionChanged",
+		"twr.v1.<src>.evt.<sid>.race.finished":     "twr.events.v1.RaceFinished",
 	}
 	if len(c.Subjects) != len(want) {
 		t.Errorf("%d subjects, want %d", len(c.Subjects), len(want))
@@ -241,11 +254,49 @@ func TestEventMsgIDs(t *testing.T) {
 	assertPasses(t, c, protoregistry.GlobalFiles)
 }
 
+// A token of an event's <area> or <what>, and of its ce-type, is lower-case
+// words joined by single underscores, as race.final_lap is (paddock#69): an
+// underscore at either end, two together, or a capital still fail.
+func TestTokensMayJoinWordsWithUnderscores(t *testing.T) {
+	c := load(t, repo, subjects)
+	assertPasses(t, c, protoregistry.GlobalFiles)
+	finalLap := slices.IndexFunc(c.Subjects, func(s catalogue.Subject) bool {
+		return s.Pattern == "twr.v1.<src>.evt.<sid>.race.final_lap"
+	})
+	if finalLap < 0 {
+		t.Fatal("the catalogue has no race.final_lap")
+	}
+	for _, what := range []string{"_final", "final_", "final__lap", "Final_lap"} {
+		t.Run(what, func(t *testing.T) {
+			c := load(t, repo, subjects)
+			s := &c.Subjects[finalLap]
+			s.Pattern = "twr.v1.<src>.evt.<sid>.race." + what
+			s.CEType = "run.thosewho.race." + what + ".v1"
+			s.MsgID = "<src>:<sid>:race." + what + ":1"
+			assertFails(t, c, protoregistry.GlobalFiles, "does not follow ADR 0001's subject scheme")
+			assertFails(t, c, protoregistry.GlobalFiles, "is not run.thosewho.<area>.<what>.v<N>")
+		})
+	}
+	// The msg_id's <area>.<what> follows the same rule.
+	c = load(t, repo, subjects)
+	c.Subjects[finalLap].MsgID = "<src>:<sid>:race.final__lap:1"
+	assertFails(t, c, protoregistry.GlobalFiles, "is not <src>:<sid>:<area>.<what>")
+}
+
+// withKV is the real catalogue with testdata/kv.yaml's KV entry after its
+// subjects, so the entry is checked beside every event the catalogue has.
+func withKV(t *testing.T) *catalogue.Catalogue {
+	t.Helper()
+	c := load(t, repo, subjects)
+	c.Subjects = append(c.Subjects, load(t, testdata, "kv.yaml").Subjects...)
+	return c
+}
+
 // A KV entry has its own rules: a bucket, a key, a message, writers, readers and
 // a description, and no subject, stream, ce-type or msg_id.
 func TestKVEntries(t *testing.T) {
 	messages := withMessage(t, "twr.state.v1", "EcuStatus")
-	c := load(t, testdata, "kv.yaml")
+	c := withKV(t)
 	assertPasses(t, c, messages)
 	if doc := string(c.Render()); !strings.Contains(doc, "| `live` | `ecu.status.<src>` | `twr.state.v1.EcuStatus` | ecu | pitwall, dash |") {
 		t.Errorf("the KV key is not in the rendered doc:\n%s", doc)
@@ -267,7 +318,7 @@ func TestKVEntries(t *testing.T) {
 		{"no readers", func(s *catalogue.Subject) { s.Consumers = nil }, "no consumers"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c := load(t, testdata, "kv.yaml")
+			c := withKV(t)
 			tc.change(&c.Subjects[len(c.Subjects)-1])
 			assertFails(t, c, messages, tc.want)
 		})
@@ -326,7 +377,11 @@ func TestAnUnknownKeyFails(t *testing.T) {
 // The event messages are every events-package message but the helpers.
 func TestEventMessages(t *testing.T) {
 	got := load(t, repo, subjects).EventMessages(protoregistry.GlobalFiles)
-	want := "twr.events.v1.LapCompleted twr.events.v1.SessionEnded twr.events.v1.SessionStarted"
+	want := "twr.events.v1.LapBestImproved twr.events.v1.LapCompleted twr.events.v1.RaceFinalLapStarted " +
+		"twr.events.v1.RaceFinished twr.events.v1.RacePositionChanged twr.events.v1.SessionContinued " +
+		"twr.events.v1.SessionDiscarded twr.events.v1.SessionEnded twr.events.v1.SessionKindChanged " +
+		"twr.events.v1.SessionPaused twr.events.v1.SessionResumed twr.events.v1.SessionStarted " +
+		"twr.events.v1.SessionTrackChanged"
 	var names []string
 	for _, n := range got {
 		names = append(names, string(n))
@@ -383,7 +438,7 @@ func ceTypes(c *catalogue.Catalogue) map[protoreflect.FullName]string {
 // Agrees passes over KV entries, which have no ce-type, and takes a message on
 // several subjects once.
 func TestAgreesSkipsKVAndRepeats(t *testing.T) {
-	c := load(t, testdata, "kv.yaml")
+	c := withKV(t)
 	types := ceTypes(c)
 	if _, ok := types["twr.state.v1.EcuStatus"]; ok {
 		t.Fatal("the KV entry's message is in the ce-type table")

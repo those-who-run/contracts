@@ -85,7 +85,7 @@ class ProtoCheck(unittest.TestCase):
     def test_editing_a_proto_without_regenerating_fails_fresh(self):
         self.edit(
             "  uint32 last_seq = 11;\n",
-            "  uint32 last_seq = 11;\n  // The stint the lap was in.\n  int32 stint = 12;\n",
+            "  uint32 last_seq = 11;\n  // The stint the lap was in.\n  int32 stint = 100;\n",
         )
         code, out = self.check("fresh")
         self.assertEqual(code, 1, out)
@@ -105,7 +105,7 @@ class ProtoCheck(unittest.TestCase):
     def test_a_64_bit_integer_fails_wide(self):
         for wide in ("int64", "uint64", "sint64", "fixed64", "sfixed64"):
             with self.subTest(type=wide):
-                field = f"  // A wide field.\n  {wide} big = 12;\n"
+                field = f"  // A wide field.\n  {wide} big = 100;\n"
                 self.edit("  uint32 last_seq = 11;\n", "  uint32 last_seq = 11;\n" + field)
                 code, out = self.check("wide")
                 self.assertEqual(code, 1, out)
@@ -116,7 +116,7 @@ class ProtoCheck(unittest.TestCase):
         self.edit('package twr.events.v1;\n', 'package twr.events.v1;\n\nimport "google/protobuf/wrappers.proto";\n')
         for wrapper in ("Int64Value", "UInt64Value"):
             with self.subTest(type=wrapper):
-                field = f"  // A wrapped wide field.\n  google.protobuf.{wrapper} big = 12;\n"
+                field = f"  // A wrapped wide field.\n  google.protobuf.{wrapper} big = 100;\n"
                 self.edit("  uint32 last_seq = 11;\n", "  uint32 last_seq = 11;\n" + field)
                 code, out = self.check("wide")
                 self.assertEqual(code, 1, out)

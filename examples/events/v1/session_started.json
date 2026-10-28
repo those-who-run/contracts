@@ -8,5 +8,8 @@
   "joinedPartWay": false,
   "firstSeq": 1200,
   "startedAt": "2026-10-26T19:30:05.250Z",
-  "fuelAtStart": 100
+  "fuelAtStart": 100,
+  "carName": "Honda Civic Si Group A version '87",
+  "frameTrackId": 442,
+  "fuelCapacity": 100
 }

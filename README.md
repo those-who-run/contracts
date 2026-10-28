@@ -70,7 +70,23 @@ headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 | `twr.telemetry.v1.Frame` | One decoded telemetry packet, about 60 a second: every value v1 stored per frame, its `seq` and the packet's raw `flags`. | [`frame.json`](examples/telemetry/v1/frame.json) |
 | `twr.events.v1.SessionStarted` | A session began. | [`session_started.json`](examples/events/v1/session_started.json) |
 | `twr.events.v1.LapCompleted` | A lap ended: its time, fuel, position and pit role. | [`lap_completed.json`](examples/events/v1/lap_completed.json) |
-| `twr.events.v1.SessionEnded` | A session ended, why, and its summary. | [`session_ended.json`](examples/events/v1/session_ended.json) |
+| `twr.events.v1.SessionEnded` | A session ended, why, and its summary: v1's `summary.json`, laps and pit stops included. | [`session_ended.json`](examples/events/v1/session_ended.json); from v1's summaries, [`session_ended_suzuka_pit_stop.json`](examples/events/v1/session_ended_suzuka_pit_stop.json) and [`session_ended_suzuka_continued.json`](examples/events/v1/session_ended_suzuka_continued.json) |
+| `twr.events.v1.SessionContinued` | A new ecu run continued the session the run before it left open, with the gap and the carried track. | [`session_continued.json`](examples/events/v1/session_continued.json) |
+| `twr.events.v1.SessionDiscarded` | A held start was a GT7 replay or demo, not a drive. | [`session_discarded.json`](examples/events/v1/session_discarded.json) |
+| `twr.events.v1.SessionKindChanged` | ecu's verdict on the session's kind changed. | [`session_kind.json`](examples/events/v1/session_kind.json) |
+| `twr.events.v1.SessionTrackChanged` | ecu's verdict on the session's track changed. | [`session_track.json`](examples/events/v1/session_track.json) |
+| `twr.events.v1.SessionPaused` | The session paused. | [`session_paused.json`](examples/events/v1/session_paused.json) |
+| `twr.events.v1.SessionResumed` | The session's pause ended. | [`session_resumed.json`](examples/events/v1/session_resumed.json) |
+| `twr.events.v1.LapBestImproved` | The session's best lap improved. | [`lap_best.json`](examples/events/v1/lap_best.json) |
+| `twr.events.v1.RaceFinalLapStarted` | The final lap of a lap race began. | [`race_final_lap.json`](examples/events/v1/race_final_lap.json) |
+| `twr.events.v1.RacePositionChanged` | The car's position changed and settled. | [`race_position.json`](examples/events/v1/race_position.json) |
+| `twr.events.v1.RaceFinished` | The race finished, at the flag or a timed finish. | [`race_finished.json`](examples/events/v1/race_finished.json) |
+
+`SessionSummary`, `SessionKind`, `TrackVerdict`, `TrackCandidate`,
+`SessionGap` and `PitStop` are parts of these events, not events of their own.
+[`summary_v1_test.go`](summary_v1_test.go) checks the two summaries from v1
+against what v1.0.0 wrote for its recordings, kept under
+[`testdata/v1/`](testdata/v1), field by field.
 
 Which subject each message travels on, with its `ce-type`, stream,
 producers, consumers and `Nats-Msg-Id` scheme, and which KV key holds which

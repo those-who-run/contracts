@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package twr.events.v1;
+
+// FinishKind is how a race reached its finish.
+enum FinishKind {
+  // Not set.
+  FINISH_KIND_UNSPECIFIED = 0;
+  // The chequered flag fell: the game's first finished frame in a lap race.
+  FINISH_KIND_FLAG = 1;
+  // A timed race's finish, which GT7 does not flag: the first line crossing
+  // after the clock ran out, seen as GT7 taking the car over, throttle and
+  // brake both 0 at over 20 km/h for 3 s (v1's Engine._timed_finish).
+  FINISH_KIND_TIMED = 2;
+}
+
+// RaceFinalLapStarted says the last lap of a lap race began: the lap counter
+// reached the lap total. Once per session at most, and never in a timed
+// session, which has no lap total (v1's final_lap rule).
+message RaceFinalLapStarted {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The final lap's number, from 1: the session's lap total.
+  int32 lap = 2;
+  // The `seq` of the frame the lap counter reached it on, in the ecu run that
+  // published this event: the event's `at`.
+  uint32 at = 3;
+}
+
+// RacePositionChanged says the car's position changed and held its new value
+// for 3 s, so a burst of swaps is one change (v1's position rule). Only in a
+// session with a field GT7 flags, not in the race's first 3 s, and not in the
+// pit lane: the first settled change after the pit exit gives the net change.
+message RacePositionChanged {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The position before, from 1: the last one this event published, or the
+  // grid slot for the first change. Absent when no earlier position was
+  // known.
+  optional int32 previous_position = 2;
+  // The new, settled position, from 1.
+  int32 position = 3;
+  // The `seq` of the frame the position settled on, 3 s after it changed, in
+  // the ecu run that published this event: the event's `at`.
+  uint32 at = 4;
+}
+
+// RaceFinished says the race reached its finish: the chequered flag in a lap
+// race, or the timed finish in a timed race with a field. Once per session at
+// most. The session ends after it, with END_REASON_FINISHED or
+// END_REASON_TIMED_FINISH, and its summary's finished is true.
+message RaceFinished {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // How the race finished (FinishKind).
+  FinishKind kind = 2;
+  // The last lap's number, from 1: the lap completed at the line.
+  int32 lap = 3;
+  // The car's position at the line, from 1, on the flag frame or the timed
+  // finish's crossing frame. Absent when the game showed none.
+  optional int32 position = 4;
+  // The race's time, in milliseconds: the sum of its complete laps' times
+  // (v1's summary `total_time_ms`). Absent when no lap was timed.
+  optional int32 total_time_ms = 5;
+  // The best lap's number, from 1, as LapBestImproved last gave it. Absent
+  // when no lap counted for best.
+  optional int32 best_lap = 6;
+  // The best lap's time, in milliseconds, as LapBestImproved last gave it.
+  // Absent with best_lap.
+  optional int32 best_lap_time_ms = 7;
+  // The `seq` of the flag frame, or of the timed finish's crossing frame, in
+  // the ecu run that published this event: the event's `at`.
+  uint32 at = 8;
+}

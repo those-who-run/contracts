@@ -9,5 +9,6 @@
   "position": 2,
   "pitRole": "PIT_ROLE_NONE",
   "firstSeq": 13311,
-  "lastSeq": 19236
+  "lastSeq": 19236,
+  "countsForBest": true
 }
