@@ -77,8 +77,9 @@ enum EndReason {
   // The driver left the session before its end, back to the menus through a
   // loading screen with the lap counter reset, as quitting from the pause
   // menu does (v1's race_ended on a loading frame at lap 0). Straight back to
-  // a menu or the track screen is END_REASON_MENU. Before contracts v0.2.0,
-  // QUIT also covered what END_REASON_MENU and END_REASON_TIMED_FINISH now
+  // a menu or the track screen is END_REASON_MENU. Before the contracts
+  // release that added END_REASON_MENU and END_REASON_TIMED_FINISH, QUIT also
+  // covered what END_REASON_MENU and END_REASON_TIMED_FINISH now
   // say: ecu sent it for any end that was not the flag. A reader of events
   // stored before that, such as logbook's or the parity harness's, maps them.
   END_REASON_QUIT = 2;

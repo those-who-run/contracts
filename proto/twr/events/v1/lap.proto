@@ -65,7 +65,8 @@ message LapCompleted {
   // lap_time rule reads it (paddock#83): a complete lap that is neither an
   // in-lap nor an out-lap (pit_role) counts, except lap 1 when GT7 leaves it
   // out. GT7 leaves out a start lap from a grid ahead of the line: lap 1 of a
-  // lap race never counts, and lap 1 of a timed session counts only when GT7
+  // session with a lap total (a lap race or solo laps) never counts, and lap
+  // 1 of a timed session counts only when GT7
   // set its own best on the frame that posted lap 1's time (qualifying, out
   // of the pits onto the line, does; a timed race from a grid does not, so
   // its best stays blank, as at Suzuka East on 2026-10-16 and Suzuka on

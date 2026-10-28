@@ -180,14 +180,14 @@ func TestCommentsSayHowToReadThem(t *testing.T) {
 		// counts_for_best is GT7's rule, which leaves lap 1 of a timed race from a
 		// grid out as well as a lap race's, and ecu knows it when the lap ends.
 		{"twr/events/v1/lap.proto", "counts_for_best", []string{
-			"GT7's rule", "lap 1 of a lap race never counts",
+			"GT7's rule", "lap 1 of a session with a lap total (a lap race or solo laps) never counts",
 			"lap 1 of a timed session counts only when GT7 set its own best", "ecu knows it when the lap ends",
 		}},
 		// seqs across a restart gap.
 		{"twr/events/v1/lap.proto", "first_seq", []string{"continuing run's first frame of the lap", "only within the run"}},
 		{"twr/events/v1/session.proto", "laps", []string{"only within the", "two runs"}},
 		// QUIT's meaning narrowed in v0.2.0, and how to read rows from before it.
-		{"twr/events/v1/session.proto", "END_REASON_QUIT", []string{"Before contracts v0.2.0", "END_REASON_MENU", "END_REASON_TIMED_FINISH", "maps them"}},
+		{"twr/events/v1/session.proto", "END_REASON_QUIT", []string{"Before the contracts release that added END_REASON_MENU and END_REASON_TIMED_FINISH", "END_REASON_MENU", "END_REASON_TIMED_FINISH", "maps them"}},
 		// best_lap's known difference from v1.
 		{"twr/events/v1/session.proto", "best_lap", []string{"Absent until ecu decides it", "known difference from v1", "pit laps included", "paddock#83"}},
 		// The pause number is the id's <pause>, carried across a restart.
