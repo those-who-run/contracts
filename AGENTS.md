@@ -108,8 +108,8 @@ in paddock mean for a change here:
 - **Every subject and KV key is in [`subjects.yaml`](subjects.yaml)**, with its
   message, producers and consumers. A subject also has its `ce-type`
   (`run.thosewho.<area>.<what>.v<N>`, one to one with its message), stream and
-  `Nats-Msg-Id` scheme, which for an event is `<sid>:<area>.<what>:<part>`
-  (`<sid>:lap.completed:<n>`); a KV key its bucket. A new message in an events package
+  `Nats-Msg-Id` scheme, which for an event is `<src>:<sid>:<area>.<what>:<part>`
+  (`<src>:<sid>:lap.completed:<n>`); a KV key its bucket. A new message in an events package
   (`twr.events.*`, any version) needs its entry in the same change, or a line
   under `helpers` if it is only a part of an event: `internal/catalogue`'s test
   fails without one, and on a pattern outside ADR 0001's subject scheme. A new

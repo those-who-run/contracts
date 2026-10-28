@@ -17,7 +17,7 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook]
-    msg_id: <sid>:session.started:1
+    msg_id: <src>:<sid>:session.started:1
     description: A session began.
 
   - pattern: twr.v1.<src>.evt.<sid>.lap.completed
@@ -27,7 +27,7 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook]
-    msg_id: <sid>:lap.completed:<n>
+    msg_id: <src>:<sid>:lap.completed:<n>
     description: A lap ended, complete or partial.
 
   - pattern: twr.v1.<src>.evt.<sid>.session.ended
@@ -37,7 +37,7 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook, podium]
-    msg_id: <sid>:session.ended:1
+    msg_id: <src>:<sid>:session.ended:1
     description: A session ended, why, and its summary.
 
 helpers:

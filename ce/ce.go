@@ -5,7 +5,7 @@
 //
 // A producer encodes:
 //
-//	h, data, err := ce.Encode(lap, ce.Event{ID: sid + ":lap.completed:3", Source: "/twr/ecu/gt7", Time: received})
+//	h, data, err := ce.Encode(lap, ce.Event{ID: src + ":" + sid + ":lap.completed:3", Source: "/twr/ecu/gt7", Time: received})
 //	msg := &nats.Msg{Subject: subject, Header: nats.Header(h), Data: data}
 //
 // and a consumer decodes, checking the ce-type before it reads the payload:
@@ -67,7 +67,8 @@ func (h Header) Get(key string) string {
 // from the message itself.
 type Event struct {
 	// ID is the event's deterministic id, the ce-id and the Nats-Msg-Id, built
-	// as subjects.yaml's msg_id scheme says, such as `<sid>:lap.completed:<n>`.
+	// as subjects.yaml's msg_id scheme says, such as
+	// `<src>:<sid>:lap.completed:<n>`.
 	ID string
 	// Source is the producer: `/twr/<component>`, with the game after it only
 	// where the producer is game-specific, such as `/twr/ecu/gt7`.

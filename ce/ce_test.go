@@ -31,9 +31,9 @@ var messages = []struct {
 	event   ce.Event
 }{
 	{"telemetry/v1/frame.json", &telemetryv1.Frame{}, ce.Event{ID: "01JB8Z4W7Q2M9T3XK5R6N8PDHF:frame:18234", Source: "/twr/ecu/gt7", Time: at}},
-	{"events/v1/session_started.json", &eventsv1.SessionStarted{}, ce.Event{ID: "01JB8Z3K5Q9T2M7XW4R6N1PDHE:session.started:1", Source: "/twr/ecu/gt7", Time: at}},
-	{"events/v1/lap_completed.json", &eventsv1.LapCompleted{}, ce.Event{ID: "01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3", Source: "/twr/ecu/gt7", Time: at}},
-	{"events/v1/session_ended.json", &eventsv1.SessionEnded{}, ce.Event{ID: "01JB8Z3K5Q9T2M7XW4R6N1PDHE:session.ended:1", Source: "/twr/ecu/gt7", Time: at}},
+	{"events/v1/session_started.json", &eventsv1.SessionStarted{}, ce.Event{ID: "live:01JB8Z3K5Q9T2M7XW4R6N1PDHE:session.started:1", Source: "/twr/ecu/gt7", Time: at}},
+	{"events/v1/lap_completed.json", &eventsv1.LapCompleted{}, ce.Event{ID: "live:01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3", Source: "/twr/ecu/gt7", Time: at}},
+	{"events/v1/session_ended.json", &eventsv1.SessionEnded{}, ce.Event{ID: "live:01JB8Z3K5Q9T2M7XW4R6N1PDHE:session.ended:1", Source: "/twr/ecu/gt7", Time: at}},
 }
 
 // example is the message's example, decoded.
@@ -80,18 +80,18 @@ var rfc3339UTC = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)
 func TestTheHeaders(t *testing.T) {
 	local := time.FixedZone("UTC+2", 2*60*60)
 	lap := &eventsv1.LapCompleted{SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE", Lap: 3}
-	h, _, err := ce.Encode(lap, ce.Event{ID: "01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3", Source: "/twr/ecu/gt7", Time: at.In(local)})
+	h, _, err := ce.Encode(lap, ce.Event{ID: "live:01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3", Source: "/twr/ecu/gt7", Time: at.In(local)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]string{
 		"ce-specversion":     "1.0",
-		"ce-id":              "01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3",
+		"ce-id":              "live:01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3",
 		"ce-type":            "run.thosewho.lap.completed.v1",
 		"ce-source":          "/twr/ecu/gt7",
 		"ce-time":            "2026-10-26T19:30:05.25Z",
 		"ce-datacontenttype": "application/json",
-		"Nats-Msg-Id":        "01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3",
+		"Nats-Msg-Id":        "live:01JB8Z3K5Q9T2M7XW4R6N1PDHE:lap.completed:3",
 	}
 	if len(h) != len(want) {
 		t.Errorf("%d headers, want %d: %v", len(h), len(want), h)

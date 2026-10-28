@@ -48,7 +48,7 @@ CloudEvents headers set and checked by hand (ADR 0002, points 2 to 4).
 
 ```go
 // A producer: the payload and every header, Nats-Msg-Id the same as ce-id.
-h, data, err := ce.Encode(lap, ce.Event{ID: sid + ":lap.completed:3", Source: "/twr/ecu/gt7", Time: received})
+h, data, err := ce.Encode(lap, ce.Event{ID: src + ":" + sid + ":lap.completed:3", Source: "/twr/ecu/gt7", Time: received})
 msg := &nats.Msg{Subject: subject, Header: nats.Header(h), Data: data}
 
 // A consumer: the ce-type is checked before the payload is read.

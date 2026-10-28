@@ -192,7 +192,7 @@ func TestCETypesAndMessagesAreOneToOne(t *testing.T) {
 	// session open (the _ token, paddock#70), and one entry per callout level.
 	c = load(t, repo, subjects)
 	noSession := c.Subjects[2]
-	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.lap.completed", "<run>:lap.completed:<n>"
+	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.lap.completed", "<src>:<run>:lap.completed:<n>"
 	c.Subjects = append(c.Subjects, noSession)
 	for _, level := range []string{"p0", "p1", "p2"} {
 		callout := c.Subjects[2]
@@ -207,8 +207,8 @@ func TestCETypesAndMessagesAreOneToOne(t *testing.T) {
 	assertFails(t, c, protoregistry.GlobalFiles, "subjects[1] is the same subject or key")
 }
 
-// An event's msg_id has the one style (paddock#25, 2026-10-26):
-// `<sid>:<area>.<what>:<part>`, with its ce-type's <area>.<what>.
+// An event's msg_id has the one style (paddock#25, 2026-10-26; paddock#279):
+// `<src>:<sid>:<area>.<what>:<part>`, with its ce-type's <area>.<what>.
 func TestEventMsgIDs(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -216,12 +216,15 @@ func TestEventMsgIDs(t *testing.T) {
 		msgID   string
 		want    string
 	}{
-		{"the old colon form", "", "<sid>:lap:<n>:completed", `msg_id "<sid>:lap:<n>:completed" is not <sid>:<area>.<what>`},
-		{"no part after the type", "", "<sid>:lap.completed", "is not <sid>:<area>.<what>"},
-		{"another event's area and what", "", "<sid>:lap.started:<n>", "names lap.started, but the ce_type is lap.completed's"},
-		{"<run> on a session's subject", "", "<run>:lap.completed:<n>", "starts with <run>, want <sid>"},
-		{"<sid> with no session open", "twr.v1.<src>.evt._.lap.completed", "<sid>:lap.completed:<n>", "msg_id uses <sid>, which the pattern does not carry"},
-		{"<sid> in its place with no session open", "twr.v1.<src>.evt._.lap.completed", "<n>:lap.completed:<n>", "is not <sid>:<area>.<what>"},
+		{"the old colon form", "", "<src>:<sid>:lap:<n>:completed", `msg_id "<src>:<sid>:lap:<n>:completed" is not <src>:<sid>:<area>.<what>`},
+		{"no source in front, as v0.1.4 had", "", "<sid>:lap.completed:<n>", `msg_id "<sid>:lap.completed:<n>" is not <src>:<sid>:<area>.<what>`},
+		{"the source after the session", "", "<sid>:<src>:lap.completed:<n>", "is not <src>:<sid>:<area>.<what>"},
+		{"no part after the type", "", "<src>:<sid>:lap.completed", "is not <src>:<sid>:<area>.<what>"},
+		{"another event's area and what", "", "<src>:<sid>:lap.started:<n>", "names lap.started, but the ce_type is lap.completed's"},
+		{"<run> on a session's subject", "", "<src>:<run>:lap.completed:<n>", "has <run> after the source, want <sid>"},
+		{"<sid> with no session open", "twr.v1.<src>.evt._.lap.completed", "<src>:<sid>:lap.completed:<n>", "msg_id uses <sid>, which the pattern does not carry"},
+		{"<sid> in its place with no session open", "twr.v1.<src>.evt._.lap.completed", "<src>:<n>:lap.completed:<n>", "is not <src>:<sid>:<area>.<what>"},
+		{"no source with no session open", "twr.v1.<src>.evt._.lap.completed", "<run>:lap.completed:<n>", "is not <src>:<sid>:<area>.<what>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := load(t, repo, subjects)
@@ -234,7 +237,7 @@ func TestEventMsgIDs(t *testing.T) {
 	}
 	// More than one part is fine, as #70's car alarms have.
 	c := load(t, repo, subjects)
-	c.Subjects[2].MsgID = "<sid>:lap.completed:<n>:1"
+	c.Subjects[2].MsgID = "<src>:<sid>:lap.completed:<n>:1"
 	assertPasses(t, c, protoregistry.GlobalFiles)
 }
 

@@ -87,7 +87,7 @@ type Placeholder struct {
 
 // Placeholders are the known tokens.
 var Placeholders = []Placeholder{
-	{"<src>", "where the telemetry comes from: `live`, `parity`, or `replay-` followed by the replay's name", true, true, false},
+	{"<src>", "where the telemetry comes from: `live`, `parity`, or `replay-` followed by the replay's name", true, true, true},
 	{"<sid>", "the session id, a ULID ecu mints", true, true, true},
 	{"<run>", "the ecu run's id, a ULID ecu mints when it starts (not a replay's name)", false, false, true},
 	{"<seq>", "the frame's sequence number within the ecu run", false, false, true},
@@ -110,9 +110,10 @@ var (
 		{"callout", regexp.MustCompile(`^twr\.v1\.<src>\.callout\.p[0-2]$`), "CALLOUTS"},
 	}
 	placeholder = regexp.MustCompile(`<[^<>]*>`)
-	// An event's msg_id (paddock#25, 2026-10-26): its session, its ce-type's
-	// <area>.<what>, then one or more parts, each a word or a placeholder.
-	eventID = regexp.MustCompile(`^(<sid>|<run>):([a-z0-9]+\.[a-z0-9]+):([a-z0-9]+|<[a-z]+>)(:([a-z0-9]+|<[a-z]+>))*$`)
+	// An event's msg_id (paddock#25, 2026-10-26, with the source in front from
+	// paddock#279): its source, its session, its ce-type's <area>.<what>, then
+	// one or more parts, each a word or a placeholder.
+	eventID = regexp.MustCompile(`^<src>:(<sid>|<run>):([a-z0-9]+\.[a-z0-9]+):([a-z0-9]+|<[a-z]+>)(:([a-z0-9]+|<[a-z]+>))*$`)
 	// A ce-type's <area>.<what>: what comes between run.thosewho. and the version.
 	typeName = regexp.MustCompile(`^run\.thosewho\.(.+)\.v[1-9][0-9]*$`)
 	// A KV bucket's name, and a key: dot-separated tokens or placeholders.
@@ -249,13 +250,17 @@ func checkSubject(s Subject, fail func(string, ...any)) {
 }
 
 // checkEventID checks an event's msg_id against the one style
-// (paddock#25, 2026-10-26): `<sid>:<area>.<what>:<n>`, where <area>.<what> is
-// the event's ce-type's, such as `<sid>:lap.completed:<n>`. An event published
-// with no session open (evt._) has `<run>`, the ecu run, in place of `<sid>`.
+// (paddock#25, 2026-10-26; paddock#279): `<src>:<sid>:<area>.<what>:<n>`,
+// where <area>.<what> is the event's ce-type's, such as
+// `<src>:<sid>:lap.completed:<n>`. The source comes first because EVENTS
+// deduplicates by Nats-Msg-Id across the whole stream, and two sources can
+// carry the same session id (two replays of one recording, or a replay and the
+// parity harness). An event published with no session open (evt._) has
+// `<run>`, the ecu run, in place of `<sid>`.
 func checkEventID(s Subject, fail func(string, ...any)) {
 	m := eventID.FindStringSubmatch(s.MsgID)
 	if m == nil {
-		fail("msg_id %q is not <sid>:<area>.<what>:<part>[:<part>…]", s.MsgID)
+		fail("msg_id %q is not <src>:<sid>:<area>.<what>:<part>[:<part>…]", s.MsgID)
 		return
 	}
 	want := "<sid>"
@@ -263,7 +268,7 @@ func checkEventID(s Subject, fail func(string, ...any)) {
 		want = "<run>"
 	}
 	if m[1] != want {
-		fail("msg_id %q starts with %s, want %s for this subject", s.MsgID, m[1], want)
+		fail("msg_id %q has %s after the source, want %s for this subject", s.MsgID, m[1], want)
 	}
 	if t := typeName.FindStringSubmatch(s.CEType); t != nil && t[1] != m[2] {
 		fail("msg_id %q names %s, but the ce_type is %s's", s.MsgID, m[2], t[1])
@@ -335,9 +340,12 @@ func (c *Catalogue) Render() []byte {
 	b.WriteString("Every message is sent as protobuf's JSON form (`ce-datacontenttype: " + ContentType + "`)\n")
 	b.WriteString("with the full CloudEvents header set, and its `Nats-Msg-Id` is the same as its\n")
 	b.WriteString("`ce-id`. An event subject has `" + NoSession + "` in place of `<sid>` when it is published while\n")
-	b.WriteString("no session is open. An event's id is `<sid>:<area>.<what>:<part>`, with its\n")
-	b.WriteString("`ce-type`'s `<area>.<what>`, such as `<sid>:lap.completed:<n>`; one that happens once\n")
-	b.WriteString("per session ends in `:1`, and with no session open `<run>` takes `<sid>`'s place.\n\n")
+	b.WriteString("no session is open. An event's id is `<src>:<sid>:<area>.<what>:<part>`, with its\n")
+	b.WriteString("`ce-type`'s `<area>.<what>`, such as `<src>:<sid>:lap.completed:<n>`; one that happens\n")
+	b.WriteString("once per session ends in `:1`, and with no session open `<run>` takes `<sid>`'s place.\n")
+	b.WriteString("The source comes first because `EVENTS` deduplicates by `Nats-Msg-Id` across the\n")
+	b.WriteString("whole stream, and two sources can carry the same session id. A frame's id is\n")
+	b.WriteString("`<run>:frame:<seq>`, without the source.\n\n")
 	b.WriteString("| Subject | Message | `ce-type` | Stream | Producers | Consumers | `ce-id` and `Nats-Msg-Id` |\n")
 	b.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
 	var kv []Subject
