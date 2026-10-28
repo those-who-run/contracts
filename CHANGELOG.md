@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/those-who-run/contracts/compare/v0.1.5...v0.2.0) (2026-10-28)
+
+
+### Features
+
+* the session and race events, and the full session summary ([#22](https://github.com/those-who-run/contracts/issues/22)) ([ded14ae](https://github.com/those-who-run/contracts/commit/ded14ae96742d3aa04d93579964d909680bba58e))
+
 ## [0.1.5](https://github.com/those-who-run/contracts/compare/v0.1.4...v0.1.5) (2026-10-28)
 
 
