@@ -59,5 +59,5 @@ Parts of an event, not events themselves, so they have no subject: `twr.events.v
 | `<sid>` | the session id, a ULID ecu mints | subjects, KV keys, `msg_id` |
 | `<run>` | the ecu run's id, a ULID ecu mints when it starts (not a replay's name) | `msg_id` |
 | `<seq>` | a frame's sequence number within the ecu run: a frame's own, or the `at` of the frame an event happened on | `msg_id` |
-| `<n>` | the lap's number | `msg_id` |
-| `<pause>` | the pause's number in the session, from 1, counted on across an ecu restart | `msg_id` |
+| `<n>` | a lap's number: lap.completed's own, or for lap.best the lap whose end published it (LapBestChanged's ended_lap) | `msg_id` |
+| `<pause>` | the pause's number in the session, from 1, which ecu carries across a restart: a pause open across one keeps its number | `msg_id` |

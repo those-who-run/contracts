@@ -141,7 +141,7 @@ var examples = []struct {
 	}},
 	{"events/v1/lap_best.json", &eventsv1.LapBestChanged{
 		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA", Lap: 5, LapTimeMs: 59541,
-		PreviousBestMs: proto.Int32(60538), GapMs: proto.Int32(997), At: 19236,
+		PreviousBestMs: proto.Int32(60538), GapMs: proto.Int32(997), At: 19236, EndedLap: 5,
 	}},
 	{"events/v1/race_final_lap.json", &eventsv1.RaceFinalLapStarted{
 		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA", Lap: 6, At: 19237,

@@ -28,9 +28,15 @@ message RaceFinalLapStarted {
 }
 
 // RacePositionChanged says the car's position changed and held its new value
-// for 3 s, so a burst of swaps is one change (v1's position rule). Only in a
-// session with a field GT7 flags, not in the race's first 3 s, and not in the
-// pit lane: the first settled change after the pit exit gives the net change.
+// for 3 s, so a burst of swaps is one change (paddock#84). Only in a session
+// with a field GT7 flags, not in the race's first 3 s (the grid slot
+// settling), and not in the pit lane: the first settled change after the pit
+// exit gives the net change. It differs from v1's position callout on
+// purpose: the event records every settled change, for logbook, `live` and
+// strategy, while the callout (paddock#94) keeps v1's quieter rule on top of
+// it, nothing spoken in the race's first 15 s (start_grace_secs) and at most
+// one call each 10 s (min_interval_secs). The parity diff compares the
+// callouts with v1's; v1 published no position event to compare this with.
 message RacePositionChanged {
   // The session's id, as in its SessionStarted.
   string session_id = 1;

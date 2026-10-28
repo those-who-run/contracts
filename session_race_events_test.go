@@ -84,6 +84,7 @@ func TestAddedFieldNumbers(t *testing.T) {
 		{&eventsv1.LapCompleted{}, "counts_for_best", 12, protoreflect.BoolKind, false},
 		{&eventsv1.SessionPaused{}, "pause", 7, protoreflect.Int32Kind, false},
 		{&eventsv1.SessionResumed{}, "pause", 8, protoreflect.Int32Kind, false},
+		{&eventsv1.LapBestChanged{}, "ended_lap", 7, protoreflect.Int32Kind, false},
 		{&eventsv1.SessionSummary{}, "started_at", 8, protoreflect.MessageKind, true},
 		{&eventsv1.SessionSummary{}, "driving_ms", 10, protoreflect.Int32Kind, false},
 		{&eventsv1.SessionSummary{}, "track", 13, protoreflect.MessageKind, true},
@@ -162,7 +163,7 @@ func TestSummaryCommentsNameTheV1Field(t *testing.T) {
 func TestLapBestChangedGapCanBeNegative(t *testing.T) {
 	msg := &eventsv1.LapBestChanged{
 		SessionId: "01JB9R1C8E4Q6W2Y9T3K7M5PXB", Lap: 2, LapTimeMs: 67585,
-		PreviousBestMs: proto.Int32(62036), GapMs: proto.Int32(-5549), At: 4410,
+		PreviousBestMs: proto.Int32(62036), GapMs: proto.Int32(-5549), At: 4410, EndedLap: 2,
 	}
 	roundTrip(t, msg)
 	comment := leadingComment(t, "twr/events/v1/lap.proto", "gap_ms")
@@ -190,8 +191,20 @@ func TestCommentsSayHowToReadThem(t *testing.T) {
 		{"twr/events/v1/session.proto", "END_REASON_QUIT", []string{"Before the contracts release that added END_REASON_MENU and END_REASON_TIMED_FINISH", "END_REASON_MENU", "END_REASON_TIMED_FINISH", "maps them"}},
 		// best_lap's known difference from v1.
 		{"twr/events/v1/session.proto", "best_lap", []string{"Absent until ecu decides it", "known difference from v1", "pit laps included", "paddock#83"}},
-		// The pause number is the id's <pause>, carried across a restart.
-		{"twr/events/v1/session.proto", "pause = 7", []string{"<pause>", "across an ecu restart"}},
+		// The pause number is the id's <pause>, carried across a restart, and a
+		// pause open across one keeps it.
+		{"twr/events/v1/session.proto", "pause = 7", []string{"<pause>", "across an ecu restart", "a pause still open when ecu stopped keeps its number"}},
+		// lap.best's <n> is the lap that published it, which does not repeat.
+		{"twr/events/v1/lap.proto", "ended_lap", []string{"the <n> in the event's id", "lap alone could repeat"}},
+		// A restart through a loading screen reads as QUIT; RESTARTED is in place.
+		{"twr/events/v1/session.proto", "END_REASON_RESTARTED", []string{"restarted in place", "A restart through a loading screen at lap 0 is END_REASON_QUIT"}},
+		{"twr/events/v1/session.proto", "END_REASON_QUIT", []string{"A race restarted through a loading screen", "reads as QUIT too"}},
+		// A continued session keeps the start the earlier run saw.
+		{"twr/events/v1/session.proto", "START_TYPE_UNKNOWN", []string{"keeps the start the earlier run saw"}},
+		// best_lap when no lap has GT7's best time.
+		{"twr/events/v1/session.proto", "best_lap", []string{"no lap with its time", "whatever its counts_for_best"}},
+		// The position event differs from v1's callout on purpose.
+		{"twr/events/v1/race.proto", "RacePositionChanged", []string{"differs from v1's position callout on purpose", "start_grace_secs", "min_interval_secs"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			comment := leadingComment(t, tc.file, tc.name)

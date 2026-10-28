@@ -57,7 +57,8 @@ enum SessionType {
 // - race_ended on the first finished frame: END_REASON_FINISHED (the flag);
 // - race_ended after a timed finish: END_REASON_TIMED_FINISH;
 // - race_ended back to a menu or the track screen: END_REASON_MENU;
-// - race_ended on a loading screen with the lap counter reset: END_REASON_QUIT;
+// - race_ended on a loading screen with the lap counter reset, a quit or a
+//   restart through the loading screen: END_REASON_QUIT;
 // - race_restarted: END_REASON_RESTARTED;
 // - race_started while a session is open, a replay's or a demo's included:
 //   END_REASON_NEXT_SESSION_STARTED;
@@ -76,8 +77,11 @@ enum EndReason {
   END_REASON_FINISHED = 1;
   // The driver left the session before its end, back to the menus through a
   // loading screen with the lap counter reset, as quitting from the pause
-  // menu does (v1's race_ended on a loading frame at lap 0). Straight back to
-  // a menu or the track screen is END_REASON_MENU. Before the contracts
+  // menu does (v1's race_ended on a loading frame at lap 0). A race restarted
+  // through a loading screen, which is how GT7 restarts a race on lap 1 as on
+  // lap 2 (v1's race_restarted, SUGO 2026-10-18), looks the same and reads as
+  // QUIT too, the next session starting on the restart's first frame.
+  // Straight back to a menu or the track screen is END_REASON_MENU. Before the contracts
   // release that added END_REASON_MENU and END_REASON_TIMED_FINISH, QUIT also
   // covered what END_REASON_MENU and END_REASON_TIMED_FINISH now
   // say: ecu sent it for any end that was not the flag. A reader of events
@@ -93,9 +97,12 @@ enum EndReason {
   END_REASON_ENGINEER_STOPPED = 4;
   // ecu could not tell.
   END_REASON_UNKNOWN = 5;
-  // The session was restarted: the game's lap counter jumped back to a lower
-  // lap while driving (v1's race_restarted). This session ended on the frame
-  // before the jump, and the next session starts on the jump's frame.
+  // The session was restarted in place: the game's lap counter jumped back to
+  // a lower lap while driving, with no loading screen between (v1's
+  // race_restarted, as the restart option in qualifying's pause menu does).
+  // This session ended on the frame before the jump, and the next session
+  // starts on the jump's frame. A restart through a loading screen at lap 0
+  // is END_REASON_QUIT.
   END_REASON_RESTARTED = 6;
   // The next session started while this one was still open (v1's
   // race_started), so this one ended on the frame before it.
@@ -138,7 +145,10 @@ enum StartType {
   START_TYPE_ROLLING = 2;
   // A flying start over the line at speed, as a time trial's (v1's `flying`).
   START_TYPE_FLYING = 3;
-  // ecu could not tell, as for a session joined part way (v1's `unknown`).
+  // ecu could not tell (v1's `unknown`), as for a session joined part way
+  // whose start no run saw. A session continued after an ecu restart keeps
+  // the start the earlier run saw, as v1 did, though the continuing run
+  // joined part way.
   START_TYPE_UNKNOWN = 4;
 }
 
@@ -408,8 +418,11 @@ message SessionPaused {
   // published this event: the event's `at`. For a frozen stream it is 1 s
   // after since_t's frame.
   uint32 at = 6;
-  // The pause's number in the session, from 1, counted on across an ecu
-  // restart (paddock#76): the <pause> in the event's id.
+  // The pause's number in the session, from 1: the <pause> in the event's
+  // id. ecu carries the count across an ecu restart (paddock#76), as it
+  // carries paused_ms: a pause still open when ecu stopped keeps its number
+  // in the continuing run, so a SessionPaused sent again for it dedupes, and
+  // the next pause takes the next number.
   int32 pause = 7;
 }
 
@@ -452,9 +465,12 @@ message SessionSummary {
   // `laps_completed`).
   int32 laps_completed = 1;
   // The number of the best lap. Absent until ecu decides it, and when no lap
-  // counts for best: ecu decides it as v1's `best_lap_ms` does, GT7's own
-  // best when it has one (the first lap with that time), else the quickest
-  // lap that counts for best (LapCompleted's counts_for_best). A known
+  // counts for best: ecu decides it as v1's `best_lap_ms` does. GT7's own
+  // best wins when it has one and a lap has that time: the first such lap,
+  // whatever its counts_for_best (GT7's best can fall on a pit lap). Else, with
+  // no GT7 best or no lap with its time (as when GT7 set it on a lap ecu did
+  // not see), the quickest lap that counts for best (LapCompleted's
+  // counts_for_best), as v1 fell back to its quickest lap. A known
   // difference from v1: without GT7's best, v1's fallback (results.best_lap)
   // took the quickest complete lap, pit laps included, and left out lap 1 of
   // a lap race only when another lap was timed; ecu leaves out pit laps and

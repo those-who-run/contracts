@@ -280,7 +280,12 @@ type LapBestChanged struct {
 	GapMs *int32 `protobuf:"varint,5,opt,name=gap_ms,json=gapMs,proto3,oneof" json:"gap_ms,omitempty"`
 	// The `seq` of the frame the lap ended on, in the ecu run that published
 	// this event: the event's `at`, its lap.completed's last_seq.
-	At            uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	// The number of the lap whose end published this event, from 1: the <n> in
+	// the event's id. It is lap when that lap set the best, and a later lap
+	// when GT7's own best moved back to an earlier one, so lap alone could
+	// repeat within a session.
+	EndedLap      int32 `protobuf:"varint,7,opt,name=ended_lap,json=endedLap,proto3" json:"ended_lap,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -357,6 +362,13 @@ func (x *LapBestChanged) GetAt() uint32 {
 	return 0
 }
 
+func (x *LapBestChanged) GetEndedLap() int32 {
+	if x != nil {
+		return x.EndedLap
+	}
+	return 0
+}
+
 var File_twr_events_v1_lap_proto protoreflect.FileDescriptor
 
 const file_twr_events_v1_lap_proto_rawDesc = "" +
@@ -377,7 +389,7 @@ const file_twr_events_v1_lap_proto_rawDesc = "" +
 	" \x01(\rR\bfirstSeq\x12\x19\n" +
 	"\blast_seq\x18\v \x01(\rR\alastSeq\x12&\n" +
 	"\x0fcounts_for_best\x18\f \x01(\bR\rcountsForBestB\v\n" +
-	"\t_position\"\xdc\x01\n" +
+	"\t_position\"\xf9\x01\n" +
 	"\x0eLapBestChanged\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x10\n" +
@@ -385,7 +397,8 @@ const file_twr_events_v1_lap_proto_rawDesc = "" +
 	"\vlap_time_ms\x18\x03 \x01(\x05R\tlapTimeMs\x12-\n" +
 	"\x10previous_best_ms\x18\x04 \x01(\x05H\x00R\x0epreviousBestMs\x88\x01\x01\x12\x1a\n" +
 	"\x06gap_ms\x18\x05 \x01(\x05H\x01R\x05gapMs\x88\x01\x01\x12\x0e\n" +
-	"\x02at\x18\x06 \x01(\rR\x02atB\x13\n" +
+	"\x02at\x18\x06 \x01(\rR\x02at\x12\x1b\n" +
+	"\tended_lap\x18\a \x01(\x05R\bendedLapB\x13\n" +
 	"\x11_previous_best_msB\t\n" +
 	"\a_gap_ms*z\n" +
 	"\aPitRole\x12\x18\n" +

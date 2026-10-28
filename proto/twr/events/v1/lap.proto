@@ -97,4 +97,9 @@ message LapBestChanged {
   // The `seq` of the frame the lap ended on, in the ecu run that published
   // this event: the event's `at`, its lap.completed's last_seq.
   uint32 at = 6;
+  // The number of the lap whose end published this event, from 1: the <n> in
+  // the event's id. It is lap when that lap set the best, and a later lap
+  // when GT7's own best moved back to an earlier one, so lap alone could
+  // repeat within a session.
+  int32 ended_lap = 7;
 }

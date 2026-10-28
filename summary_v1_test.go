@@ -371,6 +371,7 @@ func TestSummariesFromV1(t *testing.T) {
 
 			summary := proto.Clone(got.GetSummary()).(*eventsv1.SessionSummary)
 			checkBest(t, summary)
+			checkCountsForBest(t, summary)
 			// What v1 did not store: which laps count for best, and the laps'
 			// session id.
 			for _, lap := range summary.GetLaps() {
@@ -386,18 +387,59 @@ func TestSummariesFromV1(t *testing.T) {
 	}
 }
 
-// best_lap names a lap that counts for best, with best_lap_time_ms, and no lap
-// that counts is quicker: counts_for_best, which v1 did not store, agrees with
-// v1's best_lap_ms.
+// checkBest checks best_lap against its contract: the first lap with GT7's own
+// best time when GT7 has one and a lap has it, whatever that lap's
+// counts_for_best, else the quickest lap that counts for best; and
+// best_lap_time_ms is that lap's time.
 func checkBest(t *testing.T, s *eventsv1.SessionSummary) {
 	t.Helper()
-	i := slices.IndexFunc(s.GetLaps(), func(l *eventsv1.LapCompleted) bool { return l.GetLap() == s.GetBestLap() })
-	if i < 0 || !s.GetLaps()[i].GetCountsForBest() || s.GetLaps()[i].GetLapTimeMs() != s.GetBestLapTimeMs() {
-		t.Errorf("best_lap %d is not a lap that counts for best with best_lap_time_ms %d", s.GetBestLap(), s.GetBestLapTimeMs())
+	var want *eventsv1.LapCompleted
+	if s.GameBestLapMs != nil {
+		for _, l := range s.GetLaps() {
+			if l.GetLapTimeMs() == s.GetGameBestLapMs() {
+				want = l
+				break
+			}
+		}
 	}
+	if want == nil {
+		for _, l := range s.GetLaps() {
+			if l.GetCountsForBest() && (want == nil || l.GetLapTimeMs() < want.GetLapTimeMs()) {
+				want = l
+			}
+		}
+	}
+	if want == nil {
+		if s.BestLap != nil || s.BestLapTimeMs != nil {
+			t.Errorf("best_lap %d is set, but no lap has GT7's best or counts for best", s.GetBestLap())
+		}
+		return
+	}
+	if s.GetBestLap() != want.GetLap() || s.GetBestLapTimeMs() != want.GetLapTimeMs() {
+		t.Errorf("best_lap %d in %d ms, want lap %d in %d ms", s.GetBestLap(), s.GetBestLapTimeMs(), want.GetLap(), want.GetLapTimeMs())
+	}
+}
+
+// checkCountsForBest checks each lap's counts_for_best against the rule in
+// its comment, lap by lap: a complete lap that is not a pit lap counts, but
+// lap 1 of a session with a lap total never does, and lap 1 of a timed
+// session only when GT7 counted it. v1's summary does not say whether GT7's
+// best was set on lap 1's frame, but GT7's best is its quickest counted lap:
+// a best slower than lap 1, or none at all, means GT7 left lap 1 out.
+func checkCountsForBest(t *testing.T, s *eventsv1.SessionSummary) {
+	t.Helper()
 	for _, l := range s.GetLaps() {
-		if l.GetCountsForBest() && (!l.GetComplete() || l.GetPitRole() != eventsv1.PitRole_PIT_ROLE_NONE || l.GetLapTimeMs() < s.GetBestLapTimeMs()) {
-			t.Errorf("lap %d counts for best, but is partial, a pit lap or quicker than the best", l.GetLap())
+		want := l.GetComplete() && l.GetPitRole() == eventsv1.PitRole_PIT_ROLE_NONE
+		if want && l.GetLap() == 1 {
+			switch {
+			case s.TotalLaps != nil, s.GameBestLapMs == nil, s.GetGameBestLapMs() > l.GetLapTimeMs():
+				want = false
+			default:
+				t.Fatalf("lap 1 of a timed session at or slower than GT7's best: the summary cannot tell whether GT7 counted it")
+			}
+		}
+		if l.GetCountsForBest() != want {
+			t.Errorf("lap %d counts_for_best is %v, want %v", l.GetLap(), l.GetCountsForBest(), want)
 		}
 	}
 }
