@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package twr.events.v1;
+
+// PitStop is one pit stop: the car came into the pit lane on one lap and left
+// it on the same lap or a later one. It is a part of SessionSummary, as one of
+// v1's summary.json `pit_stops`; the pit events (paddock#70) may carry it too.
+message PitStop {
+  // The stop's number in the session, from 1 (v1's `stop`). A session
+  // continued after an ecu restart counts on from the stops before it.
+  int32 stop = 1;
+  // The lap the car came into the pit lane on (v1's `in_lap`).
+  int32 in_lap = 2;
+  // The lap the car left the pit lane on (v1's `out_lap`): the in-lap itself
+  // when the lane crosses the line after the box. Absent while the car is
+  // still in the pit lane, as at the end of a session that ended there.
+  optional int32 out_lap = 3;
+  // The time from the pit lane's entry to its exit, in milliseconds: the
+  // limiter, the box and the drive out (v1's `pit_lane_secs`, in seconds to
+  // 2 decimals). Absent while the car is still in the pit lane.
+  optional int32 pit_lane_ms = 4;
+  // The time the car stood still in the pit lane, mostly in the box, in
+  // milliseconds (v1's `stationary_secs`, in seconds to 2 decimals).
+  int32 stationary_ms = 5;
+  // The fuel in the tank as the car entered the pit lane, in litres, rounded
+  // to 3 decimals (v1's `fuel_before`).
+  double fuel_before = 6;
+  // The fuel in the tank as the car left, or now while it is still in the
+  // pit lane, in litres, rounded to 3 decimals (v1's `fuel_after`).
+  double fuel_after = 7;
+  // The fuel added, in litres, rounded to 3 decimals: fuel_after less
+  // fuel_before, and never below 0 (v1's `fuel_added`).
+  double fuel_added = 8;
+  // Whether the tyres were changed (v1's `tyres_changed`).
+  bool tyres_changed = 9;
+  // The car's speed on its first driving frame after the entry, which is the
+  // pit limiter's, in km/h, rounded to 1 decimal (v1's `pit_lane_kph`). 0 is
+  // a real value: GT7 can hand the car over at rest. Absent when no driving
+  // frame came after the entry.
+  optional double pit_lane_kph = 10;
+  // The car's position as it entered the pit lane, from 1 (v1's
+  // `position_before`). Absent when the game reported none.
+  optional int32 position_before = 11;
+  // The car's position as it left the pit lane, from 1 (v1's
+  // `position_after`). Absent when the game reported none, or while the car is
+  // still in the pit lane.
+  optional int32 position_after = 12;
+  // What the pit detector saw, in a sentence for people, such as "entry
+  // loading cut at 60.0 km/h; exit loading cut" (v1's `evidence`). Its wording
+  // is not part of the contract.
+  string evidence = 13;
+}

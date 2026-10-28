@@ -163,7 +163,26 @@ func (SessionType) EnumDescriptor() ([]byte, []int) {
 	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{1}
 }
 
-// EndReason is why a session ended.
+// EndReason is why a session ended. Each of v1's ways a session ends maps to
+// one value, with SessionSummary's ended_paused for the three that end it in
+// a pause (v1's Engine._end_paused):
+//
+//   - race_ended on the first finished frame: END_REASON_FINISHED (the flag);
+//   - race_ended after a timed finish: END_REASON_TIMED_FINISH;
+//   - race_ended back to a menu or the track screen: END_REASON_MENU;
+//   - race_ended on a loading screen with the lap counter reset, a quit or a
+//     restart through the loading screen: END_REASON_QUIT;
+//   - race_restarted: END_REASON_RESTARTED;
+//   - race_started while a session is open, a replay's or a demo's included:
+//     END_REASON_NEXT_SESSION_STARTED;
+//   - _end_paused "the feed was lost": END_REASON_TELEMETRY_LOST, ended_paused;
+//   - _end_paused "paused for N min": END_REASON_PAUSE_LIMIT, ended_paused;
+//   - _end_paused "the frames stopped": END_REASON_INPUT_ENDED, ended_paused;
+//   - close_session at the end of a replay, not in a pause:
+//     END_REASON_INPUT_ENDED;
+//   - the engineer's shutdown (v1's `engineer_shutdown`): no session.ended, as
+//     the session waits to be continued (paddock#76); if it is not,
+//     END_REASON_ENGINEER_STOPPED, with ended_paused when it stopped in a pause.
 type EndReason int32
 
 const (
@@ -171,39 +190,69 @@ const (
 	EndReason_END_REASON_UNSPECIFIED EndReason = 0
 	// The race was finished: the chequered flag fell.
 	EndReason_END_REASON_FINISHED EndReason = 1
-	// The driver left the session before its end, back to the menus.
+	// The driver left the session before its end, back to the menus through a
+	// loading screen with the lap counter reset, as quitting from the pause
+	// menu does (v1's race_ended on a loading frame at lap 0). A race restarted
+	// through a loading screen, which is how GT7 restarts a race on lap 1 as on
+	// lap 2 (v1's race_restarted, SUGO 2026-10-18), looks the same and reads as
+	// QUIT too, the next session starting on the restart's first frame.
+	// Straight back to a menu or the track screen is END_REASON_MENU. Before the contracts
+	// release that added END_REASON_MENU and END_REASON_TIMED_FINISH, QUIT also
+	// covered what END_REASON_MENU and END_REASON_TIMED_FINISH now
+	// say: ecu sent it for any end that was not the flag. A reader of events
+	// stored before that, such as logbook's or the parity harness's, maps them.
 	EndReason_END_REASON_QUIT EndReason = 2
-	// The telemetry stopped arriving and did not come back in time.
+	// The telemetry stopped arriving and did not come back in time. v1 ended a
+	// session this way only in a pause (Engine._end_paused, "the feed was
+	// lost": the PS5 switched off or put to rest), with ended_paused; lost while
+	// driving, the session stays open.
 	EndReason_END_REASON_TELEMETRY_LOST EndReason = 3
 	// ecu itself stopped, for example on shutdown. Not the end of a replayed
 	// recording, which is END_REASON_INPUT_ENDED.
 	EndReason_END_REASON_ENGINEER_STOPPED EndReason = 4
 	// ecu could not tell.
 	EndReason_END_REASON_UNKNOWN EndReason = 5
-	// The session was restarted: the game's lap counter jumped back to a lower
-	// lap while driving (v1's race_restarted). This session ended on the frame
-	// before the jump, and the next session starts on the jump's frame.
+	// The session was restarted in place: the game's lap counter jumped back to
+	// a lower lap while driving, with no loading screen between (v1's
+	// race_restarted, as the restart option in qualifying's pause menu does).
+	// This session ended on the frame before the jump, and the next session
+	// starts on the jump's frame. A restart through a loading screen at lap 0
+	// is END_REASON_QUIT.
 	EndReason_END_REASON_RESTARTED EndReason = 6
 	// The next session started while this one was still open (v1's
 	// race_started), so this one ended on the frame before it.
 	EndReason_END_REASON_NEXT_SESSION_STARTED EndReason = 7
 	// The frames stopped: the input ecu was reading came to its end, as at the
-	// end of a replayed recording, while ecu itself kept running.
+	// end of a replayed recording, while ecu itself kept running. In a pause
+	// it is v1's Engine._end_paused "the frames stopped", with ended_paused.
 	EndReason_END_REASON_INPUT_ENDED EndReason = 8
+	// The race reached its timed finish (RaceFinished with FINISH_KIND_TIMED)
+	// and then ended, at the results. A timed race has no finished frame.
+	EndReason_END_REASON_TIMED_FINISH EndReason = 9
+	// The driver left the session before its end straight back to a menu or
+	// the track screen (v1's race_ended on a menu or track-screen frame).
+	EndReason_END_REASON_MENU EndReason = 10
+	// The session stayed paused for the pause limit (ECU_PAUSE_LIMIT_SECS, off
+	// by default), so it ended paused, as of the pause's start (v1's
+	// Engine._end_paused "paused for N min"), with ended_paused.
+	EndReason_END_REASON_PAUSE_LIMIT EndReason = 11
 )
 
 // Enum value maps for EndReason.
 var (
 	EndReason_name = map[int32]string{
-		0: "END_REASON_UNSPECIFIED",
-		1: "END_REASON_FINISHED",
-		2: "END_REASON_QUIT",
-		3: "END_REASON_TELEMETRY_LOST",
-		4: "END_REASON_ENGINEER_STOPPED",
-		5: "END_REASON_UNKNOWN",
-		6: "END_REASON_RESTARTED",
-		7: "END_REASON_NEXT_SESSION_STARTED",
-		8: "END_REASON_INPUT_ENDED",
+		0:  "END_REASON_UNSPECIFIED",
+		1:  "END_REASON_FINISHED",
+		2:  "END_REASON_QUIT",
+		3:  "END_REASON_TELEMETRY_LOST",
+		4:  "END_REASON_ENGINEER_STOPPED",
+		5:  "END_REASON_UNKNOWN",
+		6:  "END_REASON_RESTARTED",
+		7:  "END_REASON_NEXT_SESSION_STARTED",
+		8:  "END_REASON_INPUT_ENDED",
+		9:  "END_REASON_TIMED_FINISH",
+		10: "END_REASON_MENU",
+		11: "END_REASON_PAUSE_LIMIT",
 	}
 	EndReason_value = map[string]int32{
 		"END_REASON_UNSPECIFIED":          0,
@@ -215,6 +264,9 @@ var (
 		"END_REASON_RESTARTED":            6,
 		"END_REASON_NEXT_SESSION_STARTED": 7,
 		"END_REASON_INPUT_ENDED":          8,
+		"END_REASON_TIMED_FINISH":         9,
+		"END_REASON_MENU":                 10,
+		"END_REASON_PAUSE_LIMIT":          11,
 	}
 )
 
@@ -245,7 +297,722 @@ func (EndReason) EnumDescriptor() ([]byte, []int) {
 	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{2}
 }
 
-// SessionStarted says a session began at a track, of any SessionType.
+// FuelUse is whether the session uses fuel, as GT7's fuel multiplier sets it.
+type FuelUse int32
+
+const (
+	// Not set.
+	FuelUse_FUEL_USE_UNSPECIFIED FuelUse = 0
+	// Fuel is used (v1's `fuel_use` true).
+	FuelUse_FUEL_USE_ON FuelUse = 1
+	// Fuel is not used: the level holds (v1's `fuel_use` false).
+	FuelUse_FUEL_USE_OFF FuelUse = 2
+	// Not known yet (v1's `fuel_use` null).
+	FuelUse_FUEL_USE_UNKNOWN FuelUse = 3
+)
+
+// Enum value maps for FuelUse.
+var (
+	FuelUse_name = map[int32]string{
+		0: "FUEL_USE_UNSPECIFIED",
+		1: "FUEL_USE_ON",
+		2: "FUEL_USE_OFF",
+		3: "FUEL_USE_UNKNOWN",
+	}
+	FuelUse_value = map[string]int32{
+		"FUEL_USE_UNSPECIFIED": 0,
+		"FUEL_USE_ON":          1,
+		"FUEL_USE_OFF":         2,
+		"FUEL_USE_UNKNOWN":     3,
+	}
+)
+
+func (x FuelUse) Enum() *FuelUse {
+	p := new(FuelUse)
+	*p = x
+	return p
+}
+
+func (x FuelUse) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FuelUse) Descriptor() protoreflect.EnumDescriptor {
+	return file_twr_events_v1_session_proto_enumTypes[3].Descriptor()
+}
+
+func (FuelUse) Type() protoreflect.EnumType {
+	return &file_twr_events_v1_session_proto_enumTypes[3]
+}
+
+func (x FuelUse) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FuelUse.Descriptor instead.
+func (FuelUse) EnumDescriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{3}
+}
+
+// StartType is how the session started (v1's sessionkind `start`).
+type StartType int32
+
+const (
+	// Not set.
+	StartType_START_TYPE_UNSPECIFIED StartType = 0
+	// From the grid, at rest (v1's `grid`).
+	StartType_START_TYPE_GRID StartType = 1
+	// A rolling start behind the line (v1's `rolling`).
+	StartType_START_TYPE_ROLLING StartType = 2
+	// A flying start over the line at speed, as a time trial's (v1's `flying`).
+	StartType_START_TYPE_FLYING StartType = 3
+	// ecu could not tell (v1's `unknown`), as for a session joined part way
+	// whose start no run saw. A session continued after an ecu restart keeps
+	// the start the earlier run saw, as v1 did, though the continuing run
+	// joined part way.
+	StartType_START_TYPE_UNKNOWN StartType = 4
+)
+
+// Enum value maps for StartType.
+var (
+	StartType_name = map[int32]string{
+		0: "START_TYPE_UNSPECIFIED",
+		1: "START_TYPE_GRID",
+		2: "START_TYPE_ROLLING",
+		3: "START_TYPE_FLYING",
+		4: "START_TYPE_UNKNOWN",
+	}
+	StartType_value = map[string]int32{
+		"START_TYPE_UNSPECIFIED": 0,
+		"START_TYPE_GRID":        1,
+		"START_TYPE_ROLLING":     2,
+		"START_TYPE_FLYING":      3,
+		"START_TYPE_UNKNOWN":     4,
+	}
+)
+
+func (x StartType) Enum() *StartType {
+	p := new(StartType)
+	*p = x
+	return p
+}
+
+func (x StartType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StartType) Descriptor() protoreflect.EnumDescriptor {
+	return file_twr_events_v1_session_proto_enumTypes[4].Descriptor()
+}
+
+func (StartType) Type() protoreflect.EnumType {
+	return &file_twr_events_v1_session_proto_enumTypes[4]
+}
+
+func (x StartType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StartType.Descriptor instead.
+func (StartType) EnumDescriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{4}
+}
+
+// TrackConfidence is how sure ecu's track detector is of its verdict (v1's
+// trackdetect Confidence).
+type TrackConfidence int32
+
+const (
+	// Not set.
+	TrackConfidence_TRACK_CONFIDENCE_UNSPECIFIED TrackConfidence = 0
+	// No track placed yet (v1's `none`).
+	TrackConfidence_TRACK_CONFIDENCE_NONE TrackConfidence = 1
+	// More than one layout fits (v1's `ambiguous`).
+	TrackConfidence_TRACK_CONFIDENCE_AMBIGUOUS TrackConfidence = 2
+	// One layout, or one circuit, fits best (v1's `probable`).
+	TrackConfidence_TRACK_CONFIDENCE_PROBABLE TrackConfidence = 3
+	// The finish line was crossed and a full lap fits the layout (v1's
+	// `confirmed`).
+	TrackConfidence_TRACK_CONFIDENCE_CONFIRMED TrackConfidence = 4
+)
+
+// Enum value maps for TrackConfidence.
+var (
+	TrackConfidence_name = map[int32]string{
+		0: "TRACK_CONFIDENCE_UNSPECIFIED",
+		1: "TRACK_CONFIDENCE_NONE",
+		2: "TRACK_CONFIDENCE_AMBIGUOUS",
+		3: "TRACK_CONFIDENCE_PROBABLE",
+		4: "TRACK_CONFIDENCE_CONFIRMED",
+	}
+	TrackConfidence_value = map[string]int32{
+		"TRACK_CONFIDENCE_UNSPECIFIED": 0,
+		"TRACK_CONFIDENCE_NONE":        1,
+		"TRACK_CONFIDENCE_AMBIGUOUS":   2,
+		"TRACK_CONFIDENCE_PROBABLE":    3,
+		"TRACK_CONFIDENCE_CONFIRMED":   4,
+	}
+)
+
+func (x TrackConfidence) Enum() *TrackConfidence {
+	p := new(TrackConfidence)
+	*p = x
+	return p
+}
+
+func (x TrackConfidence) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TrackConfidence) Descriptor() protoreflect.EnumDescriptor {
+	return file_twr_events_v1_session_proto_enumTypes[5].Descriptor()
+}
+
+func (TrackConfidence) Type() protoreflect.EnumType {
+	return &file_twr_events_v1_session_proto_enumTypes[5]
+}
+
+func (x TrackConfidence) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TrackConfidence.Descriptor instead.
+func (TrackConfidence) EnumDescriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{5}
+}
+
+// GapReason is why a session has a gap in its frames.
+type GapReason int32
+
+const (
+	// Not set.
+	GapReason_GAP_REASON_UNSPECIFIED GapReason = 0
+	// ecu restarted mid-session and continued the session (v1's `engineer
+	// restart`).
+	GapReason_GAP_REASON_ENGINEER_RESTART GapReason = 1
+)
+
+// Enum value maps for GapReason.
+var (
+	GapReason_name = map[int32]string{
+		0: "GAP_REASON_UNSPECIFIED",
+		1: "GAP_REASON_ENGINEER_RESTART",
+	}
+	GapReason_value = map[string]int32{
+		"GAP_REASON_UNSPECIFIED":      0,
+		"GAP_REASON_ENGINEER_RESTART": 1,
+	}
+)
+
+func (x GapReason) Enum() *GapReason {
+	p := new(GapReason)
+	*p = x
+	return p
+}
+
+func (x GapReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (GapReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_twr_events_v1_session_proto_enumTypes[6].Descriptor()
+}
+
+func (GapReason) Type() protoreflect.EnumType {
+	return &file_twr_events_v1_session_proto_enumTypes[6]
+}
+
+func (x GapReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use GapReason.Descriptor instead.
+func (GapReason) EnumDescriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{6}
+}
+
+// DiscardReason is why a start was not a drive.
+type DiscardReason int32
+
+const (
+	// Not set.
+	DiscardReason_DISCARD_REASON_UNSPECIFIED DiscardReason = 0
+	// A GT7 replay of a race (v1's `replay`).
+	DiscardReason_DISCARD_REASON_REPLAY DiscardReason = 1
+	// GT7's attract-mode demo race (v1's `demo`).
+	DiscardReason_DISCARD_REASON_DEMO DiscardReason = 2
+)
+
+// Enum value maps for DiscardReason.
+var (
+	DiscardReason_name = map[int32]string{
+		0: "DISCARD_REASON_UNSPECIFIED",
+		1: "DISCARD_REASON_REPLAY",
+		2: "DISCARD_REASON_DEMO",
+	}
+	DiscardReason_value = map[string]int32{
+		"DISCARD_REASON_UNSPECIFIED": 0,
+		"DISCARD_REASON_REPLAY":      1,
+		"DISCARD_REASON_DEMO":        2,
+	}
+)
+
+func (x DiscardReason) Enum() *DiscardReason {
+	p := new(DiscardReason)
+	*p = x
+	return p
+}
+
+func (x DiscardReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DiscardReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_twr_events_v1_session_proto_enumTypes[7].Descriptor()
+}
+
+func (DiscardReason) Type() protoreflect.EnumType {
+	return &file_twr_events_v1_session_proto_enumTypes[7]
+}
+
+func (x DiscardReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DiscardReason.Descriptor instead.
+func (DiscardReason) EnumDescriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{7}
+}
+
+// PauseKind is how ecu saw a pause.
+type PauseKind int32
+
+const (
+	// Not set.
+	PauseKind_PAUSE_KIND_UNSPECIFIED PauseKind = 0
+	// GT7 flagged it: its frames are paused for as long as the pause menu is up.
+	PauseKind_PAUSE_KIND_FLAGGED PauseKind = 1
+	// A frozen stream: frames marked as racing that do not change for 1 s with
+	// the car over 1 km/h (v1's PauseClock), dated from the first of them.
+	PauseKind_PAUSE_KIND_FROZEN PauseKind = 2
+)
+
+// Enum value maps for PauseKind.
+var (
+	PauseKind_name = map[int32]string{
+		0: "PAUSE_KIND_UNSPECIFIED",
+		1: "PAUSE_KIND_FLAGGED",
+		2: "PAUSE_KIND_FROZEN",
+	}
+	PauseKind_value = map[string]int32{
+		"PAUSE_KIND_UNSPECIFIED": 0,
+		"PAUSE_KIND_FLAGGED":     1,
+		"PAUSE_KIND_FROZEN":      2,
+	}
+)
+
+func (x PauseKind) Enum() *PauseKind {
+	p := new(PauseKind)
+	*p = x
+	return p
+}
+
+func (x PauseKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PauseKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_twr_events_v1_session_proto_enumTypes[8].Descriptor()
+}
+
+func (PauseKind) Type() protoreflect.EnumType {
+	return &file_twr_events_v1_session_proto_enumTypes[8]
+}
+
+func (x PauseKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PauseKind.Descriptor instead.
+func (PauseKind) EnumDescriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{8}
+}
+
+// SessionKind is ecu's verdict on what kind of session it is, as v1's
+// sessionkind.SessionKind records it in summary.json's `session_kind`. It is
+// carried by SessionKindChanged, and by SessionSummary as the final one.
+type SessionKind struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What kind of session it is (SessionType, v1's `kind`): one of the values
+	// ecu sends.
+	SessionType SessionType `protobuf:"varint,1,opt,name=session_type,json=sessionType,proto3,enum=twr.events.v1.SessionType" json:"session_type,omitempty"`
+	// The laps the race runs (v1's `total_laps`). Absent in a timed session,
+	// where v1 stored 0.
+	TotalLaps *int32 `protobuf:"varint,2,opt,name=total_laps,json=totalLaps,proto3,oneof" json:"total_laps,omitempty"`
+	// Whether other cars are racing for position (v1's `field`): true for
+	// SESSION_TYPE_LAP_RACE and SESSION_TYPE_TIMED_FIELD.
+	Field bool `protobuf:"varint,3,opt,name=field,proto3" json:"field,omitempty"`
+	// Whether the session uses fuel (FuelUse, v1's `fuel_use`).
+	FuelUse FuelUse `protobuf:"varint,4,opt,name=fuel_use,json=fuelUse,proto3,enum=twr.events.v1.FuelUse" json:"fuel_use,omitempty"`
+	// GT7's cars-on-track flag, as last reported (v1's `cars_on_track`).
+	CarsOnTrack bool `protobuf:"varint,5,opt,name=cars_on_track,json=carsOnTrack,proto3" json:"cars_on_track,omitempty"`
+	// How the session started (StartType, v1's `start`).
+	Start StartType `protobuf:"varint,6,opt,name=start,proto3,enum=twr.events.v1.StartType" json:"start,omitempty"`
+	// What decided it, in a sentence for people, such as "6 laps, 2 cars; fuel
+	// use on; rolling start at 128 km/h" (v1's `evidence`). Its wording is not
+	// part of the contract, and a change of wording alone publishes nothing.
+	Evidence      string `protobuf:"bytes,7,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionKind) Reset() {
+	*x = SessionKind{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionKind) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionKind) ProtoMessage() {}
+
+func (x *SessionKind) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionKind.ProtoReflect.Descriptor instead.
+func (*SessionKind) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SessionKind) GetSessionType() SessionType {
+	if x != nil {
+		return x.SessionType
+	}
+	return SessionType_SESSION_TYPE_UNSPECIFIED
+}
+
+func (x *SessionKind) GetTotalLaps() int32 {
+	if x != nil && x.TotalLaps != nil {
+		return *x.TotalLaps
+	}
+	return 0
+}
+
+func (x *SessionKind) GetField() bool {
+	if x != nil {
+		return x.Field
+	}
+	return false
+}
+
+func (x *SessionKind) GetFuelUse() FuelUse {
+	if x != nil {
+		return x.FuelUse
+	}
+	return FuelUse_FUEL_USE_UNSPECIFIED
+}
+
+func (x *SessionKind) GetCarsOnTrack() bool {
+	if x != nil {
+		return x.CarsOnTrack
+	}
+	return false
+}
+
+func (x *SessionKind) GetStart() StartType {
+	if x != nil {
+		return x.Start
+	}
+	return StartType_START_TYPE_UNSPECIFIED
+}
+
+func (x *SessionKind) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+// TrackCandidate is one layout the track detector still holds possible.
+type TrackCandidate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The layout's id in ecu's track table, as in v1's tracks.csv (v1's `id`).
+	TrackId int32 `protobuf:"varint,1,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
+	// The layout's name, such as "Suzuka Circuit East Course" (v1's `name`).
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// How well the driven box fits the layout's box, from 0 to 1, rounded to 3
+	// decimals (v1's `fit`, the boxes' intersection over their union).
+	Fit float64 `protobuf:"fixed64,3,opt,name=fit,proto3" json:"fit,omitempty"`
+	// Whether the car crossed this layout's finish line (v1's `line`).
+	LineCrossed   bool `protobuf:"varint,4,opt,name=line_crossed,json=lineCrossed,proto3" json:"line_crossed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrackCandidate) Reset() {
+	*x = TrackCandidate{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrackCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrackCandidate) ProtoMessage() {}
+
+func (x *TrackCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrackCandidate.ProtoReflect.Descriptor instead.
+func (*TrackCandidate) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *TrackCandidate) GetTrackId() int32 {
+	if x != nil {
+		return x.TrackId
+	}
+	return 0
+}
+
+func (x *TrackCandidate) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TrackCandidate) GetFit() float64 {
+	if x != nil {
+		return x.Fit
+	}
+	return 0
+}
+
+func (x *TrackCandidate) GetLineCrossed() bool {
+	if x != nil {
+		return x.LineCrossed
+	}
+	return false
+}
+
+// TrackVerdict is ecu's track detector's verdict on a session's track, as v1
+// records it in summary.json's `track`. It is carried by SessionTrackChanged,
+// by SessionContinued as the carried track, and by SessionSummary as the
+// final one.
+type TrackVerdict struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The layout's id in ecu's track table, as in v1's tracks.csv (v1's `id`
+	// and the summary's top-level `track_id`). Absent when no layout is
+	// placed. When only the circuit is known (family), the layout that carries
+	// the circuit's name, else the lowest id, as v1 chose it.
+	TrackId *int32 `protobuf:"varint,1,opt,name=track_id,json=trackId,proto3,oneof" json:"track_id,omitempty"`
+	// The layout's name, or the circuit's when only that is known (v1's
+	// `name`). Empty when no track is placed.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// How sure the detector is (TrackConfidence, v1's `confidence`).
+	Confidence TrackConfidence `protobuf:"varint,3,opt,name=confidence,proto3,enum=twr.events.v1.TrackConfidence" json:"confidence,omitempty"`
+	// The circuit, set when the geometry cannot pick between its layouts, such
+	// as "Fuji" for Fuji and Fuji Short (v1's `family`). Empty otherwise.
+	Family string `protobuf:"bytes,4,opt,name=family,proto3" json:"family,omitempty"`
+	// What decided it, in a sentence for people (v1's `evidence`). Its wording
+	// is not part of the contract, and a change of wording alone publishes
+	// nothing.
+	Evidence string `protobuf:"bytes,5,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	// The layouts still possible, best first, at most 8 (v1's `candidates`).
+	Candidates []*TrackCandidate `protobuf:"bytes,6,rep,name=candidates,proto3" json:"candidates,omitempty"`
+	// Whether the verdict was carried over an ecu restart from before it
+	// (paddock#76): known from the continued session's first frame, and still
+	// open to the detector ruling it out. v1 wrote "carried over from before
+	// the engineer restart" as its evidence instead.
+	Carried       bool `protobuf:"varint,7,opt,name=carried,proto3" json:"carried,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrackVerdict) Reset() {
+	*x = TrackVerdict{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrackVerdict) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrackVerdict) ProtoMessage() {}
+
+func (x *TrackVerdict) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrackVerdict.ProtoReflect.Descriptor instead.
+func (*TrackVerdict) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TrackVerdict) GetTrackId() int32 {
+	if x != nil && x.TrackId != nil {
+		return *x.TrackId
+	}
+	return 0
+}
+
+func (x *TrackVerdict) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TrackVerdict) GetConfidence() TrackConfidence {
+	if x != nil {
+		return x.Confidence
+	}
+	return TrackConfidence_TRACK_CONFIDENCE_UNSPECIFIED
+}
+
+func (x *TrackVerdict) GetFamily() string {
+	if x != nil {
+		return x.Family
+	}
+	return ""
+}
+
+func (x *TrackVerdict) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+func (x *TrackVerdict) GetCandidates() []*TrackCandidate {
+	if x != nil {
+		return x.Candidates
+	}
+	return nil
+}
+
+func (x *TrackVerdict) GetCarried() bool {
+	if x != nil {
+		return x.Carried
+	}
+	return false
+}
+
+// SessionGap is a stretch of a session ecu did not see: it stopped and a new
+// run continued the session (paddock#76), as one of v1's summary.json
+// `gaps`.
+type SessionGap struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// When the gap began: the last time the stopped run saw the session (v1's
+	// `from`, its ended_at).
+	StartedAt *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	// When the gap ended: the continuing run's first frame of the session (v1's
+	// `to`).
+	EndedAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=ended_at,json=endedAt,proto3" json:"ended_at,omitempty"`
+	// The lap the gap fell in, from 1 (v1's `lap`). That lap's LapCompleted is
+	// not complete, with GT7's time for it.
+	Lap int32 `protobuf:"varint,3,opt,name=lap,proto3" json:"lap,omitempty"`
+	// Why (GapReason, v1's `reason`).
+	Reason        GapReason `protobuf:"varint,4,opt,name=reason,proto3,enum=twr.events.v1.GapReason" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionGap) Reset() {
+	*x = SessionGap{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionGap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionGap) ProtoMessage() {}
+
+func (x *SessionGap) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionGap.ProtoReflect.Descriptor instead.
+func (*SessionGap) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SessionGap) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *SessionGap) GetEndedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndedAt
+	}
+	return nil
+}
+
+func (x *SessionGap) GetLap() int32 {
+	if x != nil {
+		return x.Lap
+	}
+	return 0
+}
+
+func (x *SessionGap) GetReason() GapReason {
+	if x != nil {
+		return x.Reason
+	}
+	return GapReason_GAP_REASON_UNSPECIFIED
+}
+
+// SessionStarted says a session began at a track, of any SessionType. A start
+// GT7's cars-on-track flag is off for is held until ecu knows it is a drive
+// (paddock#74): a replay or a demo is SessionDiscarded instead.
 type SessionStarted struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session's id: a ULID ecu mints, 26 characters of Crockford base32 in
@@ -267,24 +1034,37 @@ type SessionStarted struct {
 	// trial or practice, where the game reports 0.
 	TotalLaps *int32 `protobuf:"varint,6,opt,name=total_laps,json=totalLaps,proto3,oneof" json:"total_laps,omitempty"`
 	// Whether ecu joined the session after it began, so its first laps were not
-	// seen.
+	// seen: its first frame was a race frame past lap 1 with nothing before it.
 	JoinedPartWay bool `protobuf:"varint,7,opt,name=joined_part_way,json=joinedPartWay,proto3" json:"joined_part_way,omitempty"`
 	// The `seq` of the session's first frame, in the ecu run that published
-	// this event.
+	// this event: the event's `at`. For a held start, the first held frame.
 	FirstSeq uint32 `protobuf:"varint,8,opt,name=first_seq,json=firstSeq,proto3" json:"first_seq,omitempty"`
 	// When ecu received the session's first frame: that frame's `ce-time`. The
 	// session id's embedded time is not the start time.
 	StartedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	// The fuel in the tank on the session's first frame, in litres (v1's
 	// fuel_at_start).
-	FuelAtStart   float64 `protobuf:"fixed64,10,opt,name=fuel_at_start,json=fuelAtStart,proto3" json:"fuel_at_start,omitempty"`
+	FuelAtStart float64 `protobuf:"fixed64,10,opt,name=fuel_at_start,json=fuelAtStart,proto3" json:"fuel_at_start,omitempty"`
+	// The car's name, from ecu's car table, or "car <code>" for a car missing
+	// from it (v1's `car_name`).
+	CarName string `protobuf:"bytes,11,opt,name=car_name,json=carName,proto3" json:"car_name,omitempty"`
+	// The track id the decoder gave the session's first frame (Frame's
+	// track_id): gt-telem's guess, since GT7's packet carries none. Absent when
+	// it had none. ecu's own verdict is SessionTrackChanged's.
+	FrameTrackId *int32 `protobuf:"varint,12,opt,name=frame_track_id,json=frameTrackId,proto3,oneof" json:"frame_track_id,omitempty"`
+	// The lap ecu joined the session on, from 2 (v1's `joined_on_lap`). Set
+	// only when joined_part_way is true.
+	JoinedOnLap *int32 `protobuf:"varint,13,opt,name=joined_on_lap,json=joinedOnLap,proto3,oneof" json:"joined_on_lap,omitempty"`
+	// The tank's capacity, in litres, as the game reports it (v1's
+	// `fuel_capacity`); 0 for a car with no tank.
+	FuelCapacity  float64 `protobuf:"fixed64,14,opt,name=fuel_capacity,json=fuelCapacity,proto3" json:"fuel_capacity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionStarted) Reset() {
 	*x = SessionStarted{}
-	mi := &file_twr_events_v1_session_proto_msgTypes[0]
+	mi := &file_twr_events_v1_session_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +1076,7 @@ func (x *SessionStarted) String() string {
 func (*SessionStarted) ProtoMessage() {}
 
 func (x *SessionStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_events_v1_session_proto_msgTypes[0]
+	mi := &file_twr_events_v1_session_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +1089,7 @@ func (x *SessionStarted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStarted.ProtoReflect.Descriptor instead.
 func (*SessionStarted) Descriptor() ([]byte, []int) {
-	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{0}
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SessionStarted) GetSessionId() string {
@@ -382,18 +1162,589 @@ func (x *SessionStarted) GetFuelAtStart() float64 {
 	return 0
 }
 
-// SessionSummary is what a session came to. Later milestones add the fuller
-// summary (stints, pits, times) as new fields.
+func (x *SessionStarted) GetCarName() string {
+	if x != nil {
+		return x.CarName
+	}
+	return ""
+}
+
+func (x *SessionStarted) GetFrameTrackId() int32 {
+	if x != nil && x.FrameTrackId != nil {
+		return *x.FrameTrackId
+	}
+	return 0
+}
+
+func (x *SessionStarted) GetJoinedOnLap() int32 {
+	if x != nil && x.JoinedOnLap != nil {
+		return *x.JoinedOnLap
+	}
+	return 0
+}
+
+func (x *SessionStarted) GetFuelCapacity() float64 {
+	if x != nil {
+		return x.FuelCapacity
+	}
+	return 0
+}
+
+// SessionContinued says a new ecu run picked up the session the run before it
+// left open (paddock#76), with the same id: its laps, stints, stops, pauses
+// and driving time go on from where they were. The session's SessionStarted
+// came from the earlier run.
+type SessionContinued struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The stretch neither run saw.
+	Gap *SessionGap `protobuf:"bytes,2,opt,name=gap,proto3" json:"gap,omitempty"`
+	// The track the session had before the restart, carried over with carried
+	// set. Absent when it had placed neither a layout nor a circuit.
+	Track *TrackVerdict `protobuf:"bytes,3,opt,name=track,proto3" json:"track,omitempty"`
+	// The `seq` of the session's first frame in this ecu run: the event's
+	// `at`.
+	At            uint32 `protobuf:"varint,4,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionContinued) Reset() {
+	*x = SessionContinued{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionContinued) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionContinued) ProtoMessage() {}
+
+func (x *SessionContinued) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionContinued.ProtoReflect.Descriptor instead.
+func (*SessionContinued) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SessionContinued) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionContinued) GetGap() *SessionGap {
+	if x != nil {
+		return x.Gap
+	}
+	return nil
+}
+
+func (x *SessionContinued) GetTrack() *TrackVerdict {
+	if x != nil {
+		return x.Track
+	}
+	return nil
+}
+
+func (x *SessionContinued) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+// SessionDiscarded says a start that GT7's cars-on-track flag was off for was
+// not a drive but a replay or a demo (paddock#74; v1's DriverCheck). No
+// SessionStarted came for it, and its held frames, first_seq to at, are not
+// a session's: a consumer that buffered them drops them.
+type SessionDiscarded struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The id ecu minted for the start it held.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// What the start was (DiscardReason).
+	Reason DiscardReason `protobuf:"varint,2,opt,name=reason,proto3,enum=twr.events.v1.DiscardReason" json:"reason,omitempty"`
+	// What decided it, in a sentence for people, such as "fuel is draining
+	// (98.3 -> 97.6), which only a replay does" (v1's DriverCheck.why). Its
+	// wording is not part of the contract.
+	Evidence string `protobuf:"bytes,3,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	// The `seq` of the first held frame, in the ecu run that published this
+	// event.
+	FirstSeq uint32 `protobuf:"varint,4,opt,name=first_seq,json=firstSeq,proto3" json:"first_seq,omitempty"`
+	// The `seq` of the frame the verdict came on, the last held frame: the
+	// event's `at`.
+	At            uint32 `protobuf:"varint,5,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionDiscarded) Reset() {
+	*x = SessionDiscarded{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionDiscarded) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionDiscarded) ProtoMessage() {}
+
+func (x *SessionDiscarded) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionDiscarded.ProtoReflect.Descriptor instead.
+func (*SessionDiscarded) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SessionDiscarded) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionDiscarded) GetReason() DiscardReason {
+	if x != nil {
+		return x.Reason
+	}
+	return DiscardReason_DISCARD_REASON_UNSPECIFIED
+}
+
+func (x *SessionDiscarded) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+func (x *SessionDiscarded) GetFirstSeq() uint32 {
+	if x != nil {
+		return x.FirstSeq
+	}
+	return 0
+}
+
+func (x *SessionDiscarded) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+// SessionKindChanged says ecu's verdict on the session's kind changed: its
+// kind, fuel use, cars-on-track flag or start. GT7 can post the lap total a
+// moment after the start, and a field shows only once the driver has been
+// anything but first, so it can change a few times a session.
+type SessionKindChanged struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The new verdict.
+	Kind *SessionKind `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	// The `seq` of the frame it changed on, in the ecu run that published this
+	// event: the event's `at`.
+	At            uint32 `protobuf:"varint,3,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionKindChanged) Reset() {
+	*x = SessionKindChanged{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionKindChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionKindChanged) ProtoMessage() {}
+
+func (x *SessionKindChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionKindChanged.ProtoReflect.Descriptor instead.
+func (*SessionKindChanged) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SessionKindChanged) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionKindChanged) GetKind() *SessionKind {
+	if x != nil {
+		return x.Kind
+	}
+	return nil
+}
+
+func (x *SessionKindChanged) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+// SessionTrackChanged says ecu's verdict on the session's track changed: a
+// verdict that ranks higher (confidence, then naming a layout), or a layout
+// the detector ruled out. A change of candidates or wording alone publishes
+// nothing (paddock#81).
+type SessionTrackChanged struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The new verdict.
+	Track *TrackVerdict `protobuf:"bytes,2,opt,name=track,proto3" json:"track,omitempty"`
+	// The `seq` of the frame it changed on, in the ecu run that published this
+	// event: the event's `at`.
+	At            uint32 `protobuf:"varint,3,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionTrackChanged) Reset() {
+	*x = SessionTrackChanged{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionTrackChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionTrackChanged) ProtoMessage() {}
+
+func (x *SessionTrackChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionTrackChanged.ProtoReflect.Descriptor instead.
+func (*SessionTrackChanged) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SessionTrackChanged) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionTrackChanged) GetTrack() *TrackVerdict {
+	if x != nil {
+		return x.Track
+	}
+	return nil
+}
+
+func (x *SessionTrackChanged) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+// SessionPaused says the session paused (paddock#77). A pause never ends a
+// session on its own; see EndReason for the ways one ends in a pause.
+type SessionPaused struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// How ecu saw the pause (PauseKind).
+	Kind PauseKind `protobuf:"varint,2,opt,name=kind,proto3,enum=twr.events.v1.PauseKind" json:"kind,omitempty"`
+	// When the pause began, in seconds on the frames' clock (Frame's `t`):
+	// the first paused frame, or a frozen stream's first unchanged frame.
+	SinceT float64 `protobuf:"fixed64,3,opt,name=since_t,json=sinceT,proto3" json:"since_t,omitempty"`
+	// When the pause began, in UTC: since_t's frame's receive time.
+	Since *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=since,proto3" json:"since,omitempty"`
+	// The session's time paused before this pause, in milliseconds (v1's
+	// `paused_ms` so far).
+	PausedMs int32 `protobuf:"varint,5,opt,name=paused_ms,json=pausedMs,proto3" json:"paused_ms,omitempty"`
+	// The `seq` of the frame the pause was read on, in the ecu run that
+	// published this event: the event's `at`. For a frozen stream it is 1 s
+	// after since_t's frame.
+	At uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	// The pause's number in the session, from 1: the <pause> in the event's
+	// id. ecu carries the count across an ecu restart (paddock#76), as it
+	// carries paused_ms: a pause still open when ecu stopped keeps its number
+	// in the continuing run, so a SessionPaused sent again for it dedupes, and
+	// the next pause takes the next number.
+	Pause         int32 `protobuf:"varint,7,opt,name=pause,proto3" json:"pause,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionPaused) Reset() {
+	*x = SessionPaused{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionPaused) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionPaused) ProtoMessage() {}
+
+func (x *SessionPaused) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionPaused.ProtoReflect.Descriptor instead.
+func (*SessionPaused) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SessionPaused) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionPaused) GetKind() PauseKind {
+	if x != nil {
+		return x.Kind
+	}
+	return PauseKind_PAUSE_KIND_UNSPECIFIED
+}
+
+func (x *SessionPaused) GetSinceT() float64 {
+	if x != nil {
+		return x.SinceT
+	}
+	return 0
+}
+
+func (x *SessionPaused) GetSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *SessionPaused) GetPausedMs() int32 {
+	if x != nil {
+		return x.PausedMs
+	}
+	return 0
+}
+
+func (x *SessionPaused) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+func (x *SessionPaused) GetPause() int32 {
+	if x != nil {
+		return x.Pause
+	}
+	return 0
+}
+
+// SessionResumed says the session's pause ended: the first frame after it is
+// not paused.
+type SessionResumed struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// How ecu saw the pause (PauseKind), as in its SessionPaused.
+	Kind PauseKind `protobuf:"varint,2,opt,name=kind,proto3,enum=twr.events.v1.PauseKind" json:"kind,omitempty"`
+	// When the pause began, in seconds on the frames' clock, as in its
+	// SessionPaused.
+	SinceT float64 `protobuf:"fixed64,3,opt,name=since_t,json=sinceT,proto3" json:"since_t,omitempty"`
+	// When the pause began, in UTC, as in its SessionPaused.
+	Since *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=since,proto3" json:"since,omitempty"`
+	// This pause's length, in milliseconds, on the frames' clock.
+	PauseMs int32 `protobuf:"varint,5,opt,name=pause_ms,json=pauseMs,proto3" json:"pause_ms,omitempty"`
+	// The session's time paused so far, this pause included, in milliseconds
+	// (v1's `paused_ms`).
+	PausedMs int32 `protobuf:"varint,6,opt,name=paused_ms,json=pausedMs,proto3" json:"paused_ms,omitempty"`
+	// The `seq` of the first frame after the pause, in the ecu run that
+	// published this event: the event's `at`.
+	At uint32 `protobuf:"varint,7,opt,name=at,proto3" json:"at,omitempty"`
+	// The pause's number in the session, from 1, as in its SessionPaused: the
+	// <pause> in the event's id.
+	Pause         int32 `protobuf:"varint,8,opt,name=pause,proto3" json:"pause,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionResumed) Reset() {
+	*x = SessionResumed{}
+	mi := &file_twr_events_v1_session_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionResumed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionResumed) ProtoMessage() {}
+
+func (x *SessionResumed) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_session_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionResumed.ProtoReflect.Descriptor instead.
+func (*SessionResumed) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SessionResumed) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SessionResumed) GetKind() PauseKind {
+	if x != nil {
+		return x.Kind
+	}
+	return PauseKind_PAUSE_KIND_UNSPECIFIED
+}
+
+func (x *SessionResumed) GetSinceT() float64 {
+	if x != nil {
+		return x.SinceT
+	}
+	return 0
+}
+
+func (x *SessionResumed) GetSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *SessionResumed) GetPauseMs() int32 {
+	if x != nil {
+		return x.PauseMs
+	}
+	return 0
+}
+
+func (x *SessionResumed) GetPausedMs() int32 {
+	if x != nil {
+		return x.PausedMs
+	}
+	return 0
+}
+
+func (x *SessionResumed) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+func (x *SessionResumed) GetPause() int32 {
+	if x != nil {
+		return x.Pause
+	}
+	return 0
+}
+
+// SessionSummary is what a session came to: v1's summary.json, as v1's
+// SessionStore.end_session writes it (paddock#69), each field naming the v1
+// field it carries. The v1 fields it leaves out: `session_id` (SessionEnded's),
+// `type` (v1's race, time trial or practice guess, which session_type
+// replaces, paddock#276), `track_id` (track's track_id), `engineer_shutdown`
+// (END_REASON_ENGINEER_STOPPED), and each lap's `frames`, `file` and
+// `recorded_at` (v1's store's own). With every lap in laps it stays well under
+// NATS's 1 MB payload even for a 24 h race: a lap is a few hundred bytes, and
+// no frames are in it.
 type SessionSummary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The complete laps, as v1 counts them: partial laps are not counted.
+	// The complete laps, as v1 counts them: partial laps are not counted (v1's
+	// `laps_completed`).
 	LapsCompleted int32 `protobuf:"varint,1,opt,name=laps_completed,json=lapsCompleted,proto3" json:"laps_completed,omitempty"`
-	// The number of the best complete lap. Absent until ecu decides it: which
-	// laps count is a later milestone's, and until then ecu leaves it out, so
-	// absent does not mean that no lap was complete.
+	// The number of the best lap. Absent until ecu decides it, and when no lap
+	// counts for best: ecu decides it as v1's `best_lap_ms` does. GT7's own
+	// best wins when it has one and a lap has that time: the first such lap,
+	// whatever its counts_for_best (GT7's best can fall on a pit lap). Else, with
+	// no GT7 best or no lap with its time (as when GT7 set it on a lap ecu did
+	// not see), the quickest lap that counts for best (LapCompleted's
+	// counts_for_best), as v1 fell back to its quickest lap. A known
+	// difference from v1: without GT7's best, v1's fallback (results.best_lap)
+	// took the quickest complete lap, pit laps included, and left out lap 1 of
+	// a lap race only when another lap was timed; ecu leaves out pit laps and
+	// every lap that does not count (paddock#83's R3 and R5 disagree here). The
+	// parity harness maps it.
 	BestLap *int32 `protobuf:"varint,2,opt,name=best_lap,json=bestLap,proto3,oneof" json:"best_lap,omitempty"`
-	// The best complete lap's time, in milliseconds. Absent until ecu decides
-	// it, as best_lap.
+	// The best lap's time, in milliseconds (v1's `best_lap_ms`). Absent until
+	// ecu decides it, as best_lap.
 	BestLapTimeMs *int32 `protobuf:"varint,3,opt,name=best_lap_time_ms,json=bestLapTimeMs,proto3,oneof" json:"best_lap_time_ms,omitempty"`
 	// The finishing position, from 1. Set only when this summary's session_type
 	// is SESSION_TYPE_LAP_RACE, a lap race with a field, and the session ended
@@ -420,14 +1771,101 @@ type SessionSummary struct {
 	// the session's frames. It can differ from SessionStarted's session_type,
 	// the verdict on the first frame. finishing_position and final_position
 	// follow this one.
-	SessionType   SessionType `protobuf:"varint,7,opt,name=session_type,json=sessionType,proto3,enum=twr.events.v1.SessionType" json:"session_type,omitempty"`
+	SessionType SessionType `protobuf:"varint,7,opt,name=session_type,json=sessionType,proto3,enum=twr.events.v1.SessionType" json:"session_type,omitempty"`
+	// When the session started, in UTC: SessionStarted's started_at (v1's
+	// `started_at`, in epoch seconds).
+	StartedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	// When the session ended, in UTC (v1's `ended_at`, in epoch seconds). For a
+	// session that ended paused, when that pause began.
+	EndedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=ended_at,json=endedAt,proto3" json:"ended_at,omitempty"`
+	// The time driven, in milliseconds: the frames' time from the session's
+	// first frame to its last, less its pauses, summed across an ecu restart's
+	// runs (v1's `driving_ms`).
+	DrivingMs int32 `protobuf:"varint,10,opt,name=driving_ms,json=drivingMs,proto3" json:"driving_ms,omitempty"`
+	// The time paused, in milliseconds, on the frames' clock (v1's
+	// `paused_ms`).
+	PausedMs int32 `protobuf:"varint,11,opt,name=paused_ms,json=pausedMs,proto3" json:"paused_ms,omitempty"`
+	// Whether the session ended in a pause (v1's `ended_paused`): see
+	// EndReason.
+	EndedPaused bool `protobuf:"varint,12,opt,name=ended_paused,json=endedPaused,proto3" json:"ended_paused,omitempty"`
+	// ecu's final verdict on the track, with the final candidates and fit when
+	// they are the same decision as the session's (v1's `track`). Absent when
+	// no track was placed (v1's null).
+	Track *TrackVerdict `protobuf:"bytes,13,opt,name=track,proto3" json:"track,omitempty"`
+	// ecu's final verdict on the session's kind (v1's `session_kind`). Its
+	// session_type is this summary's session_type. Absent when ecu had none
+	// (v1's null).
+	Kind *SessionKind `protobuf:"bytes,14,opt,name=kind,proto3" json:"kind,omitempty"`
+	// The game's code for the car (v1's `car_code`).
+	CarCode int32 `protobuf:"varint,15,opt,name=car_code,json=carCode,proto3" json:"car_code,omitempty"`
+	// The car's name, as in SessionStarted (v1's `car_name`).
+	CarName string `protobuf:"bytes,16,opt,name=car_name,json=carName,proto3" json:"car_name,omitempty"`
+	// The laps the race runs (v1's `total_laps`). Absent in a timed session,
+	// where v1 stored 0.
+	TotalLaps *int32 `protobuf:"varint,17,opt,name=total_laps,json=totalLaps,proto3,oneof" json:"total_laps,omitempty"`
+	// The quickest complete lap's time, in milliseconds, lap 1 from the grid
+	// and pit laps included (v1's `fastest_lap_ms`). Absent when no complete
+	// lap was timed.
+	FastestLapMs *int32 `protobuf:"varint,18,opt,name=fastest_lap_ms,json=fastestLapMs,proto3,oneof" json:"fastest_lap_ms,omitempty"`
+	// GT7's own best lap, in milliseconds, as last reported, which leaves out a
+	// start lap (v1's `gt7_best_lap_ms`). Absent when GT7 had none.
+	GameBestLapMs *int32 `protobuf:"varint,19,opt,name=game_best_lap_ms,json=gameBestLapMs,proto3,oneof" json:"game_best_lap_ms,omitempty"`
+	// Whether the race reached its finish, the chequered flag or a timed
+	// finish (RaceFinished), whatever ended the session after it (v1's
+	// `finished`). A quit is not a finish.
+	Finished bool `protobuf:"varint,20,opt,name=finished,proto3" json:"finished,omitempty"`
+	// The lap ecu joined the session on, as in SessionStarted (v1's
+	// `joined_on_lap`). Absent when ecu saw the session from its start.
+	JoinedOnLap *int32 `protobuf:"varint,21,opt,name=joined_on_lap,json=joinedOnLap,proto3,oneof" json:"joined_on_lap,omitempty"`
+	// The race's time, in milliseconds: the sum of its complete laps' times.
+	// Set only when finished is true and a lap was timed (v1's
+	// `total_time_ms`).
+	TotalTimeMs *int32 `protobuf:"varint,22,opt,name=total_time_ms,json=totalTimeMs,proto3,oneof" json:"total_time_ms,omitempty"`
+	// The cars in the race on the session's last frame, or the last count seen
+	// when that frame has none (v1's `total_cars`). Absent when the game
+	// reported none.
+	TotalCars *int32 `protobuf:"varint,23,opt,name=total_cars,json=totalCars,proto3,oneof" json:"total_cars,omitempty"`
+	// The fuel burnt, in litres, rounded to 3 decimals: every drop in the
+	// level added up, so a refuel does not cancel what was burnt before it
+	// (v1's `fuel_burned`). Unlike fuel_used, never negative.
+	FuelBurned float64 `protobuf:"fixed64,24,opt,name=fuel_burned,json=fuelBurned,proto3" json:"fuel_burned,omitempty"`
+	// The fuel burnt in each stint, in litres, rounded to 3 decimals, leaving
+	// out stints that burnt under 1 litre (v1's `fuel_burned_by_stint`).
+	FuelBurnedByStint []float64 `protobuf:"fixed64,25,rep,packed,name=fuel_burned_by_stint,json=fuelBurnedByStint,proto3" json:"fuel_burned_by_stint,omitempty"`
+	// The fuel burnt in every stint, in litres, rounded to 3 decimals, short
+	// ones included (v1's `fuel_stints`).
+	FuelStints []float64 `protobuf:"fixed64,26,rep,packed,name=fuel_stints,json=fuelStints,proto3" json:"fuel_stints,omitempty"`
+	// The tank's capacity, in litres, on the session's last frame (v1's
+	// `fuel_capacity`); 0 for a car with no tank.
+	FuelCapacity float64 `protobuf:"fixed64,27,opt,name=fuel_capacity,json=fuelCapacity,proto3" json:"fuel_capacity,omitempty"`
+	// The fuel in the tank on the session's first frame, in litres, as in
+	// SessionStarted (v1's `fuel_at_start`).
+	FuelAtStart float64 `protobuf:"fixed64,28,opt,name=fuel_at_start,json=fuelAtStart,proto3" json:"fuel_at_start,omitempty"`
+	// The fuel in the tank on the session's last frame, in litres (v1's
+	// `fuel_at_end`).
+	FuelAtEnd float64 `protobuf:"fixed64,29,opt,name=fuel_at_end,json=fuelAtEnd,proto3" json:"fuel_at_end,omitempty"`
+	// The stints driven: one more than the pit stops completed (v1's
+	// `stints`).
+	Stints int32 `protobuf:"varint,30,opt,name=stints,proto3" json:"stints,omitempty"`
+	// The pit stops, in order (v1's `pit_stops`).
+	PitStops []*PitStop `protobuf:"bytes,31,rep,name=pit_stops,json=pitStops,proto3" json:"pit_stops,omitempty"`
+	// The ecu restarts the session was continued across, in order (v1's
+	// `gaps`).
+	Gaps []*SessionGap `protobuf:"bytes,32,rep,name=gaps,proto3" json:"gaps,omitempty"`
+	// Every lap, complete and partial, in the order they ended, each as its
+	// lap.completed was published (v1's `laps`: `lap`, `lap_time_ms`,
+	// `complete`, `fuel_start`, `fuel_end`, `fuel_used`, `position` and
+	// `pit`). A lap's first_seq and last_seq mean something only within the
+	// ecu run that published it: a session continued after a restart has laps
+	// from two runs.
+	Laps          []*LapCompleted `protobuf:"bytes,33,rep,name=laps,proto3" json:"laps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SessionSummary) Reset() {
 	*x = SessionSummary{}
-	mi := &file_twr_events_v1_session_proto_msgTypes[1]
+	mi := &file_twr_events_v1_session_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -439,7 +1877,7 @@ func (x *SessionSummary) String() string {
 func (*SessionSummary) ProtoMessage() {}
 
 func (x *SessionSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_events_v1_session_proto_msgTypes[1]
+	mi := &file_twr_events_v1_session_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -452,7 +1890,7 @@ func (x *SessionSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionSummary.ProtoReflect.Descriptor instead.
 func (*SessionSummary) Descriptor() ([]byte, []int) {
-	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{1}
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SessionSummary) GetLapsCompleted() int32 {
@@ -504,6 +1942,188 @@ func (x *SessionSummary) GetSessionType() SessionType {
 	return SessionType_SESSION_TYPE_UNSPECIFIED
 }
 
+func (x *SessionSummary) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetEndedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndedAt
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetDrivingMs() int32 {
+	if x != nil {
+		return x.DrivingMs
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetPausedMs() int32 {
+	if x != nil {
+		return x.PausedMs
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetEndedPaused() bool {
+	if x != nil {
+		return x.EndedPaused
+	}
+	return false
+}
+
+func (x *SessionSummary) GetTrack() *TrackVerdict {
+	if x != nil {
+		return x.Track
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetKind() *SessionKind {
+	if x != nil {
+		return x.Kind
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetCarCode() int32 {
+	if x != nil {
+		return x.CarCode
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetCarName() string {
+	if x != nil {
+		return x.CarName
+	}
+	return ""
+}
+
+func (x *SessionSummary) GetTotalLaps() int32 {
+	if x != nil && x.TotalLaps != nil {
+		return *x.TotalLaps
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetFastestLapMs() int32 {
+	if x != nil && x.FastestLapMs != nil {
+		return *x.FastestLapMs
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetGameBestLapMs() int32 {
+	if x != nil && x.GameBestLapMs != nil {
+		return *x.GameBestLapMs
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetFinished() bool {
+	if x != nil {
+		return x.Finished
+	}
+	return false
+}
+
+func (x *SessionSummary) GetJoinedOnLap() int32 {
+	if x != nil && x.JoinedOnLap != nil {
+		return *x.JoinedOnLap
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetTotalTimeMs() int32 {
+	if x != nil && x.TotalTimeMs != nil {
+		return *x.TotalTimeMs
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetTotalCars() int32 {
+	if x != nil && x.TotalCars != nil {
+		return *x.TotalCars
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetFuelBurned() float64 {
+	if x != nil {
+		return x.FuelBurned
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetFuelBurnedByStint() []float64 {
+	if x != nil {
+		return x.FuelBurnedByStint
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetFuelStints() []float64 {
+	if x != nil {
+		return x.FuelStints
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetFuelCapacity() float64 {
+	if x != nil {
+		return x.FuelCapacity
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetFuelAtStart() float64 {
+	if x != nil {
+		return x.FuelAtStart
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetFuelAtEnd() float64 {
+	if x != nil {
+		return x.FuelAtEnd
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetStints() int32 {
+	if x != nil {
+		return x.Stints
+	}
+	return 0
+}
+
+func (x *SessionSummary) GetPitStops() []*PitStop {
+	if x != nil {
+		return x.PitStops
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetGaps() []*SessionGap {
+	if x != nil {
+		return x.Gaps
+	}
+	return nil
+}
+
+func (x *SessionSummary) GetLaps() []*LapCompleted {
+	if x != nil {
+		return x.Laps
+	}
+	return nil
+}
+
 // SessionEnded says a session ended, and what it came to.
 type SessionEnded struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -514,8 +2134,8 @@ type SessionEnded struct {
 	// What it came to.
 	Summary *SessionSummary `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`
 	// The `seq` of the session's last frame, the frame it ended on, in the ecu
-	// run that published this event. With SessionStarted's first_seq it bounds
-	// the session's frames.
+	// run that published this event: the event's `at`. With SessionStarted's
+	// first_seq it bounds the session's frames.
 	LastSeq       uint32 `protobuf:"varint,4,opt,name=last_seq,json=lastSeq,proto3" json:"last_seq,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -523,7 +2143,7 @@ type SessionEnded struct {
 
 func (x *SessionEnded) Reset() {
 	*x = SessionEnded{}
-	mi := &file_twr_events_v1_session_proto_msgTypes[2]
+	mi := &file_twr_events_v1_session_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -535,7 +2155,7 @@ func (x *SessionEnded) String() string {
 func (*SessionEnded) ProtoMessage() {}
 
 func (x *SessionEnded) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_events_v1_session_proto_msgTypes[2]
+	mi := &file_twr_events_v1_session_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -548,7 +2168,7 @@ func (x *SessionEnded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionEnded.ProtoReflect.Descriptor instead.
 func (*SessionEnded) Descriptor() ([]byte, []int) {
-	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{2}
+	return file_twr_events_v1_session_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SessionEnded) GetSessionId() string {
@@ -583,7 +2203,42 @@ var File_twr_events_v1_session_proto protoreflect.FileDescriptor
 
 const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"\x1btwr/events/v1/session.proto\x12\rtwr.events.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa1\x03\n" +
+	"\x1btwr/events/v1/session.proto\x12\rtwr.events.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x17twr/events/v1/pit.proto\"\xb8\x02\n" +
+	"\vSessionKind\x12=\n" +
+	"\fsession_type\x18\x01 \x01(\x0e2\x1a.twr.events.v1.SessionTypeR\vsessionType\x12\"\n" +
+	"\n" +
+	"total_laps\x18\x02 \x01(\x05H\x00R\ttotalLaps\x88\x01\x01\x12\x14\n" +
+	"\x05field\x18\x03 \x01(\bR\x05field\x121\n" +
+	"\bfuel_use\x18\x04 \x01(\x0e2\x16.twr.events.v1.FuelUseR\afuelUse\x12\"\n" +
+	"\rcars_on_track\x18\x05 \x01(\bR\vcarsOnTrack\x12.\n" +
+	"\x05start\x18\x06 \x01(\x0e2\x18.twr.events.v1.StartTypeR\x05start\x12\x1a\n" +
+	"\bevidence\x18\a \x01(\tR\bevidenceB\r\n" +
+	"\v_total_laps\"t\n" +
+	"\x0eTrackCandidate\x12\x19\n" +
+	"\btrack_id\x18\x01 \x01(\x05R\atrackId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
+	"\x03fit\x18\x03 \x01(\x01R\x03fit\x12!\n" +
+	"\fline_crossed\x18\x04 \x01(\bR\vlineCrossed\"\x9c\x02\n" +
+	"\fTrackVerdict\x12\x1e\n" +
+	"\btrack_id\x18\x01 \x01(\x05H\x00R\atrackId\x88\x01\x01\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12>\n" +
+	"\n" +
+	"confidence\x18\x03 \x01(\x0e2\x1e.twr.events.v1.TrackConfidenceR\n" +
+	"confidence\x12\x16\n" +
+	"\x06family\x18\x04 \x01(\tR\x06family\x12\x1a\n" +
+	"\bevidence\x18\x05 \x01(\tR\bevidence\x12=\n" +
+	"\n" +
+	"candidates\x18\x06 \x03(\v2\x1d.twr.events.v1.TrackCandidateR\n" +
+	"candidates\x12\x18\n" +
+	"\acarried\x18\a \x01(\bR\acarriedB\v\n" +
+	"\t_track_id\"\xc2\x01\n" +
+	"\n" +
+	"SessionGap\x129\n" +
+	"\n" +
+	"started_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x125\n" +
+	"\bended_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aendedAt\x12\x10\n" +
+	"\x03lap\x18\x03 \x01(\x05R\x03lap\x120\n" +
+	"\x06reason\x18\x04 \x01(\x0e2\x18.twr.events.v1.GapReasonR\x06reason\"\xda\x04\n" +
 	"\x0eSessionStarted\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
@@ -598,8 +2253,56 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"started_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12\"\n" +
 	"\rfuel_at_start\x18\n" +
-	" \x01(\x01R\vfuelAtStartB\r\n" +
-	"\v_total_laps\"\x8d\x03\n" +
+	" \x01(\x01R\vfuelAtStart\x12\x19\n" +
+	"\bcar_name\x18\v \x01(\tR\acarName\x12)\n" +
+	"\x0eframe_track_id\x18\f \x01(\x05H\x01R\fframeTrackId\x88\x01\x01\x12'\n" +
+	"\rjoined_on_lap\x18\r \x01(\x05H\x02R\vjoinedOnLap\x88\x01\x01\x12#\n" +
+	"\rfuel_capacity\x18\x0e \x01(\x01R\ffuelCapacityB\r\n" +
+	"\v_total_lapsB\x11\n" +
+	"\x0f_frame_track_idB\x10\n" +
+	"\x0e_joined_on_lap\"\xa1\x01\n" +
+	"\x10SessionContinued\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12+\n" +
+	"\x03gap\x18\x02 \x01(\v2\x19.twr.events.v1.SessionGapR\x03gap\x121\n" +
+	"\x05track\x18\x03 \x01(\v2\x1b.twr.events.v1.TrackVerdictR\x05track\x12\x0e\n" +
+	"\x02at\x18\x04 \x01(\rR\x02at\"\xb0\x01\n" +
+	"\x10SessionDiscarded\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x124\n" +
+	"\x06reason\x18\x02 \x01(\x0e2\x1c.twr.events.v1.DiscardReasonR\x06reason\x12\x1a\n" +
+	"\bevidence\x18\x03 \x01(\tR\bevidence\x12\x1b\n" +
+	"\tfirst_seq\x18\x04 \x01(\rR\bfirstSeq\x12\x0e\n" +
+	"\x02at\x18\x05 \x01(\rR\x02at\"s\n" +
+	"\x12SessionKindChanged\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12.\n" +
+	"\x04kind\x18\x02 \x01(\v2\x1a.twr.events.v1.SessionKindR\x04kind\x12\x0e\n" +
+	"\x02at\x18\x03 \x01(\rR\x02at\"w\n" +
+	"\x13SessionTrackChanged\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x121\n" +
+	"\x05track\x18\x02 \x01(\v2\x1b.twr.events.v1.TrackVerdictR\x05track\x12\x0e\n" +
+	"\x02at\x18\x03 \x01(\rR\x02at\"\xea\x01\n" +
+	"\rSessionPaused\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12,\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x18.twr.events.v1.PauseKindR\x04kind\x12\x17\n" +
+	"\asince_t\x18\x03 \x01(\x01R\x06sinceT\x120\n" +
+	"\x05since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1b\n" +
+	"\tpaused_ms\x18\x05 \x01(\x05R\bpausedMs\x12\x0e\n" +
+	"\x02at\x18\x06 \x01(\rR\x02at\x12\x14\n" +
+	"\x05pause\x18\a \x01(\x05R\x05pause\"\x86\x02\n" +
+	"\x0eSessionResumed\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12,\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x18.twr.events.v1.PauseKindR\x04kind\x12\x17\n" +
+	"\asince_t\x18\x03 \x01(\x01R\x06sinceT\x120\n" +
+	"\x05since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x19\n" +
+	"\bpause_ms\x18\x05 \x01(\x05R\apauseMs\x12\x1b\n" +
+	"\tpaused_ms\x18\x06 \x01(\x05R\bpausedMs\x12\x0e\n" +
+	"\x02at\x18\a \x01(\rR\x02at\x12\x14\n" +
+	"\x05pause\x18\b \x01(\x05R\x05pause\"\xf9\v\n" +
 	"\x0eSessionSummary\x12%\n" +
 	"\x0elaps_completed\x18\x01 \x01(\x05R\rlapsCompleted\x12\x1e\n" +
 	"\bbest_lap\x18\x02 \x01(\x05H\x00R\abestLap\x88\x01\x01\x12,\n" +
@@ -607,11 +2310,50 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\x12finishing_position\x18\x04 \x01(\x05H\x02R\x11finishingPosition\x88\x01\x01\x12\x1b\n" +
 	"\tfuel_used\x18\x05 \x01(\x01R\bfuelUsed\x12*\n" +
 	"\x0efinal_position\x18\x06 \x01(\x05H\x03R\rfinalPosition\x88\x01\x01\x12=\n" +
-	"\fsession_type\x18\a \x01(\x0e2\x1a.twr.events.v1.SessionTypeR\vsessionTypeB\v\n" +
+	"\fsession_type\x18\a \x01(\x0e2\x1a.twr.events.v1.SessionTypeR\vsessionType\x129\n" +
+	"\n" +
+	"started_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x125\n" +
+	"\bended_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\aendedAt\x12\x1d\n" +
+	"\n" +
+	"driving_ms\x18\n" +
+	" \x01(\x05R\tdrivingMs\x12\x1b\n" +
+	"\tpaused_ms\x18\v \x01(\x05R\bpausedMs\x12!\n" +
+	"\fended_paused\x18\f \x01(\bR\vendedPaused\x121\n" +
+	"\x05track\x18\r \x01(\v2\x1b.twr.events.v1.TrackVerdictR\x05track\x12.\n" +
+	"\x04kind\x18\x0e \x01(\v2\x1a.twr.events.v1.SessionKindR\x04kind\x12\x19\n" +
+	"\bcar_code\x18\x0f \x01(\x05R\acarCode\x12\x19\n" +
+	"\bcar_name\x18\x10 \x01(\tR\acarName\x12\"\n" +
+	"\n" +
+	"total_laps\x18\x11 \x01(\x05H\x04R\ttotalLaps\x88\x01\x01\x12)\n" +
+	"\x0efastest_lap_ms\x18\x12 \x01(\x05H\x05R\ffastestLapMs\x88\x01\x01\x12,\n" +
+	"\x10game_best_lap_ms\x18\x13 \x01(\x05H\x06R\rgameBestLapMs\x88\x01\x01\x12\x1a\n" +
+	"\bfinished\x18\x14 \x01(\bR\bfinished\x12'\n" +
+	"\rjoined_on_lap\x18\x15 \x01(\x05H\aR\vjoinedOnLap\x88\x01\x01\x12'\n" +
+	"\rtotal_time_ms\x18\x16 \x01(\x05H\bR\vtotalTimeMs\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"total_cars\x18\x17 \x01(\x05H\tR\ttotalCars\x88\x01\x01\x12\x1f\n" +
+	"\vfuel_burned\x18\x18 \x01(\x01R\n" +
+	"fuelBurned\x12/\n" +
+	"\x14fuel_burned_by_stint\x18\x19 \x03(\x01R\x11fuelBurnedByStint\x12\x1f\n" +
+	"\vfuel_stints\x18\x1a \x03(\x01R\n" +
+	"fuelStints\x12#\n" +
+	"\rfuel_capacity\x18\x1b \x01(\x01R\ffuelCapacity\x12\"\n" +
+	"\rfuel_at_start\x18\x1c \x01(\x01R\vfuelAtStart\x12\x1e\n" +
+	"\vfuel_at_end\x18\x1d \x01(\x01R\tfuelAtEnd\x12\x16\n" +
+	"\x06stints\x18\x1e \x01(\x05R\x06stints\x123\n" +
+	"\tpit_stops\x18\x1f \x03(\v2\x16.twr.events.v1.PitStopR\bpitStops\x12-\n" +
+	"\x04gaps\x18  \x03(\v2\x19.twr.events.v1.SessionGapR\x04gaps\x12/\n" +
+	"\x04laps\x18! \x03(\v2\x1b.twr.events.v1.LapCompletedR\x04lapsB\v\n" +
 	"\t_best_lapB\x13\n" +
 	"\x11_best_lap_time_msB\x15\n" +
 	"\x13_finishing_positionB\x11\n" +
-	"\x0f_final_position\"\xb3\x01\n" +
+	"\x0f_final_positionB\r\n" +
+	"\v_total_lapsB\x11\n" +
+	"\x0f_fastest_lap_msB\x13\n" +
+	"\x11_game_best_lap_msB\x10\n" +
+	"\x0e_joined_on_lapB\x10\n" +
+	"\x0e_total_time_msB\r\n" +
+	"\v_total_cars\"\xb3\x01\n" +
 	"\fSessionEnded\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x120\n" +
@@ -630,7 +2372,7 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\x15SESSION_TYPE_LAP_RACE\x10\x05\x12\x1a\n" +
 	"\x16SESSION_TYPE_SOLO_LAPS\x10\x06\x12\x1c\n" +
 	"\x18SESSION_TYPE_TIMED_FIELD\x10\a\x12\x1b\n" +
-	"\x17SESSION_TYPE_SOLO_TIMED\x10\b*\x88\x02\n" +
+	"\x17SESSION_TYPE_SOLO_TIMED\x10\b*\xd6\x02\n" +
 	"\tEndReason\x12\x1a\n" +
 	"\x16END_REASON_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13END_REASON_FINISHED\x10\x01\x12\x13\n" +
@@ -640,7 +2382,39 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\x12END_REASON_UNKNOWN\x10\x05\x12\x18\n" +
 	"\x14END_REASON_RESTARTED\x10\x06\x12#\n" +
 	"\x1fEND_REASON_NEXT_SESSION_STARTED\x10\a\x12\x1a\n" +
-	"\x16END_REASON_INPUT_ENDED\x10\bB\xb9\x01\n" +
+	"\x16END_REASON_INPUT_ENDED\x10\b\x12\x1b\n" +
+	"\x17END_REASON_TIMED_FINISH\x10\t\x12\x13\n" +
+	"\x0fEND_REASON_MENU\x10\n" +
+	"\x12\x1a\n" +
+	"\x16END_REASON_PAUSE_LIMIT\x10\v*\\\n" +
+	"\aFuelUse\x12\x18\n" +
+	"\x14FUEL_USE_UNSPECIFIED\x10\x00\x12\x0f\n" +
+	"\vFUEL_USE_ON\x10\x01\x12\x10\n" +
+	"\fFUEL_USE_OFF\x10\x02\x12\x14\n" +
+	"\x10FUEL_USE_UNKNOWN\x10\x03*\x83\x01\n" +
+	"\tStartType\x12\x1a\n" +
+	"\x16START_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fSTART_TYPE_GRID\x10\x01\x12\x16\n" +
+	"\x12START_TYPE_ROLLING\x10\x02\x12\x15\n" +
+	"\x11START_TYPE_FLYING\x10\x03\x12\x16\n" +
+	"\x12START_TYPE_UNKNOWN\x10\x04*\xad\x01\n" +
+	"\x0fTrackConfidence\x12 \n" +
+	"\x1cTRACK_CONFIDENCE_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15TRACK_CONFIDENCE_NONE\x10\x01\x12\x1e\n" +
+	"\x1aTRACK_CONFIDENCE_AMBIGUOUS\x10\x02\x12\x1d\n" +
+	"\x19TRACK_CONFIDENCE_PROBABLE\x10\x03\x12\x1e\n" +
+	"\x1aTRACK_CONFIDENCE_CONFIRMED\x10\x04*H\n" +
+	"\tGapReason\x12\x1a\n" +
+	"\x16GAP_REASON_UNSPECIFIED\x10\x00\x12\x1f\n" +
+	"\x1bGAP_REASON_ENGINEER_RESTART\x10\x01*c\n" +
+	"\rDiscardReason\x12\x1e\n" +
+	"\x1aDISCARD_REASON_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15DISCARD_REASON_REPLAY\x10\x01\x12\x17\n" +
+	"\x13DISCARD_REASON_DEMO\x10\x02*V\n" +
+	"\tPauseKind\x12\x1a\n" +
+	"\x16PAUSE_KIND_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12PAUSE_KIND_FLAGGED\x10\x01\x12\x15\n" +
+	"\x11PAUSE_KIND_FROZEN\x10\x02B\xb9\x01\n" +
 	"\x11com.twr.events.v1B\fSessionProtoP\x01Z@github.com/those-who-run/contracts/gen/go/twr/events/v1;eventsv1\xa2\x02\x03TEX\xaa\x02\rTwr.Events.V1\xca\x02\rTwr\\Events\\V1\xe2\x02\x19Twr\\Events\\V1\\GPBMetadata\xea\x02\x0fTwr::Events::V1b\x06proto3"
 
 var (
@@ -655,29 +2429,71 @@ func file_twr_events_v1_session_proto_rawDescGZIP() []byte {
 	return file_twr_events_v1_session_proto_rawDescData
 }
 
-var file_twr_events_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_twr_events_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_twr_events_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
+var file_twr_events_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_twr_events_v1_session_proto_goTypes = []any{
 	(Game)(0),                     // 0: twr.events.v1.Game
 	(SessionType)(0),              // 1: twr.events.v1.SessionType
 	(EndReason)(0),                // 2: twr.events.v1.EndReason
-	(*SessionStarted)(nil),        // 3: twr.events.v1.SessionStarted
-	(*SessionSummary)(nil),        // 4: twr.events.v1.SessionSummary
-	(*SessionEnded)(nil),          // 5: twr.events.v1.SessionEnded
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(FuelUse)(0),                  // 3: twr.events.v1.FuelUse
+	(StartType)(0),                // 4: twr.events.v1.StartType
+	(TrackConfidence)(0),          // 5: twr.events.v1.TrackConfidence
+	(GapReason)(0),                // 6: twr.events.v1.GapReason
+	(DiscardReason)(0),            // 7: twr.events.v1.DiscardReason
+	(PauseKind)(0),                // 8: twr.events.v1.PauseKind
+	(*SessionKind)(nil),           // 9: twr.events.v1.SessionKind
+	(*TrackCandidate)(nil),        // 10: twr.events.v1.TrackCandidate
+	(*TrackVerdict)(nil),          // 11: twr.events.v1.TrackVerdict
+	(*SessionGap)(nil),            // 12: twr.events.v1.SessionGap
+	(*SessionStarted)(nil),        // 13: twr.events.v1.SessionStarted
+	(*SessionContinued)(nil),      // 14: twr.events.v1.SessionContinued
+	(*SessionDiscarded)(nil),      // 15: twr.events.v1.SessionDiscarded
+	(*SessionKindChanged)(nil),    // 16: twr.events.v1.SessionKindChanged
+	(*SessionTrackChanged)(nil),   // 17: twr.events.v1.SessionTrackChanged
+	(*SessionPaused)(nil),         // 18: twr.events.v1.SessionPaused
+	(*SessionResumed)(nil),        // 19: twr.events.v1.SessionResumed
+	(*SessionSummary)(nil),        // 20: twr.events.v1.SessionSummary
+	(*SessionEnded)(nil),          // 21: twr.events.v1.SessionEnded
+	(*timestamppb.Timestamp)(nil), // 22: google.protobuf.Timestamp
+	(*PitStop)(nil),               // 23: twr.events.v1.PitStop
+	(*LapCompleted)(nil),          // 24: twr.events.v1.LapCompleted
 }
 var file_twr_events_v1_session_proto_depIdxs = []int32{
-	0, // 0: twr.events.v1.SessionStarted.game:type_name -> twr.events.v1.Game
-	1, // 1: twr.events.v1.SessionStarted.session_type:type_name -> twr.events.v1.SessionType
-	6, // 2: twr.events.v1.SessionStarted.started_at:type_name -> google.protobuf.Timestamp
-	1, // 3: twr.events.v1.SessionSummary.session_type:type_name -> twr.events.v1.SessionType
-	2, // 4: twr.events.v1.SessionEnded.reason:type_name -> twr.events.v1.EndReason
-	4, // 5: twr.events.v1.SessionEnded.summary:type_name -> twr.events.v1.SessionSummary
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	1,  // 0: twr.events.v1.SessionKind.session_type:type_name -> twr.events.v1.SessionType
+	3,  // 1: twr.events.v1.SessionKind.fuel_use:type_name -> twr.events.v1.FuelUse
+	4,  // 2: twr.events.v1.SessionKind.start:type_name -> twr.events.v1.StartType
+	5,  // 3: twr.events.v1.TrackVerdict.confidence:type_name -> twr.events.v1.TrackConfidence
+	10, // 4: twr.events.v1.TrackVerdict.candidates:type_name -> twr.events.v1.TrackCandidate
+	22, // 5: twr.events.v1.SessionGap.started_at:type_name -> google.protobuf.Timestamp
+	22, // 6: twr.events.v1.SessionGap.ended_at:type_name -> google.protobuf.Timestamp
+	6,  // 7: twr.events.v1.SessionGap.reason:type_name -> twr.events.v1.GapReason
+	0,  // 8: twr.events.v1.SessionStarted.game:type_name -> twr.events.v1.Game
+	1,  // 9: twr.events.v1.SessionStarted.session_type:type_name -> twr.events.v1.SessionType
+	22, // 10: twr.events.v1.SessionStarted.started_at:type_name -> google.protobuf.Timestamp
+	12, // 11: twr.events.v1.SessionContinued.gap:type_name -> twr.events.v1.SessionGap
+	11, // 12: twr.events.v1.SessionContinued.track:type_name -> twr.events.v1.TrackVerdict
+	7,  // 13: twr.events.v1.SessionDiscarded.reason:type_name -> twr.events.v1.DiscardReason
+	9,  // 14: twr.events.v1.SessionKindChanged.kind:type_name -> twr.events.v1.SessionKind
+	11, // 15: twr.events.v1.SessionTrackChanged.track:type_name -> twr.events.v1.TrackVerdict
+	8,  // 16: twr.events.v1.SessionPaused.kind:type_name -> twr.events.v1.PauseKind
+	22, // 17: twr.events.v1.SessionPaused.since:type_name -> google.protobuf.Timestamp
+	8,  // 18: twr.events.v1.SessionResumed.kind:type_name -> twr.events.v1.PauseKind
+	22, // 19: twr.events.v1.SessionResumed.since:type_name -> google.protobuf.Timestamp
+	1,  // 20: twr.events.v1.SessionSummary.session_type:type_name -> twr.events.v1.SessionType
+	22, // 21: twr.events.v1.SessionSummary.started_at:type_name -> google.protobuf.Timestamp
+	22, // 22: twr.events.v1.SessionSummary.ended_at:type_name -> google.protobuf.Timestamp
+	11, // 23: twr.events.v1.SessionSummary.track:type_name -> twr.events.v1.TrackVerdict
+	9,  // 24: twr.events.v1.SessionSummary.kind:type_name -> twr.events.v1.SessionKind
+	23, // 25: twr.events.v1.SessionSummary.pit_stops:type_name -> twr.events.v1.PitStop
+	12, // 26: twr.events.v1.SessionSummary.gaps:type_name -> twr.events.v1.SessionGap
+	24, // 27: twr.events.v1.SessionSummary.laps:type_name -> twr.events.v1.LapCompleted
+	2,  // 28: twr.events.v1.SessionEnded.reason:type_name -> twr.events.v1.EndReason
+	20, // 29: twr.events.v1.SessionEnded.summary:type_name -> twr.events.v1.SessionSummary
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_twr_events_v1_session_proto_init() }
@@ -685,15 +2501,19 @@ func file_twr_events_v1_session_proto_init() {
 	if File_twr_events_v1_session_proto != nil {
 		return
 	}
+	file_twr_events_v1_lap_proto_init()
+	file_twr_events_v1_pit_proto_init()
 	file_twr_events_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
-	file_twr_events_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
+	file_twr_events_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
+	file_twr_events_v1_session_proto_msgTypes[4].OneofWrappers = []any{}
+	file_twr_events_v1_session_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_twr_events_v1_session_proto_rawDesc), len(file_twr_events_v1_session_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   3,
+			NumEnums:      9,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

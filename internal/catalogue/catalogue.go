@@ -90,13 +90,20 @@ var Placeholders = []Placeholder{
 	{"<src>", "where the telemetry comes from: `live`, `parity`, or `replay-` followed by the replay's name", true, true, true},
 	{"<sid>", "the session id, a ULID ecu mints", true, true, true},
 	{"<run>", "the ecu run's id, a ULID ecu mints when it starts (not a replay's name)", false, false, true},
-	{"<seq>", "the frame's sequence number within the ecu run", false, false, true},
-	{"<n>", "the lap's number", false, false, true},
+	{"<seq>", "a frame's sequence number within the ecu run: a frame's own, or the `at` of the frame an event happened on", false, false, true},
+	{"<n>", "a lap's number: lap.completed's own, or for lap.best the lap whose end published it (LapBestChanged's ended_lap)", false, false, true},
+	{"<pause>", "the pause's number in the session, from 1, which ecu carries across a restart: a pause open across one keeps its number", false, false, true},
 }
+
+// word is a token of a subject's <area> or <what>, or of a ce-type: lower-case
+// letters and digits, with single underscores between them.
+const word = `[a-z0-9]+(?:_[a-z0-9]+)*`
 
 var (
 	// ADR 0002, point 4: reverse DNS, at least an area and a what, and a version.
-	ceType = regexp.MustCompile(`^run\.thosewho(\.[a-z0-9]+){2,}\.v[1-9][0-9]*$`)
+	// A token is lower-case words joined by single underscores, such as
+	// final_lap (paddock#69).
+	ceType = regexp.MustCompile(`^run\.thosewho(\.` + word + `){2,}\.v[1-9][0-9]*$`)
 	// ADR 0001, point 2, with the stream point 1 captures each kind of subject
 	// in. Callouts are listed one entry per level, p0, p1 and p2, each a subject
 	// a consumer subscribes to, sharing one message and ce-type.
@@ -106,14 +113,14 @@ var (
 		stream  string
 	}{
 		{"frame", regexp.MustCompile(`^twr\.v1\.<src>\.frame\.[a-z0-9]+$`), "TELEMETRY"},
-		{"event", regexp.MustCompile(`^twr\.v1\.<src>\.evt\.(<sid>|_)\.[a-z0-9]+\.[a-z0-9]+$`), "EVENTS"},
+		{"event", regexp.MustCompile(`^twr\.v1\.<src>\.evt\.(<sid>|_)\.` + word + `\.` + word + `$`), "EVENTS"},
 		{"callout", regexp.MustCompile(`^twr\.v1\.<src>\.callout\.p[0-2]$`), "CALLOUTS"},
 	}
 	placeholder = regexp.MustCompile(`<[^<>]*>`)
 	// An event's msg_id (paddock#25, 2026-10-26, with the source in front from
 	// paddock#279): its source, its session, its ce-type's <area>.<what>, then
 	// one or more parts, each a word or a placeholder.
-	eventID = regexp.MustCompile(`^<src>:(<sid>|<run>):([a-z0-9]+\.[a-z0-9]+):([a-z0-9]+|<[a-z]+>)(:([a-z0-9]+|<[a-z]+>))*$`)
+	eventID = regexp.MustCompile(`^<src>:(<sid>|<run>):(` + word + `\.` + word + `):([a-z0-9]+|<[a-z]+>)(:([a-z0-9]+|<[a-z]+>))*$`)
 	// A ce-type's <area>.<what>: what comes between run.thosewho. and the version.
 	typeName = regexp.MustCompile(`^run\.thosewho\.(.+)\.v[1-9][0-9]*$`)
 	// A KV bucket's name, and a key: dot-separated tokens or placeholders.

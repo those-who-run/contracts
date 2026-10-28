@@ -15,7 +15,7 @@ import (
 	telemetryv1 "github.com/those-who-run/contracts/gen/go/twr/telemetry/v1"
 )
 
-// The v0.1 messages, each with its example under examples/ and the values the
+// The messages, each with its example under examples/ and the values the
 // example holds. ADR 0002's JSON rules: readers ignore unknown fields, and tests
 // compare decoded values, never JSON bytes.
 var examples = []struct {
@@ -48,19 +48,23 @@ var examples = []struct {
 		FirstSeq:      1200,
 		StartedAt:     timestamppb.New(time.Date(2026, 10, 26, 19, 30, 5, 250_000_000, time.UTC)),
 		FuelAtStart:   100,
+		CarName:       "Honda Civic Si Group A version '87",
+		FrameTrackId:  proto.Int32(442),
+		FuelCapacity:  100,
 	}},
 	{"events/v1/lap_completed.json", &eventsv1.LapCompleted{
-		SessionId:   "01JB8Z3K5Q9T2M7XW4R6N1PDHE",
-		Lap:         3,
-		LapTimeMs:   98765,
-		Complete:    true,
-		FuelAtStart: 45.5,
-		FuelAtEnd:   41.75,
-		FuelUsed:    3.75,
-		Position:    proto.Int32(2),
-		PitRole:     eventsv1.PitRole_PIT_ROLE_NONE,
-		FirstSeq:    13311,
-		LastSeq:     19236,
+		SessionId:     "01JB8Z3K5Q9T2M7XW4R6N1PDHE",
+		Lap:           3,
+		LapTimeMs:     98765,
+		Complete:      true,
+		FuelAtStart:   45.5,
+		FuelAtEnd:     41.75,
+		FuelUsed:      3.75,
+		Position:      proto.Int32(2),
+		PitRole:       eventsv1.PitRole_PIT_ROLE_NONE,
+		FirstSeq:      13311,
+		LastSeq:       19236,
+		CountsForBest: true,
 	}},
 	{"events/v1/session_ended.json", &eventsv1.SessionEnded{
 		SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE",
@@ -75,6 +79,80 @@ var examples = []struct {
 			SessionType:       eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
 		},
 		LastSeq: 61840,
+	}},
+	// paddock#69's events.
+	{"events/v1/session_continued.json", &eventsv1.SessionContinued{
+		SessionId: "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+		Gap: &eventsv1.SessionGap{
+			StartedAt: timestamppb.New(time.Date(2026, 10, 18, 13, 45, 7, 776_810_000, time.UTC)),
+			EndedAt:   timestamppb.New(time.Date(2026, 10, 18, 13, 45, 16, 437_865_000, time.UTC)),
+			Lap:       7,
+			Reason:    eventsv1.GapReason_GAP_REASON_ENGINEER_RESTART,
+		},
+		Track: &eventsv1.TrackVerdict{
+			TrackId: proto.Int32(10), Name: "Suzuka Circuit", Confidence: eventsv1.TrackConfidence_TRACK_CONFIDENCE_CONFIRMED,
+			Evidence: "carried over from before the engineer restart", Carried: true,
+		},
+		At: 1,
+	}},
+	{"events/v1/session_discarded.json", &eventsv1.SessionDiscarded{
+		SessionId: "01JB9S2D5F7R3X8Z1V4L6N9QYC",
+		Reason:    eventsv1.DiscardReason_DISCARD_REASON_REPLAY,
+		Evidence:  "fuel is draining (98.3 -> 97.6), which only a replay does",
+		FirstSeq:  40210,
+		At:        40291,
+	}},
+	{"events/v1/session_kind.json", &eventsv1.SessionKindChanged{
+		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA",
+		Kind: &eventsv1.SessionKind{
+			SessionType: eventsv1.SessionType_SESSION_TYPE_LAP_RACE, TotalLaps: proto.Int32(6), Field: true,
+			FuelUse: eventsv1.FuelUse_FUEL_USE_ON, CarsOnTrack: true, Start: eventsv1.StartType_START_TYPE_ROLLING,
+			Evidence: "6 laps, 2 cars; fuel use on; rolling start at 128 km/h",
+		},
+		At: 1384,
+	}},
+	{"events/v1/session_track.json", &eventsv1.SessionTrackChanged{
+		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA",
+		Track: &eventsv1.TrackVerdict{
+			TrackId: proto.Int32(442), Name: "Suzuka Circuit East Course", Confidence: eventsv1.TrackConfidence_TRACK_CONFIDENCE_CONFIRMED,
+			Evidence:   "finish line crossed, a full lap fits the layout (1.00)",
+			Candidates: []*eventsv1.TrackCandidate{{TrackId: 442, Name: "Suzuka Circuit East Course", Fit: 0.995, LineCrossed: true}},
+		},
+		At: 4790,
+	}},
+	{"events/v1/session_paused.json", &eventsv1.SessionPaused{
+		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA",
+		Kind:      eventsv1.PauseKind_PAUSE_KIND_FROZEN,
+		SinceT:    2412.375,
+		Since:     timestamppb.New(time.Date(2026, 10, 18, 13, 25, 41, 250_000_000, time.UTC)),
+		PausedMs:  1200,
+		At:        9921,
+		Pause:     2,
+	}},
+	{"events/v1/session_resumed.json", &eventsv1.SessionResumed{
+		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA",
+		Kind:      eventsv1.PauseKind_PAUSE_KIND_FROZEN,
+		SinceT:    2412.375,
+		Since:     timestamppb.New(time.Date(2026, 10, 18, 13, 25, 41, 250_000_000, time.UTC)),
+		PauseMs:   45000,
+		PausedMs:  46200,
+		At:        12601,
+		Pause:     2,
+	}},
+	{"events/v1/lap_best.json", &eventsv1.LapBestChanged{
+		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA", Lap: 5, LapTimeMs: 59541,
+		PreviousBestMs: proto.Int32(60538), GapMs: proto.Int32(997), At: 19236, EndedLap: 5,
+	}},
+	{"events/v1/race_final_lap.json", &eventsv1.RaceFinalLapStarted{
+		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA", Lap: 6, At: 19237,
+	}},
+	{"events/v1/race_position.json", &eventsv1.RacePositionChanged{
+		SessionId: "01JB9R1C8E4Q6W2Y9T3K7M5PXB", PreviousPosition: proto.Int32(11), Position: 3, At: 31877,
+	}},
+	{"events/v1/race_finished.json", &eventsv1.RaceFinished{
+		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA", Kind: eventsv1.FinishKind_FINISH_KIND_FLAG, Lap: 6,
+		Position: proto.Int32(1), TotalTimeMs: proto.Int32(389934), BestLap: proto.Int32(5), BestLapTimeMs: proto.Int32(59541),
+		At: 23410,
 	}},
 }
 

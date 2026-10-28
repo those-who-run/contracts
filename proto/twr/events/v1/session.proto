@@ -4,6 +4,8 @@ syntax = "proto3";
 package twr.events.v1;
 
 import "google/protobuf/timestamp.proto";
+import "twr/events/v1/lap.proto";
+import "twr/events/v1/pit.proto";
 
 // Game is the game a session is driven in.
 enum Game {
@@ -48,34 +50,243 @@ enum SessionType {
   SESSION_TYPE_SOLO_TIMED = 8;
 }
 
-// EndReason is why a session ended.
+// EndReason is why a session ended. Each of v1's ways a session ends maps to
+// one value, with SessionSummary's ended_paused for the three that end it in
+// a pause (v1's Engine._end_paused):
+//
+// - race_ended on the first finished frame: END_REASON_FINISHED (the flag);
+// - race_ended after a timed finish: END_REASON_TIMED_FINISH;
+// - race_ended back to a menu or the track screen: END_REASON_MENU;
+// - race_ended on a loading screen with the lap counter reset, a quit or a
+//   restart through the loading screen: END_REASON_QUIT;
+// - race_restarted: END_REASON_RESTARTED;
+// - race_started while a session is open, a replay's or a demo's included:
+//   END_REASON_NEXT_SESSION_STARTED;
+// - _end_paused "the feed was lost": END_REASON_TELEMETRY_LOST, ended_paused;
+// - _end_paused "paused for N min": END_REASON_PAUSE_LIMIT, ended_paused;
+// - _end_paused "the frames stopped": END_REASON_INPUT_ENDED, ended_paused;
+// - close_session at the end of a replay, not in a pause:
+//   END_REASON_INPUT_ENDED;
+// - the engineer's shutdown (v1's `engineer_shutdown`): no session.ended, as
+//   the session waits to be continued (paddock#76); if it is not,
+//   END_REASON_ENGINEER_STOPPED, with ended_paused when it stopped in a pause.
 enum EndReason {
   // Not set.
   END_REASON_UNSPECIFIED = 0;
   // The race was finished: the chequered flag fell.
   END_REASON_FINISHED = 1;
-  // The driver left the session before its end, back to the menus.
+  // The driver left the session before its end, back to the menus through a
+  // loading screen with the lap counter reset, as quitting from the pause
+  // menu does (v1's race_ended on a loading frame at lap 0). A race restarted
+  // through a loading screen, which is how GT7 restarts a race on lap 1 as on
+  // lap 2 (v1's race_restarted, SUGO 2026-10-18), looks the same and reads as
+  // QUIT too, the next session starting on the restart's first frame.
+  // Straight back to a menu or the track screen is END_REASON_MENU. Before the contracts
+  // release that added END_REASON_MENU and END_REASON_TIMED_FINISH, QUIT also
+  // covered what END_REASON_MENU and END_REASON_TIMED_FINISH now
+  // say: ecu sent it for any end that was not the flag. A reader of events
+  // stored before that, such as logbook's or the parity harness's, maps them.
   END_REASON_QUIT = 2;
-  // The telemetry stopped arriving and did not come back in time.
+  // The telemetry stopped arriving and did not come back in time. v1 ended a
+  // session this way only in a pause (Engine._end_paused, "the feed was
+  // lost": the PS5 switched off or put to rest), with ended_paused; lost while
+  // driving, the session stays open.
   END_REASON_TELEMETRY_LOST = 3;
   // ecu itself stopped, for example on shutdown. Not the end of a replayed
   // recording, which is END_REASON_INPUT_ENDED.
   END_REASON_ENGINEER_STOPPED = 4;
   // ecu could not tell.
   END_REASON_UNKNOWN = 5;
-  // The session was restarted: the game's lap counter jumped back to a lower
-  // lap while driving (v1's race_restarted). This session ended on the frame
-  // before the jump, and the next session starts on the jump's frame.
+  // The session was restarted in place: the game's lap counter jumped back to
+  // a lower lap while driving, with no loading screen between (v1's
+  // race_restarted, as the restart option in qualifying's pause menu does).
+  // This session ended on the frame before the jump, and the next session
+  // starts on the jump's frame. A restart through a loading screen at lap 0
+  // is END_REASON_QUIT.
   END_REASON_RESTARTED = 6;
   // The next session started while this one was still open (v1's
   // race_started), so this one ended on the frame before it.
   END_REASON_NEXT_SESSION_STARTED = 7;
   // The frames stopped: the input ecu was reading came to its end, as at the
-  // end of a replayed recording, while ecu itself kept running.
+  // end of a replayed recording, while ecu itself kept running. In a pause
+  // it is v1's Engine._end_paused "the frames stopped", with ended_paused.
   END_REASON_INPUT_ENDED = 8;
+  // The race reached its timed finish (RaceFinished with FINISH_KIND_TIMED)
+  // and then ended, at the results. A timed race has no finished frame.
+  END_REASON_TIMED_FINISH = 9;
+  // The driver left the session before its end straight back to a menu or
+  // the track screen (v1's race_ended on a menu or track-screen frame).
+  END_REASON_MENU = 10;
+  // The session stayed paused for the pause limit (ECU_PAUSE_LIMIT_SECS, off
+  // by default), so it ended paused, as of the pause's start (v1's
+  // Engine._end_paused "paused for N min"), with ended_paused.
+  END_REASON_PAUSE_LIMIT = 11;
 }
 
-// SessionStarted says a session began at a track, of any SessionType.
+// FuelUse is whether the session uses fuel, as GT7's fuel multiplier sets it.
+enum FuelUse {
+  // Not set.
+  FUEL_USE_UNSPECIFIED = 0;
+  // Fuel is used (v1's `fuel_use` true).
+  FUEL_USE_ON = 1;
+  // Fuel is not used: the level holds (v1's `fuel_use` false).
+  FUEL_USE_OFF = 2;
+  // Not known yet (v1's `fuel_use` null).
+  FUEL_USE_UNKNOWN = 3;
+}
+
+// StartType is how the session started (v1's sessionkind `start`).
+enum StartType {
+  // Not set.
+  START_TYPE_UNSPECIFIED = 0;
+  // From the grid, at rest (v1's `grid`).
+  START_TYPE_GRID = 1;
+  // A rolling start behind the line (v1's `rolling`).
+  START_TYPE_ROLLING = 2;
+  // A flying start over the line at speed, as a time trial's (v1's `flying`).
+  START_TYPE_FLYING = 3;
+  // ecu could not tell (v1's `unknown`), as for a session joined part way
+  // whose start no run saw. A session continued after an ecu restart keeps
+  // the start the earlier run saw, as v1 did, though the continuing run
+  // joined part way.
+  START_TYPE_UNKNOWN = 4;
+}
+
+// SessionKind is ecu's verdict on what kind of session it is, as v1's
+// sessionkind.SessionKind records it in summary.json's `session_kind`. It is
+// carried by SessionKindChanged, and by SessionSummary as the final one.
+message SessionKind {
+  // What kind of session it is (SessionType, v1's `kind`): one of the values
+  // ecu sends.
+  SessionType session_type = 1;
+  // The laps the race runs (v1's `total_laps`). Absent in a timed session,
+  // where v1 stored 0.
+  optional int32 total_laps = 2;
+  // Whether other cars are racing for position (v1's `field`): true for
+  // SESSION_TYPE_LAP_RACE and SESSION_TYPE_TIMED_FIELD.
+  bool field = 3;
+  // Whether the session uses fuel (FuelUse, v1's `fuel_use`).
+  FuelUse fuel_use = 4;
+  // GT7's cars-on-track flag, as last reported (v1's `cars_on_track`).
+  bool cars_on_track = 5;
+  // How the session started (StartType, v1's `start`).
+  StartType start = 6;
+  // What decided it, in a sentence for people, such as "6 laps, 2 cars; fuel
+  // use on; rolling start at 128 km/h" (v1's `evidence`). Its wording is not
+  // part of the contract, and a change of wording alone publishes nothing.
+  string evidence = 7;
+}
+
+// TrackConfidence is how sure ecu's track detector is of its verdict (v1's
+// trackdetect Confidence).
+enum TrackConfidence {
+  // Not set.
+  TRACK_CONFIDENCE_UNSPECIFIED = 0;
+  // No track placed yet (v1's `none`).
+  TRACK_CONFIDENCE_NONE = 1;
+  // More than one layout fits (v1's `ambiguous`).
+  TRACK_CONFIDENCE_AMBIGUOUS = 2;
+  // One layout, or one circuit, fits best (v1's `probable`).
+  TRACK_CONFIDENCE_PROBABLE = 3;
+  // The finish line was crossed and a full lap fits the layout (v1's
+  // `confirmed`).
+  TRACK_CONFIDENCE_CONFIRMED = 4;
+}
+
+// TrackCandidate is one layout the track detector still holds possible.
+message TrackCandidate {
+  // The layout's id in ecu's track table, as in v1's tracks.csv (v1's `id`).
+  int32 track_id = 1;
+  // The layout's name, such as "Suzuka Circuit East Course" (v1's `name`).
+  string name = 2;
+  // How well the driven box fits the layout's box, from 0 to 1, rounded to 3
+  // decimals (v1's `fit`, the boxes' intersection over their union).
+  double fit = 3;
+  // Whether the car crossed this layout's finish line (v1's `line`).
+  bool line_crossed = 4;
+}
+
+// TrackVerdict is ecu's track detector's verdict on a session's track, as v1
+// records it in summary.json's `track`. It is carried by SessionTrackChanged,
+// by SessionContinued as the carried track, and by SessionSummary as the
+// final one.
+message TrackVerdict {
+  // The layout's id in ecu's track table, as in v1's tracks.csv (v1's `id`
+  // and the summary's top-level `track_id`). Absent when no layout is
+  // placed. When only the circuit is known (family), the layout that carries
+  // the circuit's name, else the lowest id, as v1 chose it.
+  optional int32 track_id = 1;
+  // The layout's name, or the circuit's when only that is known (v1's
+  // `name`). Empty when no track is placed.
+  string name = 2;
+  // How sure the detector is (TrackConfidence, v1's `confidence`).
+  TrackConfidence confidence = 3;
+  // The circuit, set when the geometry cannot pick between its layouts, such
+  // as "Fuji" for Fuji and Fuji Short (v1's `family`). Empty otherwise.
+  string family = 4;
+  // What decided it, in a sentence for people (v1's `evidence`). Its wording
+  // is not part of the contract, and a change of wording alone publishes
+  // nothing.
+  string evidence = 5;
+  // The layouts still possible, best first, at most 8 (v1's `candidates`).
+  repeated TrackCandidate candidates = 6;
+  // Whether the verdict was carried over an ecu restart from before it
+  // (paddock#76): known from the continued session's first frame, and still
+  // open to the detector ruling it out. v1 wrote "carried over from before
+  // the engineer restart" as its evidence instead.
+  bool carried = 7;
+}
+
+// GapReason is why a session has a gap in its frames.
+enum GapReason {
+  // Not set.
+  GAP_REASON_UNSPECIFIED = 0;
+  // ecu restarted mid-session and continued the session (v1's `engineer
+  // restart`).
+  GAP_REASON_ENGINEER_RESTART = 1;
+}
+
+// SessionGap is a stretch of a session ecu did not see: it stopped and a new
+// run continued the session (paddock#76), as one of v1's summary.json
+// `gaps`.
+message SessionGap {
+  // When the gap began: the last time the stopped run saw the session (v1's
+  // `from`, its ended_at).
+  google.protobuf.Timestamp started_at = 1;
+  // When the gap ended: the continuing run's first frame of the session (v1's
+  // `to`).
+  google.protobuf.Timestamp ended_at = 2;
+  // The lap the gap fell in, from 1 (v1's `lap`). That lap's LapCompleted is
+  // not complete, with GT7's time for it.
+  int32 lap = 3;
+  // Why (GapReason, v1's `reason`).
+  GapReason reason = 4;
+}
+
+// DiscardReason is why a start was not a drive.
+enum DiscardReason {
+  // Not set.
+  DISCARD_REASON_UNSPECIFIED = 0;
+  // A GT7 replay of a race (v1's `replay`).
+  DISCARD_REASON_REPLAY = 1;
+  // GT7's attract-mode demo race (v1's `demo`).
+  DISCARD_REASON_DEMO = 2;
+}
+
+// PauseKind is how ecu saw a pause.
+enum PauseKind {
+  // Not set.
+  PAUSE_KIND_UNSPECIFIED = 0;
+  // GT7 flagged it: its frames are paused for as long as the pause menu is up.
+  PAUSE_KIND_FLAGGED = 1;
+  // A frozen stream: frames marked as racing that do not change for 1 s with
+  // the car over 1 km/h (v1's PauseClock), dated from the first of them.
+  PAUSE_KIND_FROZEN = 2;
+}
+
+// SessionStarted says a session began at a track, of any SessionType. A start
+// GT7's cars-on-track flag is off for is held until ecu knows it is a drive
+// (paddock#74): a replay or a demo is SessionDiscarded instead.
 message SessionStarted {
   // The session's id: a ULID ecu mints, 26 characters of Crockford base32 in
   // upper case. Every event of the session carries it.
@@ -96,10 +307,10 @@ message SessionStarted {
   // trial or practice, where the game reports 0.
   optional int32 total_laps = 6;
   // Whether ecu joined the session after it began, so its first laps were not
-  // seen.
+  // seen: its first frame was a race frame past lap 1 with nothing before it.
   bool joined_part_way = 7;
   // The `seq` of the session's first frame, in the ecu run that published
-  // this event.
+  // this event: the event's `at`. For a held start, the first held frame.
   uint32 first_seq = 8;
   // When ecu received the session's first frame: that frame's `ce-time`. The
   // session id's embedded time is not the start time.
@@ -107,19 +318,167 @@ message SessionStarted {
   // The fuel in the tank on the session's first frame, in litres (v1's
   // fuel_at_start).
   double fuel_at_start = 10;
+  // The car's name, from ecu's car table, or "car <code>" for a car missing
+  // from it (v1's `car_name`).
+  string car_name = 11;
+  // The track id the decoder gave the session's first frame (Frame's
+  // track_id): gt-telem's guess, since GT7's packet carries none. Absent when
+  // it had none. ecu's own verdict is SessionTrackChanged's.
+  optional int32 frame_track_id = 12;
+  // The lap ecu joined the session on, from 2 (v1's `joined_on_lap`). Set
+  // only when joined_part_way is true.
+  optional int32 joined_on_lap = 13;
+  // The tank's capacity, in litres, as the game reports it (v1's
+  // `fuel_capacity`); 0 for a car with no tank.
+  double fuel_capacity = 14;
 }
 
-// SessionSummary is what a session came to. Later milestones add the fuller
-// summary (stints, pits, times) as new fields.
+// SessionContinued says a new ecu run picked up the session the run before it
+// left open (paddock#76), with the same id: its laps, stints, stops, pauses
+// and driving time go on from where they were. The session's SessionStarted
+// came from the earlier run.
+message SessionContinued {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The stretch neither run saw.
+  SessionGap gap = 2;
+  // The track the session had before the restart, carried over with carried
+  // set. Absent when it had placed neither a layout nor a circuit.
+  TrackVerdict track = 3;
+  // The `seq` of the session's first frame in this ecu run: the event's
+  // `at`.
+  uint32 at = 4;
+}
+
+// SessionDiscarded says a start that GT7's cars-on-track flag was off for was
+// not a drive but a replay or a demo (paddock#74; v1's DriverCheck). No
+// SessionStarted came for it, and its held frames, first_seq to at, are not
+// a session's: a consumer that buffered them drops them.
+message SessionDiscarded {
+  // The id ecu minted for the start it held.
+  string session_id = 1;
+  // What the start was (DiscardReason).
+  DiscardReason reason = 2;
+  // What decided it, in a sentence for people, such as "fuel is draining
+  // (98.3 -> 97.6), which only a replay does" (v1's DriverCheck.why). Its
+  // wording is not part of the contract.
+  string evidence = 3;
+  // The `seq` of the first held frame, in the ecu run that published this
+  // event.
+  uint32 first_seq = 4;
+  // The `seq` of the frame the verdict came on, the last held frame: the
+  // event's `at`.
+  uint32 at = 5;
+}
+
+// SessionKindChanged says ecu's verdict on the session's kind changed: its
+// kind, fuel use, cars-on-track flag or start. GT7 can post the lap total a
+// moment after the start, and a field shows only once the driver has been
+// anything but first, so it can change a few times a session.
+message SessionKindChanged {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The new verdict.
+  SessionKind kind = 2;
+  // The `seq` of the frame it changed on, in the ecu run that published this
+  // event: the event's `at`.
+  uint32 at = 3;
+}
+
+// SessionTrackChanged says ecu's verdict on the session's track changed: a
+// verdict that ranks higher (confidence, then naming a layout), or a layout
+// the detector ruled out. A change of candidates or wording alone publishes
+// nothing (paddock#81).
+message SessionTrackChanged {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The new verdict.
+  TrackVerdict track = 2;
+  // The `seq` of the frame it changed on, in the ecu run that published this
+  // event: the event's `at`.
+  uint32 at = 3;
+}
+
+// SessionPaused says the session paused (paddock#77). A pause never ends a
+// session on its own; see EndReason for the ways one ends in a pause.
+message SessionPaused {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // How ecu saw the pause (PauseKind).
+  PauseKind kind = 2;
+  // When the pause began, in seconds on the frames' clock (Frame's `t`):
+  // the first paused frame, or a frozen stream's first unchanged frame.
+  double since_t = 3;
+  // When the pause began, in UTC: since_t's frame's receive time.
+  google.protobuf.Timestamp since = 4;
+  // The session's time paused before this pause, in milliseconds (v1's
+  // `paused_ms` so far).
+  int32 paused_ms = 5;
+  // The `seq` of the frame the pause was read on, in the ecu run that
+  // published this event: the event's `at`. For a frozen stream it is 1 s
+  // after since_t's frame.
+  uint32 at = 6;
+  // The pause's number in the session, from 1: the <pause> in the event's
+  // id. ecu carries the count across an ecu restart (paddock#76), as it
+  // carries paused_ms: a pause still open when ecu stopped keeps its number
+  // in the continuing run, so a SessionPaused sent again for it dedupes, and
+  // the next pause takes the next number.
+  int32 pause = 7;
+}
+
+// SessionResumed says the session's pause ended: the first frame after it is
+// not paused.
+message SessionResumed {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // How ecu saw the pause (PauseKind), as in its SessionPaused.
+  PauseKind kind = 2;
+  // When the pause began, in seconds on the frames' clock, as in its
+  // SessionPaused.
+  double since_t = 3;
+  // When the pause began, in UTC, as in its SessionPaused.
+  google.protobuf.Timestamp since = 4;
+  // This pause's length, in milliseconds, on the frames' clock.
+  int32 pause_ms = 5;
+  // The session's time paused so far, this pause included, in milliseconds
+  // (v1's `paused_ms`).
+  int32 paused_ms = 6;
+  // The `seq` of the first frame after the pause, in the ecu run that
+  // published this event: the event's `at`.
+  uint32 at = 7;
+  // The pause's number in the session, from 1, as in its SessionPaused: the
+  // <pause> in the event's id.
+  int32 pause = 8;
+}
+
+// SessionSummary is what a session came to: v1's summary.json, as v1's
+// SessionStore.end_session writes it (paddock#69), each field naming the v1
+// field it carries. The v1 fields it leaves out: `session_id` (SessionEnded's),
+// `type` (v1's race, time trial or practice guess, which session_type
+// replaces, paddock#276), `track_id` (track's track_id), `engineer_shutdown`
+// (END_REASON_ENGINEER_STOPPED), and each lap's `frames`, `file` and
+// `recorded_at` (v1's store's own). With every lap in laps it stays well under
+// NATS's 1 MB payload even for a 24 h race: a lap is a few hundred bytes, and
+// no frames are in it.
 message SessionSummary {
-  // The complete laps, as v1 counts them: partial laps are not counted.
+  // The complete laps, as v1 counts them: partial laps are not counted (v1's
+  // `laps_completed`).
   int32 laps_completed = 1;
-  // The number of the best complete lap. Absent until ecu decides it: which
-  // laps count is a later milestone's, and until then ecu leaves it out, so
-  // absent does not mean that no lap was complete.
+  // The number of the best lap. Absent until ecu decides it, and when no lap
+  // counts for best: ecu decides it as v1's `best_lap_ms` does. GT7's own
+  // best wins when it has one and a lap has that time: the first such lap,
+  // whatever its counts_for_best (GT7's best can fall on a pit lap). Else, with
+  // no GT7 best or no lap with its time (as when GT7 set it on a lap ecu did
+  // not see), the quickest lap that counts for best (LapCompleted's
+  // counts_for_best), as v1 fell back to its quickest lap. A known
+  // difference from v1: without GT7's best, v1's fallback (results.best_lap)
+  // took the quickest complete lap, pit laps included, and left out lap 1 of
+  // a lap race only when another lap was timed; ecu leaves out pit laps and
+  // every lap that does not count (paddock#83's R3 and R5 disagree here). The
+  // parity harness maps it.
   optional int32 best_lap = 2;
-  // The best complete lap's time, in milliseconds. Absent until ecu decides
-  // it, as best_lap.
+  // The best lap's time, in milliseconds (v1's `best_lap_ms`). Absent until
+  // ecu decides it, as best_lap.
   optional int32 best_lap_time_ms = 3;
   // The finishing position, from 1. Set only when this summary's session_type
   // is SESSION_TYPE_LAP_RACE, a lap race with a field, and the session ended
@@ -147,6 +506,93 @@ message SessionSummary {
   // the verdict on the first frame. finishing_position and final_position
   // follow this one.
   SessionType session_type = 7;
+  // When the session started, in UTC: SessionStarted's started_at (v1's
+  // `started_at`, in epoch seconds).
+  google.protobuf.Timestamp started_at = 8;
+  // When the session ended, in UTC (v1's `ended_at`, in epoch seconds). For a
+  // session that ended paused, when that pause began.
+  google.protobuf.Timestamp ended_at = 9;
+  // The time driven, in milliseconds: the frames' time from the session's
+  // first frame to its last, less its pauses, summed across an ecu restart's
+  // runs (v1's `driving_ms`).
+  int32 driving_ms = 10;
+  // The time paused, in milliseconds, on the frames' clock (v1's
+  // `paused_ms`).
+  int32 paused_ms = 11;
+  // Whether the session ended in a pause (v1's `ended_paused`): see
+  // EndReason.
+  bool ended_paused = 12;
+  // ecu's final verdict on the track, with the final candidates and fit when
+  // they are the same decision as the session's (v1's `track`). Absent when
+  // no track was placed (v1's null).
+  TrackVerdict track = 13;
+  // ecu's final verdict on the session's kind (v1's `session_kind`). Its
+  // session_type is this summary's session_type. Absent when ecu had none
+  // (v1's null).
+  SessionKind kind = 14;
+  // The game's code for the car (v1's `car_code`).
+  int32 car_code = 15;
+  // The car's name, as in SessionStarted (v1's `car_name`).
+  string car_name = 16;
+  // The laps the race runs (v1's `total_laps`). Absent in a timed session,
+  // where v1 stored 0.
+  optional int32 total_laps = 17;
+  // The quickest complete lap's time, in milliseconds, lap 1 from the grid
+  // and pit laps included (v1's `fastest_lap_ms`). Absent when no complete
+  // lap was timed.
+  optional int32 fastest_lap_ms = 18;
+  // GT7's own best lap, in milliseconds, as last reported, which leaves out a
+  // start lap (v1's `gt7_best_lap_ms`). Absent when GT7 had none.
+  optional int32 game_best_lap_ms = 19;
+  // Whether the race reached its finish, the chequered flag or a timed
+  // finish (RaceFinished), whatever ended the session after it (v1's
+  // `finished`). A quit is not a finish.
+  bool finished = 20;
+  // The lap ecu joined the session on, as in SessionStarted (v1's
+  // `joined_on_lap`). Absent when ecu saw the session from its start.
+  optional int32 joined_on_lap = 21;
+  // The race's time, in milliseconds: the sum of its complete laps' times.
+  // Set only when finished is true and a lap was timed (v1's
+  // `total_time_ms`).
+  optional int32 total_time_ms = 22;
+  // The cars in the race on the session's last frame, or the last count seen
+  // when that frame has none (v1's `total_cars`). Absent when the game
+  // reported none.
+  optional int32 total_cars = 23;
+  // The fuel burnt, in litres, rounded to 3 decimals: every drop in the
+  // level added up, so a refuel does not cancel what was burnt before it
+  // (v1's `fuel_burned`). Unlike fuel_used, never negative.
+  double fuel_burned = 24;
+  // The fuel burnt in each stint, in litres, rounded to 3 decimals, leaving
+  // out stints that burnt under 1 litre (v1's `fuel_burned_by_stint`).
+  repeated double fuel_burned_by_stint = 25;
+  // The fuel burnt in every stint, in litres, rounded to 3 decimals, short
+  // ones included (v1's `fuel_stints`).
+  repeated double fuel_stints = 26;
+  // The tank's capacity, in litres, on the session's last frame (v1's
+  // `fuel_capacity`); 0 for a car with no tank.
+  double fuel_capacity = 27;
+  // The fuel in the tank on the session's first frame, in litres, as in
+  // SessionStarted (v1's `fuel_at_start`).
+  double fuel_at_start = 28;
+  // The fuel in the tank on the session's last frame, in litres (v1's
+  // `fuel_at_end`).
+  double fuel_at_end = 29;
+  // The stints driven: one more than the pit stops completed (v1's
+  // `stints`).
+  int32 stints = 30;
+  // The pit stops, in order (v1's `pit_stops`).
+  repeated PitStop pit_stops = 31;
+  // The ecu restarts the session was continued across, in order (v1's
+  // `gaps`).
+  repeated SessionGap gaps = 32;
+  // Every lap, complete and partial, in the order they ended, each as its
+  // lap.completed was published (v1's `laps`: `lap`, `lap_time_ms`,
+  // `complete`, `fuel_start`, `fuel_end`, `fuel_used`, `position` and
+  // `pit`). A lap's first_seq and last_seq mean something only within the
+  // ecu run that published it: a session continued after a restart has laps
+  // from two runs.
+  repeated LapCompleted laps = 33;
 }
 
 // SessionEnded says a session ended, and what it came to.
@@ -158,7 +604,7 @@ message SessionEnded {
   // What it came to.
   SessionSummary summary = 3;
   // The `seq` of the session's last frame, the frame it ended on, in the ecu
-  // run that published this event. With SessionStarted's first_seq it bounds
-  // the session's frames.
+  // run that published this event: the event's `at`. With SessionStarted's
+  // first_seq it bounds the session's frames.
   uint32 last_seq = 4;
 }

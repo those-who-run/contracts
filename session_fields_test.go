@@ -208,9 +208,10 @@ func leadingComment(t *testing.T, file, name string) string {
 		t.Fatal(err)
 	}
 	defer func() { _ = f.Close() }()
-	// name is a declaration's name, or its name and number ("session_type = 4")
-	// where one file declares the name twice.
-	pattern := regexp.QuoteMeta(name) + `\s*=\s*\d+;`
+	// name is a declaration's name, a field's, a value's or a message's, or its
+	// name and number ("session_type = 4") where one file declares the name
+	// twice.
+	pattern := `(?:` + regexp.QuoteMeta(name) + `\s*=\s*\d+;|message\s+` + regexp.QuoteMeta(name) + `\s*\{)`
 	if strings.Contains(name, "=") {
 		pattern = regexp.QuoteMeta(name) + `;`
 	}

@@ -18,6 +18,9 @@
 #                 Callouts are one entry per level, callout.p0, .p1 and .p2,
 #                 each a subject a consumer subscribes to, sharing one message
 #                 and ce-type.
+#                 A token of <area> or <what> is lower-case letters and
+#                 digits, with single underscores between words, such as
+#                 final_lap; so is each token of a ce_type.
 #   ce_type       the CloudEvents type in the ce-type header, one to one with
 #                 a message: run.thosewho.<area>.<what>.v<N>
 #   message       the protobuf message, fully qualified
@@ -31,7 +34,15 @@
 #                 <src>:<sid>:<area>.<what>:<part>, with its ce-type's
 #                 <area>.<what> and at least one part, such as
 #                 <src>:<sid>:lap.completed:<n>; one that happens once per
-#                 session ends in :1. On an evt._ subject, with no session
+#                 session ends in :1, and one the session counts ends in its
+#                 number, such as a pause's <pause>, which ecu carries across
+#                 a restart: a pause open across one keeps its number, so a
+#                 pause sent again after the restart dedupes. One that
+#                 can happen at any frame, more than once a session, with no
+#                 count of its own (kind, track, position), ends in
+#                 <run>:<seq>, the ecu run and the event's `at`: seq starts
+#                 again with each run, and a session continued after an ecu
+#                 restart (paddock#76) spans two runs. On an evt._ subject, with no session
 #                 open, <run> takes <sid>'s place. The source comes first
 #                 because EVENTS deduplicates by Nats-Msg-Id across the whole
 #                 stream, and two sources can carry the same session id
@@ -87,5 +98,110 @@ subjects:
     msg_id: <src>:<sid>:session.ended:1
     description: A session ended, why, and its summary.
 
+  - pattern: twr.v1.<src>.evt.<sid>.session.continued
+    ce_type: run.thosewho.session.continued.v1
+    message: twr.events.v1.SessionContinued
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:session.continued:<run>
+    description: A new ecu run continued the session the run before it left open, after a gap.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.discarded
+    ce_type: run.thosewho.session.discarded.v1
+    message: twr.events.v1.SessionDiscarded
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:session.discarded:1
+    description: A held start was a GT7 replay or demo, not a drive; its held frames are dropped.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.kind
+    ce_type: run.thosewho.session.kind.v1
+    message: twr.events.v1.SessionKindChanged
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:session.kind:<run>:<seq>
+    description: ecu's verdict on the session's kind changed.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.track
+    ce_type: run.thosewho.session.track.v1
+    message: twr.events.v1.SessionTrackChanged
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:session.track:<run>:<seq>
+    description: ecu's verdict on the session's track changed.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.paused
+    ce_type: run.thosewho.session.paused.v1
+    message: twr.events.v1.SessionPaused
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:session.paused:<pause>
+    description: The session paused, flagged by GT7 or read from a frozen stream.
+
+  - pattern: twr.v1.<src>.evt.<sid>.session.resumed
+    ce_type: run.thosewho.session.resumed.v1
+    message: twr.events.v1.SessionResumed
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:session.resumed:<pause>
+    description: The session's pause ended.
+
+  - pattern: twr.v1.<src>.evt.<sid>.lap.best
+    ce_type: run.thosewho.lap.best.v1
+    message: twr.events.v1.LapBestChanged
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:lap.best:<n>
+    description: The session's best lap changed.
+
+  - pattern: twr.v1.<src>.evt.<sid>.race.final_lap
+    ce_type: run.thosewho.race.final_lap.v1
+    message: twr.events.v1.RaceFinalLapStarted
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:race.final_lap:1
+    description: The final lap of a lap race began.
+
+  - pattern: twr.v1.<src>.evt.<sid>.race.position
+    ce_type: run.thosewho.race.position.v1
+    message: twr.events.v1.RacePositionChanged
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:race.position:<run>:<seq>
+    description: The car's position changed and settled for 3 s.
+
+  - pattern: twr.v1.<src>.evt.<sid>.race.finished
+    ce_type: run.thosewho.race.finished.v1
+    message: twr.events.v1.RaceFinished
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:race.finished:1
+    description: The race finished, at the chequered flag or a timed race's finish.
+
 helpers:
+  - twr.events.v1.PitStop
+  - twr.events.v1.SessionGap
+  - twr.events.v1.SessionKind
   - twr.events.v1.SessionSummary
+  - twr.events.v1.TrackCandidate
+  - twr.events.v1.TrackVerdict

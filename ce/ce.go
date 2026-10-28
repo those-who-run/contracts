@@ -80,10 +80,20 @@ type Event struct {
 // types is each message's ce-type: the one place it is written in Go. A test
 // checks it against subjects.yaml.
 var types = map[protoreflect.FullName]string{
-	(&telemetryv1.Frame{}).ProtoReflect().Descriptor().FullName():       "run.thosewho.frame.gt7.v1",
-	(&eventsv1.SessionStarted{}).ProtoReflect().Descriptor().FullName(): "run.thosewho.session.started.v1",
-	(&eventsv1.LapCompleted{}).ProtoReflect().Descriptor().FullName():   "run.thosewho.lap.completed.v1",
-	(&eventsv1.SessionEnded{}).ProtoReflect().Descriptor().FullName():   "run.thosewho.session.ended.v1",
+	(&telemetryv1.Frame{}).ProtoReflect().Descriptor().FullName():            "run.thosewho.frame.gt7.v1",
+	(&eventsv1.SessionStarted{}).ProtoReflect().Descriptor().FullName():      "run.thosewho.session.started.v1",
+	(&eventsv1.LapCompleted{}).ProtoReflect().Descriptor().FullName():        "run.thosewho.lap.completed.v1",
+	(&eventsv1.SessionEnded{}).ProtoReflect().Descriptor().FullName():        "run.thosewho.session.ended.v1",
+	(&eventsv1.SessionContinued{}).ProtoReflect().Descriptor().FullName():    "run.thosewho.session.continued.v1",
+	(&eventsv1.SessionDiscarded{}).ProtoReflect().Descriptor().FullName():    "run.thosewho.session.discarded.v1",
+	(&eventsv1.SessionKindChanged{}).ProtoReflect().Descriptor().FullName():  "run.thosewho.session.kind.v1",
+	(&eventsv1.SessionTrackChanged{}).ProtoReflect().Descriptor().FullName(): "run.thosewho.session.track.v1",
+	(&eventsv1.SessionPaused{}).ProtoReflect().Descriptor().FullName():       "run.thosewho.session.paused.v1",
+	(&eventsv1.SessionResumed{}).ProtoReflect().Descriptor().FullName():      "run.thosewho.session.resumed.v1",
+	(&eventsv1.LapBestChanged{}).ProtoReflect().Descriptor().FullName():      "run.thosewho.lap.best.v1",
+	(&eventsv1.RaceFinalLapStarted{}).ProtoReflect().Descriptor().FullName(): "run.thosewho.race.final_lap.v1",
+	(&eventsv1.RacePositionChanged{}).ProtoReflect().Descriptor().FullName(): "run.thosewho.race.position.v1",
+	(&eventsv1.RaceFinished{}).ProtoReflect().Descriptor().FullName():        "run.thosewho.race.finished.v1",
 }
 
 // Types is every message's ce-type, by the message's full name.
