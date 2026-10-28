@@ -25,9 +25,9 @@ whole stream, and two sources can carry the same session id. A frame's id is
 | `twr.v1.<src>.evt.<sid>.session.discarded` | `twr.events.v1.SessionDiscarded` | `run.thosewho.session.discarded.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:session.discarded:1` |
 | `twr.v1.<src>.evt.<sid>.session.kind` | `twr.events.v1.SessionKindChanged` | `run.thosewho.session.kind.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:session.kind:<run>:<seq>` |
 | `twr.v1.<src>.evt.<sid>.session.track` | `twr.events.v1.SessionTrackChanged` | `run.thosewho.session.track.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:session.track:<run>:<seq>` |
-| `twr.v1.<src>.evt.<sid>.session.paused` | `twr.events.v1.SessionPaused` | `run.thosewho.session.paused.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:session.paused:<run>:<seq>` |
-| `twr.v1.<src>.evt.<sid>.session.resumed` | `twr.events.v1.SessionResumed` | `run.thosewho.session.resumed.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:session.resumed:<run>:<seq>` |
-| `twr.v1.<src>.evt.<sid>.lap.best` | `twr.events.v1.LapBestImproved` | `run.thosewho.lap.best.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:lap.best:<n>` |
+| `twr.v1.<src>.evt.<sid>.session.paused` | `twr.events.v1.SessionPaused` | `run.thosewho.session.paused.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:session.paused:<pause>` |
+| `twr.v1.<src>.evt.<sid>.session.resumed` | `twr.events.v1.SessionResumed` | `run.thosewho.session.resumed.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:session.resumed:<pause>` |
+| `twr.v1.<src>.evt.<sid>.lap.best` | `twr.events.v1.LapBestChanged` | `run.thosewho.lap.best.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:lap.best:<n>` |
 | `twr.v1.<src>.evt.<sid>.race.final_lap` | `twr.events.v1.RaceFinalLapStarted` | `run.thosewho.race.final_lap.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.final_lap:1` |
 | `twr.v1.<src>.evt.<sid>.race.position` | `twr.events.v1.RacePositionChanged` | `run.thosewho.race.position.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.position:<run>:<seq>` |
 | `twr.v1.<src>.evt.<sid>.race.finished` | `twr.events.v1.RaceFinished` | `run.thosewho.race.finished.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.finished:1` |
@@ -44,7 +44,7 @@ whole stream, and two sources can carry the same session id. A frame's id is
 - `twr.v1.<src>.evt.<sid>.session.track`: ecu's verdict on the session's track changed.
 - `twr.v1.<src>.evt.<sid>.session.paused`: The session paused, flagged by GT7 or read from a frozen stream.
 - `twr.v1.<src>.evt.<sid>.session.resumed`: The session's pause ended.
-- `twr.v1.<src>.evt.<sid>.lap.best`: The session's best lap improved.
+- `twr.v1.<src>.evt.<sid>.lap.best`: The session's best lap changed.
 - `twr.v1.<src>.evt.<sid>.race.final_lap`: The final lap of a lap race began.
 - `twr.v1.<src>.evt.<sid>.race.position`: The car's position changed and settled for 3 s.
 - `twr.v1.<src>.evt.<sid>.race.finished`: The race finished, at the chequered flag or a timed race's finish.
@@ -60,3 +60,4 @@ Parts of an event, not events themselves, so they have no subject: `twr.events.v
 | `<run>` | the ecu run's id, a ULID ecu mints when it starts (not a replay's name) | `msg_id` |
 | `<seq>` | a frame's sequence number within the ecu run: a frame's own, or the `at` of the frame an event happened on | `msg_id` |
 | `<n>` | the lap's number | `msg_id` |
+| `<pause>` | the pause's number in the session, from 1, counted on across an ecu restart | `msg_id` |

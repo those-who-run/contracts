@@ -62,10 +62,10 @@ message RaceFinished {
   // The race's time, in milliseconds: the sum of its complete laps' times
   // (v1's summary `total_time_ms`). Absent when no lap was timed.
   optional int32 total_time_ms = 5;
-  // The best lap's number, from 1, as LapBestImproved last gave it. Absent
+  // The best lap's number, from 1, as LapBestChanged last gave it. Absent
   // when no lap counted for best.
   optional int32 best_lap = 6;
-  // The best lap's time, in milliseconds, as LapBestImproved last gave it.
+  // The best lap's time, in milliseconds, as LapBestChanged last gave it.
   // Absent with best_lap.
   optional int32 best_lap_time_ms = 7;
   // The `seq` of the flag frame, or of the timed finish's crossing frame, in

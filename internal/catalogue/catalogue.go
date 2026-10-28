@@ -92,6 +92,7 @@ var Placeholders = []Placeholder{
 	{"<run>", "the ecu run's id, a ULID ecu mints when it starts (not a replay's name)", false, false, true},
 	{"<seq>", "a frame's sequence number within the ecu run: a frame's own, or the `at` of the frame an event happened on", false, false, true},
 	{"<n>", "the lap's number", false, false, true},
+	{"<pause>", "the pause's number in the session, from 1, counted on across an ecu restart", false, false, true},
 }
 
 // word is a token of a subject's <area> or <what>, or of a ce-type: lower-case

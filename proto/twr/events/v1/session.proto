@@ -77,7 +77,10 @@ enum EndReason {
   // The driver left the session before its end, back to the menus through a
   // loading screen with the lap counter reset, as quitting from the pause
   // menu does (v1's race_ended on a loading frame at lap 0). Straight back to
-  // a menu or the track screen is END_REASON_MENU.
+  // a menu or the track screen is END_REASON_MENU. Before contracts v0.2.0,
+  // QUIT also covered what END_REASON_MENU and END_REASON_TIMED_FINISH now
+  // say: ecu sent it for any end that was not the flag. A reader of events
+  // stored before that, such as logbook's or the parity harness's, maps them.
   END_REASON_QUIT = 2;
   // The telemetry stopped arriving and did not come back in time. v1 ended a
   // session this way only in a pause (Engine._end_paused, "the feed was
@@ -404,6 +407,9 @@ message SessionPaused {
   // published this event: the event's `at`. For a frozen stream it is 1 s
   // after since_t's frame.
   uint32 at = 6;
+  // The pause's number in the session, from 1, counted on across an ecu
+  // restart (paddock#76): the <pause> in the event's id.
+  int32 pause = 7;
 }
 
 // SessionResumed says the session's pause ended: the first frame after it is
@@ -426,6 +432,9 @@ message SessionResumed {
   // The `seq` of the first frame after the pause, in the ecu run that
   // published this event: the event's `at`.
   uint32 at = 7;
+  // The pause's number in the session, from 1, as in its SessionPaused: the
+  // <pause> in the event's id.
+  int32 pause = 8;
 }
 
 // SessionSummary is what a session came to: v1's summary.json, as v1's
@@ -443,8 +452,13 @@ message SessionSummary {
   int32 laps_completed = 1;
   // The number of the best lap. Absent until ecu decides it, and when no lap
   // counts for best: ecu decides it as v1's `best_lap_ms` does, GT7's own
-  // best when it has one, else the quickest lap that counts for best
-  // (LapCompleted's counts_for_best), so it leaves out lap 1 of a lap race.
+  // best when it has one (the first lap with that time), else the quickest
+  // lap that counts for best (LapCompleted's counts_for_best). A known
+  // difference from v1: without GT7's best, v1's fallback (results.best_lap)
+  // took the quickest complete lap, pit laps included, and left out lap 1 of
+  // a lap race only when another lap was timed; ecu leaves out pit laps and
+  // every lap that does not count (paddock#83's R3 and R5 disagree here). The
+  // parity harness maps it.
   optional int32 best_lap = 2;
   // The best lap's time, in milliseconds (v1's `best_lap_ms`). Absent until
   // ecu decides it, as best_lap.
@@ -558,7 +572,9 @@ message SessionSummary {
   // Every lap, complete and partial, in the order they ended, each as its
   // lap.completed was published (v1's `laps`: `lap`, `lap_time_ms`,
   // `complete`, `fuel_start`, `fuel_end`, `fuel_used`, `position` and
-  // `pit`).
+  // `pit`). A lap's first_seq and last_seq mean something only within the
+  // ecu run that published it: a session continued after a restart has laps
+  // from two runs.
   repeated LapCompleted laps = 33;
 }
 

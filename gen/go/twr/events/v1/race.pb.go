@@ -240,10 +240,10 @@ type RaceFinished struct {
 	// The race's time, in milliseconds: the sum of its complete laps' times
 	// (v1's summary `total_time_ms`). Absent when no lap was timed.
 	TotalTimeMs *int32 `protobuf:"varint,5,opt,name=total_time_ms,json=totalTimeMs,proto3,oneof" json:"total_time_ms,omitempty"`
-	// The best lap's number, from 1, as LapBestImproved last gave it. Absent
+	// The best lap's number, from 1, as LapBestChanged last gave it. Absent
 	// when no lap counted for best.
 	BestLap *int32 `protobuf:"varint,6,opt,name=best_lap,json=bestLap,proto3,oneof" json:"best_lap,omitempty"`
-	// The best lap's time, in milliseconds, as LapBestImproved last gave it.
+	// The best lap's time, in milliseconds, as LapBestChanged last gave it.
 	// Absent with best_lap.
 	BestLapTimeMs *int32 `protobuf:"varint,7,opt,name=best_lap_time_ms,json=bestLapTimeMs,proto3,oneof" json:"best_lap_time_ms,omitempty"`
 	// The `seq` of the flag frame, or of the timed finish's crossing frame, in

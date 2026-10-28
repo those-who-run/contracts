@@ -68,20 +68,48 @@ func (r v1Record) take(key string) any {
 	return v
 }
 
+// str, num and flag fail on a null or a value of another type, where v1
+// always writes one: a silent zero would hide a field the conversion misreads.
 func (r v1Record) str(key string) string {
-	s, _ := r.take(key).(string)
+	r.t.Helper()
+	s, ok := r.take(key).(string)
+	if !ok {
+		r.t.Errorf("summary.json's %s%s is not a string", r.prefix, key)
+	}
 	return s
 }
 
+// strOrNull is a string v1 may write as null, for absent.
+func (r v1Record) strOrNull(key string) string {
+	r.t.Helper()
+	switch v := r.take(key).(type) {
+	case string:
+		return v
+	case nil:
+		return ""
+	default:
+		r.t.Errorf("summary.json's %s%s is %v, not a string or null", r.prefix, key, v)
+		return ""
+	}
+}
+
 func (r v1Record) num(key string) float64 {
-	n, _ := r.take(key).(float64)
+	r.t.Helper()
+	n, ok := r.take(key).(float64)
+	if !ok {
+		r.t.Errorf("summary.json's %s%s is not a number", r.prefix, key)
+	}
 	return n
 }
 
 func (r v1Record) i32(key string) int32 { return int32(r.num(key)) }
 
 func (r v1Record) flag(key string) bool {
-	b, _ := r.take(key).(bool)
+	r.t.Helper()
+	b, ok := r.take(key).(bool)
+	if !ok {
+		r.t.Errorf("summary.json's %s%s is not true or false", r.prefix, key)
+	}
 	return b
 }
 
@@ -143,10 +171,11 @@ func (r v1Record) done() {
 func upper(prefix, v1 string) string { return prefix + strings.ToUpper(v1) }
 
 // fromV1 is the SessionSummary each field of v1's summary.json maps to, by the
-// v1 names the message's comments give. counts_for_best, which v1 did not
-// store, and finishing_position, which v2 sets only for a lap race at the flag,
-// are left to the caller.
-func fromV1(t *testing.T, data []byte) *eventsv1.SessionSummary {
+// v1 names the message's comments give, for a session that ended for reason.
+// best_lap, which v1 did not store, is the lap v1's results.best_lap names,
+// and finishing_position follows its rule: a lap race that ended at the flag.
+// counts_for_best, which v1 did not store either, is left to the caller.
+func fromV1(t *testing.T, data []byte, reason eventsv1.EndReason) *eventsv1.SessionSummary {
 	t.Helper()
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -205,7 +234,7 @@ func fromV1(t *testing.T, data []byte) *eventsv1.SessionSummary {
 			TrackId:    tr.opt("id"),
 			Name:       tr.str("name"),
 			Confidence: eventsv1.TrackConfidence(eventsv1.TrackConfidence_value[upper("TRACK_CONFIDENCE_", tr.str("confidence"))]),
-			Family:     tr.str("family"),
+			Family:     tr.strOrNull("family"),
 			Evidence:   tr.str("evidence"),
 		}
 		for _, c := range tr.objects("candidates") {
@@ -268,7 +297,43 @@ func fromV1(t *testing.T, data []byte) *eventsv1.SessionSummary {
 		l.done()
 	}
 	r.done()
+	s.BestLap = v1BestLap(s)
+	if s.GetSessionType() == eventsv1.SessionType_SESSION_TYPE_LAP_RACE && reason == eventsv1.EndReason_END_REASON_FINISHED {
+		s.FinishingPosition = s.FinalPosition
+	}
 	return s
+}
+
+// v1BestLap is the number of the lap v1's results.best_lap names: the first
+// lap with GT7's own best time when GT7 has one, else the quickest complete
+// timed lap, leaving out lap 1 of a lap race when another lap was timed.
+func v1BestLap(s *eventsv1.SessionSummary) *int32 {
+	if s.GameBestLapMs != nil {
+		for _, l := range s.GetLaps() {
+			if l.GetLapTimeMs() == s.GetGameBestLapMs() {
+				return proto.Int32(l.GetLap())
+			}
+		}
+	}
+	var timed []*eventsv1.LapCompleted
+	for _, l := range s.GetLaps() {
+		if l.GetComplete() && l.GetLapTimeMs() > 0 {
+			timed = append(timed, l)
+		}
+	}
+	skipLap1 := s.GetKind().GetSessionType() == eventsv1.SessionType_SESSION_TYPE_LAP_RACE &&
+		slices.ContainsFunc(timed, func(l *eventsv1.LapCompleted) bool { return l.GetLap() != 1 })
+	var best *eventsv1.LapCompleted
+	for _, l := range timed {
+		if (skipLap1 && l.GetLap() == 1) || (best != nil && l.GetLapTimeMs() >= best.GetLapTimeMs()) {
+			continue
+		}
+		best = l
+	}
+	if best == nil {
+		return nil
+	}
+	return proto.Int32(best.GetLap())
 }
 
 // Each session.ended example is v1's summary.json for its recording, field by
@@ -281,7 +346,7 @@ func TestSummariesFromV1(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := fromV1(t, data)
+			want := fromV1(t, data, tc.reason)
 
 			var example eventsv1.SessionEnded
 			if err := ce.Unmarshal(readExample(t, "events/v1/session_ended_"+tc.name+".json"), &example); err != nil {
@@ -306,9 +371,8 @@ func TestSummariesFromV1(t *testing.T) {
 
 			summary := proto.Clone(got.GetSummary()).(*eventsv1.SessionSummary)
 			checkBest(t, summary)
-			// What v1 did not store: which laps count for best, the best lap's
-			// number, the laps' session id, and v2's finishing position.
-			want.BestLap, want.FinishingPosition = summary.BestLap, summary.FinishingPosition
+			// What v1 did not store: which laps count for best, and the laps'
+			// session id.
 			for _, lap := range summary.GetLaps() {
 				if lap.GetSessionId() != got.GetSessionId() {
 					t.Errorf("lap %d's session_id is %q, not the event's", lap.GetLap(), lap.GetSessionId())

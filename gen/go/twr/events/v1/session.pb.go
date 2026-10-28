@@ -192,7 +192,10 @@ const (
 	// The driver left the session before its end, back to the menus through a
 	// loading screen with the lap counter reset, as quitting from the pause
 	// menu does (v1's race_ended on a loading frame at lap 0). Straight back to
-	// a menu or the track screen is END_REASON_MENU.
+	// a menu or the track screen is END_REASON_MENU. Before contracts v0.2.0,
+	// QUIT also covered what END_REASON_MENU and END_REASON_TIMED_FINISH now
+	// say: ecu sent it for any end that was not the flag. A reader of events
+	// stored before that, such as logbook's or the parity harness's, maps them.
 	EndReason_END_REASON_QUIT EndReason = 2
 	// The telemetry stopped arriving and did not come back in time. v1 ended a
 	// session this way only in a pause (Engine._end_paused, "the feed was
@@ -1498,7 +1501,10 @@ type SessionPaused struct {
 	// The `seq` of the frame the pause was read on, in the ecu run that
 	// published this event: the event's `at`. For a frozen stream it is 1 s
 	// after since_t's frame.
-	At            uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	// The pause's number in the session, from 1, counted on across an ecu
+	// restart (paddock#76): the <pause> in the event's id.
+	Pause         int32 `protobuf:"varint,7,opt,name=pause,proto3" json:"pause,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1575,6 +1581,13 @@ func (x *SessionPaused) GetAt() uint32 {
 	return 0
 }
 
+func (x *SessionPaused) GetPause() int32 {
+	if x != nil {
+		return x.Pause
+	}
+	return 0
+}
+
 // SessionResumed says the session's pause ended: the first frame after it is
 // not paused.
 type SessionResumed struct {
@@ -1595,7 +1608,10 @@ type SessionResumed struct {
 	PausedMs int32 `protobuf:"varint,6,opt,name=paused_ms,json=pausedMs,proto3" json:"paused_ms,omitempty"`
 	// The `seq` of the first frame after the pause, in the ecu run that
 	// published this event: the event's `at`.
-	At            uint32 `protobuf:"varint,7,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,7,opt,name=at,proto3" json:"at,omitempty"`
+	// The pause's number in the session, from 1, as in its SessionPaused: the
+	// <pause> in the event's id.
+	Pause         int32 `protobuf:"varint,8,opt,name=pause,proto3" json:"pause,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1679,6 +1695,13 @@ func (x *SessionResumed) GetAt() uint32 {
 	return 0
 }
 
+func (x *SessionResumed) GetPause() int32 {
+	if x != nil {
+		return x.Pause
+	}
+	return 0
+}
+
 // SessionSummary is what a session came to: v1's summary.json, as v1's
 // SessionStore.end_session writes it (paddock#69), each field naming the v1
 // field it carries. The v1 fields it leaves out: `session_id` (SessionEnded's),
@@ -1695,8 +1718,13 @@ type SessionSummary struct {
 	LapsCompleted int32 `protobuf:"varint,1,opt,name=laps_completed,json=lapsCompleted,proto3" json:"laps_completed,omitempty"`
 	// The number of the best lap. Absent until ecu decides it, and when no lap
 	// counts for best: ecu decides it as v1's `best_lap_ms` does, GT7's own
-	// best when it has one, else the quickest lap that counts for best
-	// (LapCompleted's counts_for_best), so it leaves out lap 1 of a lap race.
+	// best when it has one (the first lap with that time), else the quickest
+	// lap that counts for best (LapCompleted's counts_for_best). A known
+	// difference from v1: without GT7's best, v1's fallback (results.best_lap)
+	// took the quickest complete lap, pit laps included, and left out lap 1 of
+	// a lap race only when another lap was timed; ecu leaves out pit laps and
+	// every lap that does not count (paddock#83's R3 and R5 disagree here). The
+	// parity harness maps it.
 	BestLap *int32 `protobuf:"varint,2,opt,name=best_lap,json=bestLap,proto3,oneof" json:"best_lap,omitempty"`
 	// The best lap's time, in milliseconds (v1's `best_lap_ms`). Absent until
 	// ecu decides it, as best_lap.
@@ -1810,7 +1838,9 @@ type SessionSummary struct {
 	// Every lap, complete and partial, in the order they ended, each as its
 	// lap.completed was published (v1's `laps`: `lap`, `lap_time_ms`,
 	// `complete`, `fuel_start`, `fuel_end`, `fuel_used`, `position` and
-	// `pit`).
+	// `pit`). A lap's first_seq and last_seq mean something only within the
+	// ecu run that published it: a session continued after a restart has laps
+	// from two runs.
 	Laps          []*LapCompleted `protobuf:"bytes,33,rep,name=laps,proto3" json:"laps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2236,7 +2266,7 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x121\n" +
 	"\x05track\x18\x02 \x01(\v2\x1b.twr.events.v1.TrackVerdictR\x05track\x12\x0e\n" +
-	"\x02at\x18\x03 \x01(\rR\x02at\"\xd4\x01\n" +
+	"\x02at\x18\x03 \x01(\rR\x02at\"\xea\x01\n" +
 	"\rSessionPaused\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12,\n" +
@@ -2244,7 +2274,8 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\asince_t\x18\x03 \x01(\x01R\x06sinceT\x120\n" +
 	"\x05since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1b\n" +
 	"\tpaused_ms\x18\x05 \x01(\x05R\bpausedMs\x12\x0e\n" +
-	"\x02at\x18\x06 \x01(\rR\x02at\"\xf0\x01\n" +
+	"\x02at\x18\x06 \x01(\rR\x02at\x12\x14\n" +
+	"\x05pause\x18\a \x01(\x05R\x05pause\"\x86\x02\n" +
 	"\x0eSessionResumed\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12,\n" +
@@ -2253,7 +2284,8 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\x05since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x19\n" +
 	"\bpause_ms\x18\x05 \x01(\x05R\apauseMs\x12\x1b\n" +
 	"\tpaused_ms\x18\x06 \x01(\x05R\bpausedMs\x12\x0e\n" +
-	"\x02at\x18\a \x01(\rR\x02at\"\xf9\v\n" +
+	"\x02at\x18\a \x01(\rR\x02at\x12\x14\n" +
+	"\x05pause\x18\b \x01(\x05R\x05pause\"\xf9\v\n" +
 	"\x0eSessionSummary\x12%\n" +
 	"\x0elaps_completed\x18\x01 \x01(\x05R\rlapsCompleted\x12\x1e\n" +
 	"\bbest_lap\x18\x02 \x01(\x05H\x00R\abestLap\x88\x01\x01\x12,\n" +

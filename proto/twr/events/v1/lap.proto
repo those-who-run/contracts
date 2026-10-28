@@ -53,22 +53,32 @@ message LapCompleted {
   PitRole pit_role = 9;
   // The `seq` of the lap's first frame, in the ecu run that published this
   // event. With last_seq it bounds the lap's frames (v1's `frames` counted
-  // them).
+  // them). For the lap an ecu restart fell in (paddock#76), whose first
+  // frames the earlier run saw, it is the continuing run's first frame of the
+  // lap. A seq means something only within the run that published the event,
+  // so in SessionSummary's laps the seqs of laps from different runs are not
+  // comparable.
   uint32 first_seq = 10;
   // The `seq` of the lap's last frame, in the same run: the event's `at`.
   uint32 last_seq = 11;
-  // Whether the lap can be the session's best, as GT7 counts it, with v1's
-  // fallback when GT7 has no best of its own: only a complete lap, never an
-  // in-lap or an out-lap (pit_role), and not lap 1 of a lap race, which starts
-  // on the grid ahead of the line (v1's lap_time rule, paddock#83). v1 did not
-  // store it: its summary's best_lap_ms worked it out again.
+  // Whether the lap counts for the session's best, by GT7's rule as v1's
+  // lap_time rule reads it (paddock#83): a complete lap that is neither an
+  // in-lap nor an out-lap (pit_role) counts, except lap 1 when GT7 leaves it
+  // out. GT7 leaves out a start lap from a grid ahead of the line: lap 1 of a
+  // lap race never counts, and lap 1 of a timed session counts only when GT7
+  // set its own best on the frame that posted lap 1's time (qualifying, out
+  // of the pits onto the line, does; a timed race from a grid does not, so
+  // its best stays blank, as at Suzuka East on 2026-10-16 and Suzuka on
+  // 2026-10-18). So ecu knows it when the lap ends. v1 did not store it.
   bool counts_for_best = 12;
 }
 
-// LapBestImproved says the session's best lap improved: a lap that counts for
+// LapBestChanged says the session's best lap changed: a lap that counts for
 // best (LapCompleted's counts_for_best) beat the best before it, or GT7's own
-// best, when it has one, moved. Published once per lap at most.
-message LapBestImproved {
+// best, which wins when it has one, moved. GT7's best can replace ecu's
+// earlier one with a slower lap, so the new best is not always quicker:
+// gap_ms is then negative. Published once per lap at most.
+message LapBestChanged {
   // The session's id, as in its SessionStarted.
   string session_id = 1;
   // The new best lap's number, from 1.
@@ -80,7 +90,8 @@ message LapBestImproved {
   // session's first best.
   optional int32 previous_best_ms = 4;
   // How much quicker the new best is than the one before, in milliseconds:
-  // previous_best_ms less lap_time_ms. Absent with previous_best_ms.
+  // previous_best_ms less lap_time_ms. Negative when GT7's own best replaced
+  // a quicker one ecu had counted. Absent with previous_best_ms.
   optional int32 gap_ms = 5;
   // The `seq` of the frame the lap ended on, in the ecu run that published
   // this event: the event's `at`, its lap.completed's last_seq.

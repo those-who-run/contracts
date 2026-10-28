@@ -77,7 +77,7 @@ headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 | `twr.events.v1.SessionTrackChanged` | ecu's verdict on the session's track changed. | [`session_track.json`](examples/events/v1/session_track.json) |
 | `twr.events.v1.SessionPaused` | The session paused. | [`session_paused.json`](examples/events/v1/session_paused.json) |
 | `twr.events.v1.SessionResumed` | The session's pause ended. | [`session_resumed.json`](examples/events/v1/session_resumed.json) |
-| `twr.events.v1.LapBestImproved` | The session's best lap improved. | [`lap_best.json`](examples/events/v1/lap_best.json) |
+| `twr.events.v1.LapBestChanged` | The session's best lap changed. | [`lap_best.json`](examples/events/v1/lap_best.json) |
 | `twr.events.v1.RaceFinalLapStarted` | The final lap of a lap race began. | [`race_final_lap.json`](examples/events/v1/race_final_lap.json) |
 | `twr.events.v1.RacePositionChanged` | The car's position changed and settled. | [`race_position.json`](examples/events/v1/race_position.json) |
 | `twr.events.v1.RaceFinished` | The race finished, at the flag or a timed finish. | [`race_finished.json`](examples/events/v1/race_finished.json) |

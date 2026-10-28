@@ -31,11 +31,14 @@
 #                 <src>:<sid>:<area>.<what>:<part>, with its ce-type's
 #                 <area>.<what> and at least one part, such as
 #                 <src>:<sid>:lap.completed:<n>; one that happens once per
-#                 session ends in :1. One that can happen at any frame,
-#                 more than once a session, ends in <run>:<seq>, the ecu run
-#                 and the event's `at`: seq starts again with each run, and a
-#                 session continued after an ecu restart (paddock#76) spans
-#                 two runs. On an evt._ subject, with no session
+#                 session ends in :1, and one the session counts ends in its
+#                 number, such as a pause's <pause>, which ecu carries across
+#                 a restart so a pause sent again after one dedupes. One that
+#                 can happen at any frame, more than once a session, with no
+#                 count of its own (kind, track, position), ends in
+#                 <run>:<seq>, the ecu run and the event's `at`: seq starts
+#                 again with each run, and a session continued after an ecu
+#                 restart (paddock#76) spans two runs. On an evt._ subject, with no session
 #                 open, <run> takes <sid>'s place. The source comes first
 #                 because EVENTS deduplicates by Nats-Msg-Id across the whole
 #                 stream, and two sources can carry the same session id
@@ -138,7 +141,7 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook]
-    msg_id: <src>:<sid>:session.paused:<run>:<seq>
+    msg_id: <src>:<sid>:session.paused:<pause>
     description: The session paused, flagged by GT7 or read from a frozen stream.
 
   - pattern: twr.v1.<src>.evt.<sid>.session.resumed
@@ -148,18 +151,18 @@ subjects:
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook]
-    msg_id: <src>:<sid>:session.resumed:<run>:<seq>
+    msg_id: <src>:<sid>:session.resumed:<pause>
     description: The session's pause ended.
 
   - pattern: twr.v1.<src>.evt.<sid>.lap.best
     ce_type: run.thosewho.lap.best.v1
-    message: twr.events.v1.LapBestImproved
+    message: twr.events.v1.LapBestChanged
     content_type: application/json
     stream: EVENTS
     producers: [ecu]
     consumers: [logbook]
     msg_id: <src>:<sid>:lap.best:<n>
-    description: The session's best lap improved.
+    description: The session's best lap changed.
 
   - pattern: twr.v1.<src>.evt.<sid>.race.final_lap
     ce_type: run.thosewho.race.final_lap.v1

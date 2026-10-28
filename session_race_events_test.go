@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/those-who-run/contracts/ce"
@@ -54,7 +55,7 @@ func descriptorOf(t *testing.T, name protoreflect.FullName) protoreflect.Message
 		&eventsv1.SessionStarted{}, &eventsv1.LapCompleted{}, &eventsv1.SessionEnded{},
 		&eventsv1.SessionContinued{}, &eventsv1.SessionDiscarded{}, &eventsv1.SessionKindChanged{},
 		&eventsv1.SessionTrackChanged{}, &eventsv1.SessionPaused{}, &eventsv1.SessionResumed{},
-		&eventsv1.LapBestImproved{}, &eventsv1.RaceFinalLapStarted{}, &eventsv1.RacePositionChanged{},
+		&eventsv1.LapBestChanged{}, &eventsv1.RaceFinalLapStarted{}, &eventsv1.RacePositionChanged{},
 		&eventsv1.RaceFinished{},
 	} {
 		if d := m.ProtoReflect().Descriptor(); d.FullName() == name {
@@ -81,6 +82,8 @@ func TestAddedFieldNumbers(t *testing.T) {
 		{&eventsv1.SessionStarted{}, "joined_on_lap", 13, protoreflect.Int32Kind, true},
 		{&eventsv1.SessionStarted{}, "fuel_capacity", 14, protoreflect.DoubleKind, false},
 		{&eventsv1.LapCompleted{}, "counts_for_best", 12, protoreflect.BoolKind, false},
+		{&eventsv1.SessionPaused{}, "pause", 7, protoreflect.Int32Kind, false},
+		{&eventsv1.SessionResumed{}, "pause", 8, protoreflect.Int32Kind, false},
 		{&eventsv1.SessionSummary{}, "started_at", 8, protoreflect.MessageKind, true},
 		{&eventsv1.SessionSummary{}, "driving_ms", 10, protoreflect.Int32Kind, false},
 		{&eventsv1.SessionSummary{}, "track", 13, protoreflect.MessageKind, true},
@@ -150,5 +153,53 @@ func TestSummaryCommentsNameTheV1Field(t *testing.T) {
 		if !strings.Contains(comment, "v1's `") {
 			t.Errorf("SessionSummary.%s's comment names no v1 field:\n%s", fd.Name(), comment)
 		}
+	}
+}
+
+// lap.best is the best lap changing, not only improving: GT7's own best can
+// replace a quicker lap ecu had counted, so gap_ms can be negative, and it
+// survives both forms with its sign.
+func TestLapBestChangedGapCanBeNegative(t *testing.T) {
+	msg := &eventsv1.LapBestChanged{
+		SessionId: "01JB9R1C8E4Q6W2Y9T3K7M5PXB", Lap: 2, LapTimeMs: 67585,
+		PreviousBestMs: proto.Int32(62036), GapMs: proto.Int32(-5549), At: 4410,
+	}
+	roundTrip(t, msg)
+	comment := leadingComment(t, "twr/events/v1/lap.proto", "gap_ms")
+	if !strings.Contains(comment, "Negative when GT7's own best replaced") {
+		t.Errorf("gap_ms's comment does not say it can be negative:\n%s", comment)
+	}
+}
+
+// The comments say what a consumer must know to read these events right.
+func TestCommentsSayHowToReadThem(t *testing.T) {
+	for _, tc := range []struct {
+		file, name string
+		says       []string
+	}{
+		// counts_for_best is GT7's rule, which leaves lap 1 of a timed race from a
+		// grid out as well as a lap race's, and ecu knows it when the lap ends.
+		{"twr/events/v1/lap.proto", "counts_for_best", []string{
+			"GT7's rule", "lap 1 of a lap race never counts",
+			"lap 1 of a timed session counts only when GT7 set its own best", "ecu knows it when the lap ends",
+		}},
+		// seqs across a restart gap.
+		{"twr/events/v1/lap.proto", "first_seq", []string{"continuing run's first frame of the lap", "only within the run"}},
+		{"twr/events/v1/session.proto", "laps", []string{"only within the", "two runs"}},
+		// QUIT's meaning narrowed in v0.2.0, and how to read rows from before it.
+		{"twr/events/v1/session.proto", "END_REASON_QUIT", []string{"Before contracts v0.2.0", "END_REASON_MENU", "END_REASON_TIMED_FINISH", "maps them"}},
+		// best_lap's known difference from v1.
+		{"twr/events/v1/session.proto", "best_lap", []string{"Absent until ecu decides it", "known difference from v1", "pit laps included", "paddock#83"}},
+		// The pause number is the id's <pause>, carried across a restart.
+		{"twr/events/v1/session.proto", "pause = 7", []string{"<pause>", "across an ecu restart"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			comment := leadingComment(t, tc.file, tc.name)
+			for _, want := range tc.says {
+				if !strings.Contains(comment, want) {
+					t.Errorf("%s's comment does not say %q:\n%s", tc.name, want, comment)
+				}
+			}
+		})
 	}
 }

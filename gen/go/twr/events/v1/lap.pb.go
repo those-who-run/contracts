@@ -120,15 +120,23 @@ type LapCompleted struct {
 	PitRole PitRole `protobuf:"varint,9,opt,name=pit_role,json=pitRole,proto3,enum=twr.events.v1.PitRole" json:"pit_role,omitempty"`
 	// The `seq` of the lap's first frame, in the ecu run that published this
 	// event. With last_seq it bounds the lap's frames (v1's `frames` counted
-	// them).
+	// them). For the lap an ecu restart fell in (paddock#76), whose first
+	// frames the earlier run saw, it is the continuing run's first frame of the
+	// lap. A seq means something only within the run that published the event,
+	// so in SessionSummary's laps the seqs of laps from different runs are not
+	// comparable.
 	FirstSeq uint32 `protobuf:"varint,10,opt,name=first_seq,json=firstSeq,proto3" json:"first_seq,omitempty"`
 	// The `seq` of the lap's last frame, in the same run: the event's `at`.
 	LastSeq uint32 `protobuf:"varint,11,opt,name=last_seq,json=lastSeq,proto3" json:"last_seq,omitempty"`
-	// Whether the lap can be the session's best, as GT7 counts it, with v1's
-	// fallback when GT7 has no best of its own: only a complete lap, never an
-	// in-lap or an out-lap (pit_role), and not lap 1 of a lap race, which starts
-	// on the grid ahead of the line (v1's lap_time rule, paddock#83). v1 did not
-	// store it: its summary's best_lap_ms worked it out again.
+	// Whether the lap counts for the session's best, by GT7's rule as v1's
+	// lap_time rule reads it (paddock#83): a complete lap that is neither an
+	// in-lap nor an out-lap (pit_role) counts, except lap 1 when GT7 leaves it
+	// out. GT7 leaves out a start lap from a grid ahead of the line: lap 1 of a
+	// lap race never counts, and lap 1 of a timed session counts only when GT7
+	// set its own best on the frame that posted lap 1's time (qualifying, out
+	// of the pits onto the line, does; a timed race from a grid does not, so
+	// its best stays blank, as at Suzuka East on 2026-10-16 and Suzuka on
+	// 2026-10-18). So ecu knows it when the lap ends. v1 did not store it.
 	CountsForBest bool `protobuf:"varint,12,opt,name=counts_for_best,json=countsForBest,proto3" json:"counts_for_best,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -248,10 +256,12 @@ func (x *LapCompleted) GetCountsForBest() bool {
 	return false
 }
 
-// LapBestImproved says the session's best lap improved: a lap that counts for
+// LapBestChanged says the session's best lap changed: a lap that counts for
 // best (LapCompleted's counts_for_best) beat the best before it, or GT7's own
-// best, when it has one, moved. Published once per lap at most.
-type LapBestImproved struct {
+// best, which wins when it has one, moved. GT7's best can replace ecu's
+// earlier one with a slower lap, so the new best is not always quicker:
+// gap_ms is then negative. Published once per lap at most.
+type LapBestChanged struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session's id, as in its SessionStarted.
 	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
@@ -264,7 +274,8 @@ type LapBestImproved struct {
 	// session's first best.
 	PreviousBestMs *int32 `protobuf:"varint,4,opt,name=previous_best_ms,json=previousBestMs,proto3,oneof" json:"previous_best_ms,omitempty"`
 	// How much quicker the new best is than the one before, in milliseconds:
-	// previous_best_ms less lap_time_ms. Absent with previous_best_ms.
+	// previous_best_ms less lap_time_ms. Negative when GT7's own best replaced
+	// a quicker one ecu had counted. Absent with previous_best_ms.
 	GapMs *int32 `protobuf:"varint,5,opt,name=gap_ms,json=gapMs,proto3,oneof" json:"gap_ms,omitempty"`
 	// The `seq` of the frame the lap ended on, in the ecu run that published
 	// this event: the event's `at`, its lap.completed's last_seq.
@@ -273,20 +284,20 @@ type LapBestImproved struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LapBestImproved) Reset() {
-	*x = LapBestImproved{}
+func (x *LapBestChanged) Reset() {
+	*x = LapBestChanged{}
 	mi := &file_twr_events_v1_lap_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LapBestImproved) String() string {
+func (x *LapBestChanged) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LapBestImproved) ProtoMessage() {}
+func (*LapBestChanged) ProtoMessage() {}
 
-func (x *LapBestImproved) ProtoReflect() protoreflect.Message {
+func (x *LapBestChanged) ProtoReflect() protoreflect.Message {
 	mi := &file_twr_events_v1_lap_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -298,47 +309,47 @@ func (x *LapBestImproved) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LapBestImproved.ProtoReflect.Descriptor instead.
-func (*LapBestImproved) Descriptor() ([]byte, []int) {
+// Deprecated: Use LapBestChanged.ProtoReflect.Descriptor instead.
+func (*LapBestChanged) Descriptor() ([]byte, []int) {
 	return file_twr_events_v1_lap_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *LapBestImproved) GetSessionId() string {
+func (x *LapBestChanged) GetSessionId() string {
 	if x != nil {
 		return x.SessionId
 	}
 	return ""
 }
 
-func (x *LapBestImproved) GetLap() int32 {
+func (x *LapBestChanged) GetLap() int32 {
 	if x != nil {
 		return x.Lap
 	}
 	return 0
 }
 
-func (x *LapBestImproved) GetLapTimeMs() int32 {
+func (x *LapBestChanged) GetLapTimeMs() int32 {
 	if x != nil {
 		return x.LapTimeMs
 	}
 	return 0
 }
 
-func (x *LapBestImproved) GetPreviousBestMs() int32 {
+func (x *LapBestChanged) GetPreviousBestMs() int32 {
 	if x != nil && x.PreviousBestMs != nil {
 		return *x.PreviousBestMs
 	}
 	return 0
 }
 
-func (x *LapBestImproved) GetGapMs() int32 {
+func (x *LapBestChanged) GetGapMs() int32 {
 	if x != nil && x.GapMs != nil {
 		return *x.GapMs
 	}
 	return 0
 }
 
-func (x *LapBestImproved) GetAt() uint32 {
+func (x *LapBestChanged) GetAt() uint32 {
 	if x != nil {
 		return x.At
 	}
@@ -365,8 +376,8 @@ const file_twr_events_v1_lap_proto_rawDesc = "" +
 	" \x01(\rR\bfirstSeq\x12\x19\n" +
 	"\blast_seq\x18\v \x01(\rR\alastSeq\x12&\n" +
 	"\x0fcounts_for_best\x18\f \x01(\bR\rcountsForBestB\v\n" +
-	"\t_position\"\xdd\x01\n" +
-	"\x0fLapBestImproved\x12\x1d\n" +
+	"\t_position\"\xdc\x01\n" +
+	"\x0eLapBestChanged\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x10\n" +
 	"\x03lap\x18\x02 \x01(\x05R\x03lap\x12\x1e\n" +
@@ -399,9 +410,9 @@ func file_twr_events_v1_lap_proto_rawDescGZIP() []byte {
 var file_twr_events_v1_lap_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_twr_events_v1_lap_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_twr_events_v1_lap_proto_goTypes = []any{
-	(PitRole)(0),            // 0: twr.events.v1.PitRole
-	(*LapCompleted)(nil),    // 1: twr.events.v1.LapCompleted
-	(*LapBestImproved)(nil), // 2: twr.events.v1.LapBestImproved
+	(PitRole)(0),           // 0: twr.events.v1.PitRole
+	(*LapCompleted)(nil),   // 1: twr.events.v1.LapCompleted
+	(*LapBestChanged)(nil), // 2: twr.events.v1.LapBestChanged
 }
 var file_twr_events_v1_lap_proto_depIdxs = []int32{
 	0, // 0: twr.events.v1.LapCompleted.pit_role:type_name -> twr.events.v1.PitRole

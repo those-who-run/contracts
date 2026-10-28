@@ -69,7 +69,7 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"twr.v1.<src>.evt.<sid>.session.track":     "twr.events.v1.SessionTrackChanged",
 		"twr.v1.<src>.evt.<sid>.session.paused":    "twr.events.v1.SessionPaused",
 		"twr.v1.<src>.evt.<sid>.session.resumed":   "twr.events.v1.SessionResumed",
-		"twr.v1.<src>.evt.<sid>.lap.best":          "twr.events.v1.LapBestImproved",
+		"twr.v1.<src>.evt.<sid>.lap.best":          "twr.events.v1.LapBestChanged",
 		"twr.v1.<src>.evt.<sid>.race.final_lap":    "twr.events.v1.RaceFinalLapStarted",
 		"twr.v1.<src>.evt.<sid>.race.position":     "twr.events.v1.RacePositionChanged",
 		"twr.v1.<src>.evt.<sid>.race.finished":     "twr.events.v1.RaceFinished",
@@ -377,7 +377,7 @@ func TestAnUnknownKeyFails(t *testing.T) {
 // The event messages are every events-package message but the helpers.
 func TestEventMessages(t *testing.T) {
 	got := load(t, repo, subjects).EventMessages(protoregistry.GlobalFiles)
-	want := "twr.events.v1.LapBestImproved twr.events.v1.LapCompleted twr.events.v1.RaceFinalLapStarted " +
+	want := "twr.events.v1.LapBestChanged twr.events.v1.LapCompleted twr.events.v1.RaceFinalLapStarted " +
 		"twr.events.v1.RaceFinished twr.events.v1.RacePositionChanged twr.events.v1.SessionContinued " +
 		"twr.events.v1.SessionDiscarded twr.events.v1.SessionEnded twr.events.v1.SessionKindChanged " +
 		"twr.events.v1.SessionPaused twr.events.v1.SessionResumed twr.events.v1.SessionStarted " +

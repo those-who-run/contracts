@@ -127,6 +127,7 @@ var examples = []struct {
 		Since:     timestamppb.New(time.Date(2026, 10, 18, 13, 25, 41, 250_000_000, time.UTC)),
 		PausedMs:  1200,
 		At:        9921,
+		Pause:     2,
 	}},
 	{"events/v1/session_resumed.json", &eventsv1.SessionResumed{
 		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA",
@@ -136,8 +137,9 @@ var examples = []struct {
 		PauseMs:   45000,
 		PausedMs:  46200,
 		At:        12601,
+		Pause:     2,
 	}},
-	{"events/v1/lap_best.json", &eventsv1.LapBestImproved{
+	{"events/v1/lap_best.json", &eventsv1.LapBestChanged{
 		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA", Lap: 5, LapTimeMs: 59541,
 		PreviousBestMs: proto.Int32(60538), GapMs: proto.Int32(997), At: 19236,
 	}},

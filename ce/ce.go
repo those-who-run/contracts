@@ -90,7 +90,7 @@ var types = map[protoreflect.FullName]string{
 	(&eventsv1.SessionTrackChanged{}).ProtoReflect().Descriptor().FullName(): "run.thosewho.session.track.v1",
 	(&eventsv1.SessionPaused{}).ProtoReflect().Descriptor().FullName():       "run.thosewho.session.paused.v1",
 	(&eventsv1.SessionResumed{}).ProtoReflect().Descriptor().FullName():      "run.thosewho.session.resumed.v1",
-	(&eventsv1.LapBestImproved{}).ProtoReflect().Descriptor().FullName():     "run.thosewho.lap.best.v1",
+	(&eventsv1.LapBestChanged{}).ProtoReflect().Descriptor().FullName():      "run.thosewho.lap.best.v1",
 	(&eventsv1.RaceFinalLapStarted{}).ProtoReflect().Descriptor().FullName(): "run.thosewho.race.final_lap.v1",
 	(&eventsv1.RacePositionChanged{}).ProtoReflect().Descriptor().FullName(): "run.thosewho.race.position.v1",
 	(&eventsv1.RaceFinished{}).ProtoReflect().Descriptor().FullName():        "run.thosewho.race.finished.v1",
