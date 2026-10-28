@@ -261,7 +261,7 @@ func (x *LapCompleted) GetCountsForBest() bool {
 // best (LapCompleted's counts_for_best) beat the best before it, or GT7's own
 // best, which wins when it has one, moved. GT7's best can replace ecu's
 // earlier one with a slower lap, so the new best is not always quicker:
-// gap_ms is then negative. Published once per lap at most.
+// gap_ms is then negative. Published once per ended lap at most.
 type LapBestChanged struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session's id, as in its SessionStarted.

@@ -204,7 +204,7 @@ func TestCommentsSayHowToReadThem(t *testing.T) {
 		// best_lap when no lap has GT7's best time.
 		{"twr/events/v1/session.proto", "best_lap", []string{"no lap with its time", "whatever its counts_for_best"}},
 		// The position event differs from v1's callout on purpose.
-		{"twr/events/v1/race.proto", "RacePositionChanged", []string{"differs from v1's position callout on purpose", "start_grace_secs", "min_interval_secs"}},
+		{"twr/events/v1/race.proto", "RacePositionChanged", []string{"differs from v1's position callout on purpose", "start_grace_secs", "min_interval_secs", "paddock#84 AC4", "a superset of calls"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			comment := leadingComment(t, tc.file, tc.name)

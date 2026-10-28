@@ -151,8 +151,9 @@ func (x *RaceFinalLapStarted) GetAt() uint32 {
 // purpose: the event records every settled change, for logbook, `live` and
 // strategy, while the callout (paddock#94) keeps v1's quieter rule on top of
 // it, nothing spoken in the race's first 15 s (start_grace_secs) and at most
-// one call each 10 s (min_interval_secs). The parity diff compares the
-// callouts with v1's; v1 published no position event to compare this with.
+// one call each 10 s (min_interval_secs). The parity diff (paddock#104)
+// checks that every v1 position call has a race.position at or before it
+// (paddock#84 AC4); events are a superset of calls, not one to one.
 type RacePositionChanged struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session's id, as in its SessionStarted.
