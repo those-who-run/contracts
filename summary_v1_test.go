@@ -168,6 +168,33 @@ func (r v1Record) done() {
 	}
 }
 
+// pitStopFromV1 is the PitStop each field of v1's PitStop.record() maps to,
+// as summary.json's pit_stops and PitExited carry it.
+func pitStopFromV1(p v1Record) *eventsv1.PitStop {
+	stop := &eventsv1.PitStop{
+		Stop:           p.i32("stop"),
+		InLap:          p.i32("in_lap"),
+		OutLap:         p.opt("out_lap"),
+		StationaryMs:   p.ms("stationary_secs"),
+		FuelBefore:     p.num("fuel_before"),
+		FuelAfter:      p.num("fuel_after"),
+		FuelAdded:      p.num("fuel_added"),
+		TyresChanged:   p.flag("tyres_changed"),
+		PositionBefore: p.opt("position_before"),
+		PositionAfter:  p.opt("position_after"),
+		Evidence:       p.str("evidence"),
+	}
+	if v, ok := p.m["pit_lane_secs"].(float64); ok {
+		stop.PitLaneMs = proto.Int32(int32(math.Round(v * 1000)))
+	}
+	delete(p.m, "pit_lane_secs")
+	if v, ok := p.take("pit_lane_kph").(float64); ok {
+		stop.PitLaneKph = proto.Float64(v)
+	}
+	p.done()
+	return stop
+}
+
 func upper(prefix, v1 string) string { return prefix + strings.ToUpper(v1) }
 
 // fromV1 is the SessionSummary each field of v1's summary.json maps to, by the
@@ -246,28 +273,7 @@ func fromV1(t *testing.T, data []byte, reason eventsv1.EndReason) *eventsv1.Sess
 		tr.done()
 	}
 	for _, p := range r.objects("pit_stops") {
-		stop := &eventsv1.PitStop{
-			Stop:           p.i32("stop"),
-			InLap:          p.i32("in_lap"),
-			OutLap:         p.opt("out_lap"),
-			StationaryMs:   p.ms("stationary_secs"),
-			FuelBefore:     p.num("fuel_before"),
-			FuelAfter:      p.num("fuel_after"),
-			FuelAdded:      p.num("fuel_added"),
-			TyresChanged:   p.flag("tyres_changed"),
-			PositionBefore: p.opt("position_before"),
-			PositionAfter:  p.opt("position_after"),
-			Evidence:       p.str("evidence"),
-		}
-		if v, ok := p.m["pit_lane_secs"].(float64); ok {
-			stop.PitLaneMs = proto.Int32(int32(math.Round(v * 1000)))
-		}
-		delete(p.m, "pit_lane_secs")
-		if v, ok := p.take("pit_lane_kph").(float64); ok {
-			stop.PitLaneKph = proto.Float64(v)
-		}
-		s.PitStops = append(s.PitStops, stop)
-		p.done()
+		s.PitStops = append(s.PitStops, pitStopFromV1(p))
 	}
 	for _, g := range r.objects("gaps") {
 		s.Gaps = append(s.Gaps, &eventsv1.SessionGap{

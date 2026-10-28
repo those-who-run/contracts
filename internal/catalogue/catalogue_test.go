@@ -73,6 +73,15 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"twr.v1.<src>.evt.<sid>.race.final_lap":    "twr.events.v1.RaceFinalLapStarted",
 		"twr.v1.<src>.evt.<sid>.race.position":     "twr.events.v1.RacePositionChanged",
 		"twr.v1.<src>.evt.<sid>.race.finished":     "twr.events.v1.RaceFinished",
+		// paddock#70, with the telemetry events on evt._ as well.
+		"twr.v1.<src>.evt.<sid>.pit.entered":        "twr.events.v1.PitEntered",
+		"twr.v1.<src>.evt.<sid>.pit.exited":         "twr.events.v1.PitExited",
+		"twr.v1.<src>.evt.<sid>.pit.teleport":       "twr.events.v1.PitTeleport",
+		"twr.v1.<src>.evt.<sid>.car.alarm":          "twr.events.v1.CarAlarmRaised",
+		"twr.v1.<src>.evt.<sid>.telemetry.lost":     "twr.events.v1.TelemetryLost",
+		"twr.v1.<src>.evt._.telemetry.lost":         "twr.events.v1.TelemetryLost",
+		"twr.v1.<src>.evt.<sid>.telemetry.restored": "twr.events.v1.TelemetryRestored",
+		"twr.v1.<src>.evt._.telemetry.restored":     "twr.events.v1.TelemetryRestored",
 	}
 	if len(c.Subjects) != len(want) {
 		t.Errorf("%d subjects, want %d", len(c.Subjects), len(want))
@@ -153,8 +162,8 @@ func withMessage(t *testing.T, pkg protoreflect.FullName, name string) *protoreg
 func TestAnEventMessageWithoutAnEntryFails(t *testing.T) {
 	assertFails(t, load(t, testdata, "missing-event.yaml"), protoregistry.GlobalFiles,
 		"event message twr.events.v1.LapCompleted has no entry in the catalogue")
-	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.events.v1", "PitEntered"),
-		"event message twr.events.v1.PitEntered has no entry in the catalogue")
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.events.v1", "PenaltyServed"),
+		"event message twr.events.v1.PenaltyServed has no entry in the catalogue")
 	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.events.v2", "LapCompleted"),
 		"event message twr.events.v2.LapCompleted has no entry in the catalogue")
 	// A message outside the events packages needs none.
@@ -377,11 +386,13 @@ func TestAnUnknownKeyFails(t *testing.T) {
 // The event messages are every events-package message but the helpers.
 func TestEventMessages(t *testing.T) {
 	got := load(t, repo, subjects).EventMessages(protoregistry.GlobalFiles)
-	want := "twr.events.v1.LapBestChanged twr.events.v1.LapCompleted twr.events.v1.RaceFinalLapStarted " +
+	want := "twr.events.v1.CarAlarmRaised twr.events.v1.LapBestChanged twr.events.v1.LapCompleted " +
+		"twr.events.v1.PitEntered twr.events.v1.PitExited twr.events.v1.PitTeleport " +
+		"twr.events.v1.RaceFinalLapStarted " +
 		"twr.events.v1.RaceFinished twr.events.v1.RacePositionChanged twr.events.v1.SessionContinued " +
 		"twr.events.v1.SessionDiscarded twr.events.v1.SessionEnded twr.events.v1.SessionKindChanged " +
 		"twr.events.v1.SessionPaused twr.events.v1.SessionResumed twr.events.v1.SessionStarted " +
-		"twr.events.v1.SessionTrackChanged"
+		"twr.events.v1.SessionTrackChanged twr.events.v1.TelemetryLost twr.events.v1.TelemetryRestored"
 	var names []string
 	for _, n := range got {
 		names = append(names, string(n))
@@ -410,12 +421,12 @@ func TestAgrees(t *testing.T) {
 	}
 	types["twr.events.v1.LapCompleted"] = "run.thosewho.lap.completed.v2"
 	delete(types, "twr.events.v1.SessionEnded")
-	types["twr.events.v1.PitEntered"] = "run.thosewho.pit.entered.v1"
+	types["twr.events.v1.PenaltyServed"] = "run.thosewho.penalty.served.v1"
 	err := c.Agrees(types)
 	for _, want := range []string{
 		"twr.events.v1.LapCompleted: the catalogue's ce-type is run.thosewho.lap.completed.v1, the helper's run.thosewho.lap.completed.v2",
 		"twr.events.v1.SessionEnded (run.thosewho.session.ended.v1) has no ce-type in the helper",
-		"twr.events.v1.PitEntered (run.thosewho.pit.entered.v1) is in the helper but not the catalogue",
+		"twr.events.v1.PenaltyServed (run.thosewho.penalty.served.v1) is in the helper but not the catalogue",
 	} {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("got %v, want an error with %q", err, want)

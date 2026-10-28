@@ -93,6 +93,9 @@ var Placeholders = []Placeholder{
 	{"<seq>", "a frame's sequence number within the ecu run: a frame's own, or the `at` of the frame an event happened on", false, false, true},
 	{"<n>", "a lap's number: lap.completed's own, or for lap.best the lap whose end published it (LapBestChanged's ended_lap)", false, false, true},
 	{"<pause>", "the pause's number in the session, from 1, which ecu carries across a restart: a pause open across one keeps its number", false, false, true},
+	{"<entry>", "a pit entry's number in the session, from 1, counting the entries a pit.teleport withdraws (PitEntered's entry), which ecu carries across a restart", false, false, true},
+	{"<stop>", "a pit stop's number in the session, from 1 (PitStop's stop), which ecu carries across a restart", false, false, true},
+	{"<check>", "a car alarm's check, CarCheck's value in lower case without its prefix: `tyre_hot`, `tyres_cold`, `water_hot` or `oil_hot`", false, false, true},
 }
 
 // word is a token of a subject's <area> or <what>, or of a ce-type: lower-case

@@ -2,9 +2,12 @@ syntax = "proto3";
 
 package twr.events.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // PitStop is one pit stop: the car came into the pit lane on one lap and left
 // it on the same lap or a later one. It is a part of SessionSummary, as one of
-// v1's summary.json `pit_stops`; the pit events (paddock#70) may carry it too.
+// v1's summary.json `pit_stops`, and of PitExited, as v1's PitStop.record()
+// writes it once the car has left.
 message PitStop {
   // The stop's number in the session, from 1 (v1's `stop`). A session
   // continued after an ecu restart counts on from the stops before it.
@@ -49,4 +52,115 @@ message PitStop {
   // loading cut at 60.0 km/h; exit loading cut" (v1's `evidence`). Its wording
   // is not part of the contract.
   string evidence = 13;
+}
+
+// PitEntered says the car came into the pit lane (paddock#70; v1's
+// PitDetector._enter, which v1's Engine._apply_pits logged as "pit entry"). GT7
+// sends no pit flag: ecu reads the entry from a cut, a one-frame loading screen
+// in the race with the lap counter kept, or from a teleport, the car moving
+// faster than no car can between two frames when that frame was lost. Not
+// every entry is a stop: one the car leaves without ever coming to rest, with
+// no fuel added and no tyres changed, is withdrawn by a PitTeleport, so a
+// consumer that acted on the entry, such as radio holding callouts, undoes it
+// there. Otherwise PitExited follows, unless the session ends with the car
+// still in the pit lane.
+message PitEntered {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The entry's number in the session, from 1, counting every entry, the ones
+  // a PitTeleport withdraws included: the <entry> in the event's id. ecu
+  // carries the count across an ecu restart (paddock#76), as it carries the
+  // stops: an entry still open when ecu stopped keeps its number in the
+  // continuing run, so a PitEntered sent again for it dedupes, and the next
+  // entry takes the next number. stop alone could repeat: a withdrawn entry's
+  // stop number is taken again by the next one.
+  int32 entry = 2;
+  // The number the stop takes if it is one, from 1 (v1's `stop`): one more
+  // than the stops completed before it. PitExited's stop has it once the car
+  // has left. A PitTeleport gives the number back, and the next entry takes it
+  // again.
+  int32 stop = 3;
+  // The lap the car came into the pit lane on, from 1 (v1's `in_lap`): the
+  // lap counter on the frame before the cut, so the lap posted in the entry
+  // cut, as at Suzuka East, is the in-lap.
+  int32 in_lap = 4;
+  // When the car entered, in seconds on the frames' clock (Frame's `t`): the
+  // first frame after the cut (v1's `entry_t`).
+  double entered_t = 5;
+  // When the car entered, in UTC: entered_t's frame's receive time.
+  google.protobuf.Timestamp entered_at = 6;
+  // The fuel in the tank on the frame before the cut, in litres (v1's
+  // `fuel_before`).
+  double fuel_before = 7;
+  // The car's position on the frame before the cut, from 1 (v1's
+  // `position_before`). Absent when the game reported none.
+  optional int32 position_before = 8;
+  // What the pit detector saw, in a sentence for people, such as "entry
+  // loading cut at 60.0 km/h" (v1's `evidence` at the entry). Its wording is
+  // not part of the contract.
+  string evidence = 9;
+  // The `seq` of the first frame after the cut, in the ecu run that published
+  // this event: the event's `at`.
+  uint32 at = 10;
+}
+
+// PitExited says the car left the pit lane, and the stop it made (paddock#70;
+// v1's PitDetector._in_pits closing a stop, which v1's Engine._apply_pits
+// logged as "pit exit"): an exit cut once the car had been at rest and moved
+// off, or the car going faster than any pit lane allows when that cut was
+// lost. A stint starts.
+message PitExited {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The stop, as v1's PitStop.record() writes it once the car has left, and
+  // as SessionSummary's pit_stops will hold it: out_lap and pit_lane_ms are
+  // set. Its stop is the <stop> in the event's id. ecu carries the stop count
+  // across an ecu restart (paddock#76), so a PitExited sent again for a stop
+  // dedupes.
+  PitStop stop = 2;
+  // The stint that starts, from 2: one more than the stops completed, this
+  // one included (v1's PitStatus.stint, and SessionSummary's `stints` if the
+  // session ended now).
+  int32 stint = 3;
+  // The number of the entry this stop began with, as in its PitEntered.
+  int32 entry = 4;
+  // When the car entered the pit lane, in UTC, as in its PitEntered.
+  google.protobuf.Timestamp entered_at = 5;
+  // When the car left the pit lane, in UTC: the receive time of the first
+  // frame after the exit cut (v1's `exit_t`).
+  google.protobuf.Timestamp exited_at = 6;
+  // The `seq` of the first frame after the exit cut, or of the first frame
+  // over the pit lane's speed, in the ecu run that published this event: the
+  // event's `at`.
+  uint32 at = 7;
+}
+
+// PitTeleport says a PitEntered was not a stop: the car left the pit lane, or
+// what looked like it, without ever coming to rest, with no fuel added and no
+// tyres changed, as when GT7 puts a car back on track after an off (paddock#70;
+// v1's PitDetector._in_pits withdrawing the stop and keeping it as a
+// Teleport). It withdraws the entry: no stop was made, no stint starts, and no
+// lap is a pit lap. A consumer that acted on the PitEntered, such as radio
+// holding callouts for the pit exit, undoes it.
+message PitTeleport {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The number of the entry it withdraws, as in its PitEntered: the <entry>
+  // in the event's id. Each entry is withdrawn at most once.
+  int32 entry = 2;
+  // The `at` of the PitEntered it withdraws, in the same ecu run. Absent when
+  // that PitEntered was published by an earlier ecu run (paddock#76), whose
+  // seqs this run's do not continue.
+  optional uint32 entry_at = 3;
+  // The lap the withdrawn entry came on, from 1 (v1's Teleport `lap`, the
+  // entry's in_lap).
+  int32 lap = 4;
+  // What the pit detector saw, in a sentence for people, such as "entry
+  // loading cut at 40.0 km/h; over 100 km/h; never at rest, no fuel, no
+  // tyres" (v1's Teleport `evidence`). Its wording is not part of the
+  // contract.
+  string evidence = 5;
+  // The `seq` of the frame the entry was withdrawn on, in the ecu run that
+  // published this event (v1's Teleport `t`): the event's `at`.
+  uint32 at = 6;
 }

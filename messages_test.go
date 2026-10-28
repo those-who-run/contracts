@@ -154,6 +154,47 @@ var examples = []struct {
 		Position: proto.Int32(1), TotalTimeMs: proto.Int32(389934), BestLap: proto.Int32(5), BestLapTimeMs: proto.Int32(59541),
 		At: 23410,
 	}},
+	// paddock#70's events. The pit stop is v1's at Gilles Villeneuve
+	// (pit_car_telemetry_events_test.go), the teleport v1's reset to track
+	// (v1's tests/test_pitstop.py), and the alarm v1's temps rule on
+	// real-nuc-tsukuba-brz-drift-2026-10-15's first "Rear tyres hot.".
+	{"events/v1/pit_entered.json", &eventsv1.PitEntered{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", Entry: 1, Stop: 1, InLap: 6, EnteredT: 6853843.563197786,
+		EnteredAt:  timestamppb.New(time.Date(2026, 10, 17, 18, 3, 7, 588_057_000, time.UTC)),
+		FuelBefore: 8.685, PositionBefore: proto.Int32(5), Evidence: "entry loading cut at 60.0 km/h", At: 11245,
+	}},
+	{"events/v1/pit_exited.json", &eventsv1.PitExited{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC",
+		Stop: &eventsv1.PitStop{
+			Stop: 1, InLap: 6, OutLap: proto.Int32(7), PitLaneMs: proto.Int32(30220), StationaryMs: 17130,
+			FuelBefore: 8.685, FuelAfter: 100, FuelAdded: 91.315, TyresChanged: true, PitLaneKph: proto.Float64(60),
+			PositionBefore: proto.Int32(5), PositionAfter: proto.Int32(10),
+			Evidence: "entry loading cut at 60.0 km/h; exit loading cut",
+		},
+		Stint: 2, Entry: 1,
+		EnteredAt: timestamppb.New(time.Date(2026, 10, 17, 18, 3, 7, 588_057_000, time.UTC)),
+		ExitedAt:  timestamppb.New(time.Date(2026, 10, 17, 18, 3, 37, 804_885_000, time.UTC)),
+		At:        13056,
+	}},
+	{"events/v1/pit_teleport.json", &eventsv1.PitTeleport{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", Entry: 1, EntryAt: proto.Uint32(3), Lap: 3,
+		Evidence: "entry loading cut at 40.0 km/h; over 100 km/h; never at rest, no fuel, no tyres", At: 241,
+	}},
+	{"events/v1/car_alarm.json", &eventsv1.CarAlarmRaised{
+		SessionId: "01JBA2T8M4K6W9X3Q7R5N1PZDE", Check: eventsv1.CarCheck_CAR_CHECK_TYRE_HOT,
+		Tyres: []*eventsv1.TyreTemp{
+			{Corner: eventsv1.Corner_CORNER_REAR_LEFT, TempC: 176.40371704101562},
+			{Corner: eventsv1.Corner_CORNER_REAR_RIGHT, TempC: 169.6006317138672},
+		},
+		ValueC: 176.40371704101562, ThresholdC: 120, At: 1214,
+	}},
+	{"events/v1/telemetry_lost.json", &eventsv1.TelemetryLost{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", RunId: "01JBBWZ5C8E2H4K7M9P1R3T6VX",
+		Phase: telemetryv1.Phase_PHASE_PAUSED, SilenceMs: 3412, At: 52340,
+	}},
+	{"events/v1/telemetry_restored.json", &eventsv1.TelemetryRestored{
+		RunId: "01JBBWZ5C8E2H4K7M9P1R3T6VX", LostAt: 52340, GapMs: 1843250, At: 52341,
+	}},
 }
 
 var readers = protojson.UnmarshalOptions{DiscardUnknown: true}

@@ -44,8 +44,8 @@ func TestEveryEventCarriesItsSessionAndAt(t *testing.T) {
 			t.Errorf("%s has no plain uint32 %s", name, field)
 		}
 	}
-	if n != 13 {
-		t.Errorf("%d events, want 13: v0.1's 3 and paddock#69's 10", n)
+	if n != 19 {
+		t.Errorf("%d events, want 19: v0.1's 3, paddock#69's 10 and paddock#70's 6", n)
 	}
 }
 
@@ -57,6 +57,8 @@ func descriptorOf(t *testing.T, name protoreflect.FullName) protoreflect.Message
 		&eventsv1.SessionTrackChanged{}, &eventsv1.SessionPaused{}, &eventsv1.SessionResumed{},
 		&eventsv1.LapBestChanged{}, &eventsv1.RaceFinalLapStarted{}, &eventsv1.RacePositionChanged{},
 		&eventsv1.RaceFinished{},
+		&eventsv1.PitEntered{}, &eventsv1.PitExited{}, &eventsv1.PitTeleport{},
+		&eventsv1.CarAlarmRaised{}, &eventsv1.TelemetryLost{}, &eventsv1.TelemetryRestored{},
 	} {
 		if d := m.ProtoReflect().Descriptor(); d.FullName() == name {
 			return d
@@ -205,6 +207,19 @@ func TestCommentsSayHowToReadThem(t *testing.T) {
 		{"twr/events/v1/session.proto", "best_lap", []string{"no lap with its time", "whatever its counts_for_best"}},
 		// The position event differs from v1's callout on purpose.
 		{"twr/events/v1/race.proto", "RacePositionChanged", []string{"differs from v1's position callout on purpose", "start_grace_secs", "min_interval_secs", "paddock#84 AC4", "a superset of calls"}},
+		// paddock#70. An entry's own count, since a teleport gives its stop
+		// number back, carried across a restart.
+		{"twr/events/v1/pit.proto", "entry = 2", []string{"the <entry> in the event's id", "the ones a PitTeleport withdraws included", "across an ecu restart", "stop alone could repeat"}},
+		{"twr/events/v1/pit.proto", "PitStop stop", []string{"the <stop> in the event's id", "across an ecu restart"}},
+		{"twr/events/v1/pit.proto", "entry_at", []string{"Absent when", "earlier ecu run"}},
+		{"twr/events/v1/pit.proto", "PitTeleport", []string{"without ever coming to rest", "no fuel added and no tyres changed", "undoes it"}},
+		// The alarm's id part, and v1's rule for when it fires.
+		{"twr/events/v1/car.proto", "check", []string{"the <check> in the event's id", "tyre_hot, tyres_cold, water_hot or oil_hot"}},
+		{"twr/events/v1/car.proto", "CarAlarmRaised", []string{"sustain_secs", "hysteresis_c", "cooldown_secs"}},
+		// The _ session token, and the run that replaces the session there.
+		{"twr/events/v1/telemetry.proto", "TelemetryLost", []string{"evt._.telemetry.lost", "while none", "is"}},
+		{"twr/events/v1/telemetry.proto", "run_id = 2", []string{"the <run> in the", "event's id", "evt._"}},
+		{"twr/events/v1/telemetry.proto", "session_id = 1", []string{"Empty when no session is", "evt._"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			comment := leadingComment(t, tc.file, tc.name)

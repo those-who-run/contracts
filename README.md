@@ -81,6 +81,12 @@ headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 | `twr.events.v1.RaceFinalLapStarted` | The final lap of a lap race began. | [`race_final_lap.json`](examples/events/v1/race_final_lap.json) |
 | `twr.events.v1.RacePositionChanged` | The car's position changed and settled. | [`race_position.json`](examples/events/v1/race_position.json) |
 | `twr.events.v1.RaceFinished` | The race finished, at the flag or a timed finish. | [`race_finished.json`](examples/events/v1/race_finished.json) |
+| `twr.events.v1.PitEntered` | The car came into the pit lane. | [`pit_entered.json`](examples/events/v1/pit_entered.json) |
+| `twr.events.v1.PitExited` | The car left the pit lane, with the stop it made and the stint that starts. | [`pit_exited.json`](examples/events/v1/pit_exited.json) |
+| `twr.events.v1.PitTeleport` | A pit entry was not a stop, so it is withdrawn. | [`pit_teleport.json`](examples/events/v1/pit_teleport.json) |
+| `twr.events.v1.CarAlarmRaised` | A tyre, water or oil temperature check raised its alarm. | [`car_alarm.json`](examples/events/v1/car_alarm.json) |
+| `twr.events.v1.TelemetryLost` | The frames stopped arriving, in a session or with none open. | [`telemetry_lost.json`](examples/events/v1/telemetry_lost.json) |
+| `twr.events.v1.TelemetryRestored` | The frames came back after a loss. | [`telemetry_restored.json`](examples/events/v1/telemetry_restored.json) |
 
 `SessionSummary`, `SessionKind`, `TrackVerdict`, `TrackCandidate`,
 `SessionGap` and `PitStop` are parts of these events, not events of their own.
