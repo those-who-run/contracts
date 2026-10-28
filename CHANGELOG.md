@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/those-who-run/contracts/compare/v0.1.4...v0.1.5) (2026-10-28)
+
+
+### Features
+
+* **subjects:** event ids carry the source ([#17](https://github.com/those-who-run/contracts/issues/17)) ([0bb1a72](https://github.com/those-who-run/contracts/commit/0bb1a7261a992462c8d146b9d0d0fd1ea95b007a))
+
 ## [0.1.4](https://github.com/those-who-run/contracts/compare/v0.1.3...v0.1.4) (2026-10-27)
 
 
