@@ -29,8 +29,8 @@ and `Part of those-who-run/paddock#N` otherwise, as paddock's `AGENTS.md` says.
   Markdown link and anchor resolves, the guard and settings in `.claude/` are
   `those-who-run/.github`'s `agent/` at the commit CI pins, buf's checks
   (`make proto`: format, lint, breaking changes, no 64-bit integers, no
-  released message removed without its reason, and `gen/` is fresh), and the
-  tests in `tests/`.
+  released message removed without its reason, and `gen/` is fresh), the
+  tests in `tests/`, and the Python leg (`make python`).
 
 It needs Go (the version in `go.mod`'s `toolchain` line, which the `go`
 command fetches when `GOTOOLCHAIN` allows it), `python3`, `pre-commit` and the
@@ -55,7 +55,10 @@ and a recording that pins a behaviour where one applies.
   lines. golangci-lint, govulncheck, `buf` and `protoc-gen-go` are pinned in
   [`tools/go.mod`](tools/go.mod), checksummed in `tools/go.sum`, and run with
   `go tool -modfile=tools/go.mod`, as the Makefile does; never a copy
-  installed some other way. Renovate bumps them; a new tool is added there
+  installed some other way. protoc, for the Python generators, is pinned with
+  its digests in [`scripts/protoc.py`](scripts/protoc.py), which `buf
+  generate` runs, and bumped there by hand. Renovate bumps the Go tools; a new
+  one is added there
   the way `those-who-run/.github`'s
   [workflows README](https://github.com/those-who-run/.github/blob/main/.github/workflows/README.md#toolsgomod)
   says.
@@ -64,9 +67,12 @@ and a recording that pins a behaviour where one applies.
   check` and CI's `go / check` all refuse unformatted code and lint findings.
   A finding is fixed, or silenced at its line with
   `//nolint:<linter> // <why>`.
-- **Generated files.** `gen/go/` is written by `make generate` from `proto/`.
+- **Generated files.** `gen/go/` and `gen/python/twr/` are written by `make
+  generate` from `proto/`; the rest of `gen/python/`, the package around the
+  generated Python, is written by hand.
   A generated file is written by a `make` target or a `//go:generate` line,
-  starts with Go's `// Code generated … DO NOT EDIT.` line, is committed, and
+  starts with Go's `// Code generated … DO NOT EDIT.` line (protoc's `DO NOT
+  EDIT!` line in Python), is committed, and
   is never edited by hand: change its source and generate it again. That line also leaves the
   file out of the coverage floor, in `make check` and in CI.
 - **Dependencies.** Declared in `go.mod` and locked in `go.sum`, both
@@ -132,8 +138,17 @@ in paddock mean for a change here:
 - **The protobuf runtime and the generator move together.**
   `google.golang.org/protobuf` in `go.mod` is a released version compatible with
   `protoc-gen-go` in `tools/go.mod`, never behind it, and the two change in the
-  same PR.
-- **Only Go is generated** until a consumer needs another language.
+  same PR. So do protoc in `scripts/protoc.py` and the `protobuf` floor in
+  `gen/python/pyproject.toml` and `tests/python-constraints.txt`
+  (`tests/test_python_package.py` checks them).
+- **Go and Python are generated** (Python for `radio`, paddock#265); another
+  language waits until a consumer needs it.
+- **Python reads and writes through
+  [`twr_contracts`](gen/python/twr_contracts/ce.py)**, the copy of `ce` and
+  `callout`, which behaves as they do. A new message that travels on its own
+  gets its `ce-type` in its table too; `make python`'s round trip
+  (`python_test.go`) fails while the two disagree, or while Go and Python
+  decode an example to different values.
 
 ## Make targets
 
@@ -143,6 +158,8 @@ in paddock mean for a change here:
 - `make fmt`: formats the Go code; `make lint`: golangci-lint.
 - `make proto`: buf's checks; `make proto-fmt`: formats the `.proto` files;
   `make generate`: writes `gen/` from `proto/`.
+- `make python`: installs `gen/python` into a new virtual environment and runs
+  the round trip between Go and Python (part of `make test`).
 - `make hooks`: installs the commit hooks. A new clone or worktree runs it
   once, so the hooks run on every commit and commit message.
 
