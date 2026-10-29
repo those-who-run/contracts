@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/those-who-run/contracts/compare/v0.2.1...v0.2.2) (2026-10-29)
+
+
+### Features
+
+* the callout message on callout.&lt;p0|p1|p2&gt; ([#26](https://github.com/those-who-run/contracts/issues/26)) ([cf1a938](https://github.com/those-who-run/contracts/commit/cf1a93836a5d48b2a6aaf75909a120dd6086171d))
+
 ## [0.2.1](https://github.com/those-who-run/contracts/compare/v0.2.0...v0.2.1) (2026-10-29)
 
 
