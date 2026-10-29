@@ -112,6 +112,7 @@ func TestPitStopFromV1(t *testing.T) {
 		ExitedAt:  exitedAt,
 		At:        exitSeq,
 		ExitedT:   exitT,
+		EnteredT:  entryT,
 	}
 	var exited eventsv1.PitExited
 	if err := ce.Unmarshal(readExample(t, "events/v1/pit_exited.json"), &exited); err != nil {
@@ -128,7 +129,7 @@ func TestPitStopFromV1(t *testing.T) {
 	}
 	// pit_lane_ms is v1's pit_lane_secs: exited_t less entered_t, to 10 ms,
 	// and the UTC times agree.
-	if d := gotExit.GetExitedT() - got.GetEnteredT() - float64(s.GetPitLaneMs())/1000; math.Abs(d) > 0.005 {
+	if d := gotExit.GetExitedT() - gotExit.GetEnteredT() - float64(s.GetPitLaneMs())/1000; math.Abs(d) > 0.005 {
 		t.Errorf("pit_lane_ms %d is not exited_t less entered_t", s.GetPitLaneMs())
 	}
 	lane := exitedAt.AsTime().Sub(enteredAt.AsTime())
@@ -178,7 +179,7 @@ func TestTelemetryEventsWithNoSession(t *testing.T) {
 	if err := ce.Unmarshal(readExample(t, "events/v1/telemetry_lost.json"), &lost); err != nil {
 		t.Fatal(err)
 	}
-	if restored.GetLostAt() != lost.GetAt() || restored.GetRunId() != lost.GetRunId() || restored.GetAt() <= lost.GetAt() {
+	if restored.GetLostAt() != lost.GetAt() || restored.GetLostPhase() != lost.GetPhase() || restored.GetRunId() != lost.GetRunId() || restored.GetAt() <= lost.GetAt() {
 		t.Errorf("restored %v does not end lost %v", &restored, &lost)
 	}
 	got := throughCE(t, &restored, "live:"+restored.GetRunId()+":telemetry.restored:"+strconv.Itoa(int(restored.GetAt())))

@@ -200,7 +200,7 @@ func (x *PitStop) GetEvidence() string {
 // PitDetector._enter, which v1's Engine._apply_pits logged as "pit entry"). GT7
 // sends no pit flag: ecu reads the entry from a cut, a one-frame loading screen
 // in the race with the lap counter kept, or from a teleport, the car moving
-// faster than no car can between two frames when that frame was lost. Not
+// faster than any car can between two frames when that frame was lost. Not
 // every entry is a stop: one the car leaves without ever coming to rest, with
 // no fuel added and no tyres changed, is withdrawn by a PitTeleport, so a
 // consumer that acted on the entry, such as radio holding callouts, undoes it
@@ -228,12 +228,13 @@ type PitEntered struct {
 	// cut, as at Suzuka East, is the in-lap.
 	InLap int32 `protobuf:"varint,4,opt,name=in_lap,json=inLap,proto3" json:"in_lap,omitempty"`
 	// When the car entered, in seconds on the frames' clock (Frame's `t`): the
-	// first frame after the cut (v1's `entry_t`).
+	// first frame after the cut (v1's `entry_t`). As with Frame's `t`, only
+	// differences between times from one ecu run mean anything.
 	EnteredT float64 `protobuf:"fixed64,5,opt,name=entered_t,json=enteredT,proto3" json:"entered_t,omitempty"`
 	// When the car entered, in UTC: entered_t's frame's receive time.
 	EnteredAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=entered_at,json=enteredAt,proto3" json:"entered_at,omitempty"`
-	// The fuel in the tank on the frame before the cut, in litres (v1's
-	// `fuel_before`).
+	// The fuel in the tank on the frame before the cut, in litres, rounded to
+	// 3 decimals (v1's `fuel_before`).
 	FuelBefore float64 `protobuf:"fixed64,7,opt,name=fuel_before,json=fuelBefore,proto3" json:"fuel_before,omitempty"`
 	// The car's position on the frame before the cut, from 1 (v1's
 	// `position_before`). Absent when the game reported none.
@@ -380,9 +381,14 @@ type PitExited struct {
 	// event's `at`.
 	At uint32 `protobuf:"varint,7,opt,name=at,proto3" json:"at,omitempty"`
 	// When the car left the pit lane, in seconds on the frames' clock (Frame's
-	// `t`): exited_at's frame (v1's `exit_t`). With PitEntered's entered_t it
-	// gives pit_lane_ms, when both came in the same ecu run.
-	ExitedT       float64 `protobuf:"fixed64,8,opt,name=exited_t,json=exitedT,proto3" json:"exited_t,omitempty"`
+	// `t`): exited_at's frame (v1's `exit_t`). Less entered_t, it is the stop's
+	// pit_lane_ms, when both came in the same ecu run.
+	ExitedT float64 `protobuf:"fixed64,8,opt,name=exited_t,json=exitedT,proto3" json:"exited_t,omitempty"`
+	// When the car entered the pit lane, in seconds on the frames' clock, as in
+	// its PitEntered (v1's `entry_t`), so the event alone gives pit_lane_ms. Only
+	// differences between times from one ecu run mean anything: across an ecu
+	// restart (paddock#76), the UTC times give it instead.
+	EnteredT      float64 `protobuf:"fixed64,9,opt,name=entered_t,json=enteredT,proto3" json:"entered_t,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -469,6 +475,13 @@ func (x *PitExited) GetAt() uint32 {
 func (x *PitExited) GetExitedT() float64 {
 	if x != nil {
 		return x.ExitedT
+	}
+	return 0
+}
+
+func (x *PitExited) GetEnteredT() float64 {
+	if x != nil {
+		return x.EnteredT
 	}
 	return 0
 }
@@ -635,7 +648,7 @@ const file_twr_events_v1_pit_proto_rawDesc = "" +
 	"\bevidence\x18\t \x01(\tR\bevidence\x12\x0e\n" +
 	"\x02at\x18\n" +
 	" \x01(\rR\x02atB\x12\n" +
-	"\x10_position_before\"\xa1\x02\n" +
+	"\x10_position_before\"\xbe\x02\n" +
 	"\tPitExited\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12*\n" +
@@ -646,7 +659,8 @@ const file_twr_events_v1_pit_proto_rawDesc = "" +
 	"entered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tenteredAt\x127\n" +
 	"\texited_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\bexitedAt\x12\x0e\n" +
 	"\x02at\x18\a \x01(\rR\x02at\x12\x19\n" +
-	"\bexited_t\x18\b \x01(\x01R\aexitedT\"\xce\x01\n" +
+	"\bexited_t\x18\b \x01(\x01R\aexitedT\x12\x1b\n" +
+	"\tentered_t\x18\t \x01(\x01R\benteredT\"\xce\x01\n" +
 	"\vPitTeleport\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x14\n" +

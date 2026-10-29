@@ -58,7 +58,7 @@ message PitStop {
 // PitDetector._enter, which v1's Engine._apply_pits logged as "pit entry"). GT7
 // sends no pit flag: ecu reads the entry from a cut, a one-frame loading screen
 // in the race with the lap counter kept, or from a teleport, the car moving
-// faster than no car can between two frames when that frame was lost. Not
+// faster than any car can between two frames when that frame was lost. Not
 // every entry is a stop: one the car leaves without ever coming to rest, with
 // no fuel added and no tyres changed, is withdrawn by a PitTeleport, so a
 // consumer that acted on the entry, such as radio holding callouts, undoes it
@@ -85,12 +85,13 @@ message PitEntered {
   // cut, as at Suzuka East, is the in-lap.
   int32 in_lap = 4;
   // When the car entered, in seconds on the frames' clock (Frame's `t`): the
-  // first frame after the cut (v1's `entry_t`).
+  // first frame after the cut (v1's `entry_t`). As with Frame's `t`, only
+  // differences between times from one ecu run mean anything.
   double entered_t = 5;
   // When the car entered, in UTC: entered_t's frame's receive time.
   google.protobuf.Timestamp entered_at = 6;
-  // The fuel in the tank on the frame before the cut, in litres (v1's
-  // `fuel_before`).
+  // The fuel in the tank on the frame before the cut, in litres, rounded to
+  // 3 decimals (v1's `fuel_before`).
   double fuel_before = 7;
   // The car's position on the frame before the cut, from 1 (v1's
   // `position_before`). Absent when the game reported none.
@@ -134,9 +135,14 @@ message PitExited {
   // event's `at`.
   uint32 at = 7;
   // When the car left the pit lane, in seconds on the frames' clock (Frame's
-  // `t`): exited_at's frame (v1's `exit_t`). With PitEntered's entered_t it
-  // gives pit_lane_ms, when both came in the same ecu run.
+  // `t`): exited_at's frame (v1's `exit_t`). Less entered_t, it is the stop's
+  // pit_lane_ms, when both came in the same ecu run.
   double exited_t = 8;
+  // When the car entered the pit lane, in seconds on the frames' clock, as in
+  // its PitEntered (v1's `entry_t`), so the event alone gives pit_lane_ms. Only
+  // differences between times from one ecu run mean anything: across an ecu
+  // restart (paddock#76), the UTC times give it instead.
+  double entered_t = 9;
 }
 
 // PitTeleport says a PitEntered was not a stop: the car left the pit lane, or

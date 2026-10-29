@@ -25,9 +25,9 @@ const (
 // TelemetryLost says the frames stopped arriving (paddock#70; v1's
 // App._watchdog logging "telemetry lost"): no packet for ecu's timeout (v1's
 // GT7_TELEMETRY_TIMEOUT_SECS, 3 s, checked once a second), after at least one
-// frame in this ecu run. ecu publishes it on twr.v1.<src>.evt.<sid>.telemetry.lost
-// while a session is open, and on twr.v1.<src>.evt._.telemetry.lost while none
-// is, so a consumer can subscribe to every loss without knowing the session.
+// frame in this ecu run. ecu publishes it on
+// twr.v1.<src>.evt.<sid>.telemetry.lost while a session is open, and on
+// twr.v1.<src>.evt._.telemetry.lost while none is, so a consumer can subscribe to every loss without knowing the session.
 // Silence in a menu is normal: v1 said "Lost telemetry." only when the last
 // frame was in a race or paused (v1's TelemetryVoice), which phase tells. Lost
 // in a pause, the session then ends paused, with END_REASON_TELEMETRY_LOST
@@ -139,7 +139,12 @@ type TelemetryRestored struct {
 	GapMs int32 `protobuf:"varint,4,opt,name=gap_ms,json=gapMs,proto3" json:"gap_ms,omitempty"`
 	// The `seq` of the first frame after the gap, in the ecu run that published
 	// this event: the event's `at`.
-	At            uint32 `protobuf:"varint,5,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,5,opt,name=at,proto3" json:"at,omitempty"`
+	// Where the game was on the last frame before the gap, as in its
+	// TelemetryLost (twr.telemetry.v1.Phase), so a reader such as radio can
+	// decide "Telemetry back." (v1's TelemetryVoice) without having seen the
+	// TelemetryLost, which may be on the other subject.
+	LostPhase     v1.Phase `protobuf:"varint,6,opt,name=lost_phase,json=lostPhase,proto3,enum=twr.telemetry.v1.Phase" json:"lost_phase,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -209,6 +214,13 @@ func (x *TelemetryRestored) GetAt() uint32 {
 	return 0
 }
 
+func (x *TelemetryRestored) GetLostPhase() v1.Phase {
+	if x != nil {
+		return x.LostPhase
+	}
+	return v1.Phase(0)
+}
+
 var File_twr_events_v1_telemetry_proto protoreflect.FileDescriptor
 
 const file_twr_events_v1_telemetry_proto_rawDesc = "" +
@@ -221,14 +233,16 @@ const file_twr_events_v1_telemetry_proto_rawDesc = "" +
 	"\x05phase\x18\x03 \x01(\x0e2\x17.twr.telemetry.v1.PhaseR\x05phase\x12\x1d\n" +
 	"\n" +
 	"silence_ms\x18\x04 \x01(\x05R\tsilenceMs\x12\x0e\n" +
-	"\x02at\x18\x05 \x01(\rR\x02at\"\x89\x01\n" +
+	"\x02at\x18\x05 \x01(\rR\x02at\"\xc1\x01\n" +
 	"\x11TelemetryRestored\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x17\n" +
 	"\alost_at\x18\x03 \x01(\rR\x06lostAt\x12\x15\n" +
 	"\x06gap_ms\x18\x04 \x01(\x05R\x05gapMs\x12\x0e\n" +
-	"\x02at\x18\x05 \x01(\rR\x02atB\xbb\x01\n" +
+	"\x02at\x18\x05 \x01(\rR\x02at\x126\n" +
+	"\n" +
+	"lost_phase\x18\x06 \x01(\x0e2\x17.twr.telemetry.v1.PhaseR\tlostPhaseB\xbb\x01\n" +
 	"\x11com.twr.events.v1B\x0eTelemetryProtoP\x01Z@github.com/those-who-run/contracts/gen/go/twr/events/v1;eventsv1\xa2\x02\x03TEX\xaa\x02\rTwr.Events.V1\xca\x02\rTwr\\Events\\V1\xe2\x02\x19Twr\\Events\\V1\\GPBMetadata\xea\x02\x0fTwr::Events::V1b\x06proto3"
 
 var (
@@ -251,11 +265,12 @@ var file_twr_events_v1_telemetry_proto_goTypes = []any{
 }
 var file_twr_events_v1_telemetry_proto_depIdxs = []int32{
 	2, // 0: twr.events.v1.TelemetryLost.phase:type_name -> twr.telemetry.v1.Phase
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: twr.events.v1.TelemetryRestored.lost_phase:type_name -> twr.telemetry.v1.Phase
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_twr_events_v1_telemetry_proto_init() }

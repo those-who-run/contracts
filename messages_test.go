@@ -180,6 +180,7 @@ var examples = []struct {
 		ExitedAt:  timestamppb.New(time.Date(2026, 10, 17, 18, 3, 37, 804_885_000, time.UTC)),
 		At:        13056,
 		ExitedT:   6853873.780025139,
+		EnteredT:  6853843.563197786,
 	}},
 	{"events/v1/pit_teleport.json", &eventsv1.PitTeleport{
 		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", Entry: 1, EntryAt: proto.Uint32(3), Lap: 3,
@@ -200,6 +201,7 @@ var examples = []struct {
 	}},
 	{"events/v1/telemetry_restored.json", &eventsv1.TelemetryRestored{
 		RunId: "01JBBWZ5C8E2H4K7M9P1R3T6VX", LostAt: 52340, GapMs: 1843250, At: 52341,
+		LostPhase: telemetryv1.Phase_PHASE_PAUSED,
 	}},
 }
 

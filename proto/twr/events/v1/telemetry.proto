@@ -7,9 +7,9 @@ import "twr/telemetry/v1/frame.proto";
 // TelemetryLost says the frames stopped arriving (paddock#70; v1's
 // App._watchdog logging "telemetry lost"): no packet for ecu's timeout (v1's
 // GT7_TELEMETRY_TIMEOUT_SECS, 3 s, checked once a second), after at least one
-// frame in this ecu run. ecu publishes it on twr.v1.<src>.evt.<sid>.telemetry.lost
-// while a session is open, and on twr.v1.<src>.evt._.telemetry.lost while none
-// is, so a consumer can subscribe to every loss without knowing the session.
+// frame in this ecu run. ecu publishes it on
+// twr.v1.<src>.evt.<sid>.telemetry.lost while a session is open, and on
+// twr.v1.<src>.evt._.telemetry.lost while none is, so a consumer can subscribe to every loss without knowing the session.
 // Silence in a menu is normal: v1 said "Lost telemetry." only when the last
 // frame was in a race or paused (v1's TelemetryVoice), which phase tells. Lost
 // in a pause, the session then ends paused, with END_REASON_TELEMETRY_LOST
@@ -53,4 +53,9 @@ message TelemetryRestored {
   // The `seq` of the first frame after the gap, in the ecu run that published
   // this event: the event's `at`.
   uint32 at = 5;
+  // Where the game was on the last frame before the gap, as in its
+  // TelemetryLost (twr.telemetry.v1.Phase), so a reader such as radio can
+  // decide "Telemetry back." (v1's TelemetryVoice) without having seen the
+  // TelemetryLost, which may be on the other subject.
+  twr.telemetry.v1.Phase lost_phase = 6;
 }

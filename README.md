@@ -89,7 +89,7 @@ headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 | `twr.events.v1.TelemetryRestored` | The frames came back after a loss. | [`telemetry_restored.json`](examples/events/v1/telemetry_restored.json) |
 
 `SessionSummary`, `SessionKind`, `TrackVerdict`, `TrackCandidate`,
-`SessionGap` and `PitStop` are parts of these events, not events of their own.
+`SessionGap`, `PitStop` and `TyreTemp` are parts of these events, not events of their own.
 [`summary_v1_test.go`](summary_v1_test.go) checks the two summaries from v1
 against what v1.0.0 wrote for its recordings, kept under
 [`testdata/v1/`](testdata/v1), field by field.

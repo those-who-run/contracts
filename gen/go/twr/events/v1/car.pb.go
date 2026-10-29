@@ -239,7 +239,8 @@ type CarAlarmRaised struct {
 	// this event: the event's `at`.
 	At uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
 	// The ecu run's id, the ULID ecu mints when it starts: the <run> in the
-	// event's id. It says which run's seqs at counts in, as session_id does not across an ecu restart (paddock#76).
+	// event's id. It says which run's seqs `at` counts in, which session_id
+	// alone does not after an ecu restart (paddock#76).
 	RunId         string `protobuf:"bytes,7,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

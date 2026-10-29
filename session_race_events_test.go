@@ -103,6 +103,12 @@ func TestAddedFieldNumbers(t *testing.T) {
 		{&eventsv1.SessionKindChanged{}, "run_id", 4, protoreflect.StringKind, false},
 		{&eventsv1.SessionTrackChanged{}, "run_id", 4, protoreflect.StringKind, false},
 		{&eventsv1.RacePositionChanged{}, "run_id", 5, protoreflect.StringKind, false},
+		// paddock#70's review, pinned until a release holds them.
+		{&eventsv1.PitExited{}, "exited_t", 8, protoreflect.DoubleKind, false},
+		{&eventsv1.PitExited{}, "entered_t", 9, protoreflect.DoubleKind, false},
+		{&eventsv1.PitTeleport{}, "withdrawn_t", 7, protoreflect.DoubleKind, false},
+		{&eventsv1.CarAlarmRaised{}, "run_id", 7, protoreflect.StringKind, false},
+		{&eventsv1.TelemetryRestored{}, "lost_phase", 6, protoreflect.EnumKind, false},
 	} {
 		desc := tc.msg.ProtoReflect().Descriptor()
 		fd := desc.Fields().ByName(tc.field)

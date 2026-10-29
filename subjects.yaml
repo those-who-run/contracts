@@ -53,8 +53,8 @@
 #                 session. An event whose id has <run> carries it in its
 #                 message as run_id, so every id is built from its message
 #                 (internal/catalogue checks it; paddock#70). The
-#                 source comes first because EVENTS deduplicates by Nats-Msg-Id across the whole
-#                 stream, and two sources can carry the same session id
+#                 source comes first because EVENTS deduplicates by
+#                 Nats-Msg-Id across the whole stream, and two sources can carry the same session id
 #                 (paddock#279). A frame's is <run>:frame:<seq>, without it.
 #   description   what it is, for the rendered table
 #
