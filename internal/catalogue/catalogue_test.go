@@ -50,8 +50,9 @@ func load(t *testing.T, fsys fs.FS, name string) *catalogue.Catalogue {
 	return c
 }
 
-// The catalogue lists v0.1's four subjects (paddock#25, R1) and the session and
-// race events (paddock#69, R4), and passes every check.
+// The catalogue lists v0.1's four subjects (paddock#25, R1), the session and
+// race events (paddock#69, R4) and the 20 Hz frame (paddock#137), and passes
+// every check.
 func TestTheCatalogueChecksOut(t *testing.T) {
 	c := load(t, repo, subjects)
 	if err := c.Check(protoregistry.GlobalFiles); err != nil {
@@ -86,6 +87,8 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"twr.v1.<src>.callout.p0": "twr.events.v1.Callout",
 		"twr.v1.<src>.callout.p1": "twr.events.v1.Callout",
 		"twr.v1.<src>.callout.p2": "twr.events.v1.Callout",
+		// paddock#137: the 20 Hz frame, in no stream.
+		"twr.v1.<src>.frame.gt7.lo": "twr.telemetry.v1.Frame",
 	}
 	if len(c.Subjects) != len(want) {
 		t.Errorf("%d subjects, want %d", len(c.Subjects), len(want))
@@ -393,6 +396,8 @@ func TestEachCheck(t *testing.T) {
 		{"a pattern outside ADR 0001's scheme", func(s *catalogue.Subject) { s.Pattern = "twr.v1.<src>.frames.gt7" }, "does not follow ADR 0001's subject scheme"},
 		{"a callout level outside p0 to p2", func(s *catalogue.Subject) { s.Pattern, s.Stream = "twr.v1.<src>.callout.p3", "CALLOUTS" }, "does not follow ADR 0001's subject scheme"},
 		{"a frame in the wrong stream", func(s *catalogue.Subject) { s.Stream = "EVENTS" }, "a frame subject is captured by the TELEMETRY stream"},
+		{"a frame in no stream", func(s *catalogue.Subject) { s.Stream = "" }, `a frame subject is captured by the TELEMETRY stream, not ""`},
+		{"a 20 Hz frame in a stream", func(s *catalogue.Subject) { s.Pattern = "twr.v1.<src>.frame.gt7.lo" }, `a 20 Hz frame subject is captured by no stream, not "TELEMETRY"`},
 		{"a ce_type without a version", func(s *catalogue.Subject) { s.CEType = "run.thosewho.frame.gt7" }, "is not run.thosewho.<area>.<what>.v<N>"},
 		{"another content type", func(s *catalogue.Subject) { s.ContentType = "application/protobuf" }, `content_type "application/protobuf" is not application/json`},
 		{"no message", func(s *catalogue.Subject) { s.Message = "" }, "no message"},
@@ -410,6 +415,27 @@ func TestEachCheck(t *testing.T) {
 			tc.change(&c.Subjects[0])
 			assertFails(t, c, protoregistry.GlobalFiles, tc.want)
 		})
+	}
+}
+
+// The 20 Hz frame (paddock#137) is the frame on its own subject: the same
+// message, ce-type, producer and msg_id, in no stream (ADR 0001, point 1).
+func TestTheLoFrameIsTheFrame(t *testing.T) {
+	c := load(t, repo, subjects)
+	by := map[string]catalogue.Subject{}
+	for _, s := range c.Subjects {
+		by[s.Pattern] = s
+	}
+	frame, lo := by["twr.v1.<src>.frame.gt7"], by["twr.v1.<src>.frame.gt7.lo"]
+	if lo.Message != frame.Message || lo.CEType != frame.CEType || lo.MsgID != frame.MsgID ||
+		!slices.Equal(lo.Producers, frame.Producers) {
+		t.Errorf(".lo is %+v, want the frame's message, ce_type, msg_id and producers: %+v", lo, frame)
+	}
+	if lo.Stream != "" {
+		t.Errorf(".lo is captured by %s, want no stream", lo.Stream)
+	}
+	if !slices.Contains(lo.Consumers, "dash") {
+		t.Errorf(".lo's consumers are %v, want the dash", lo.Consumers)
 	}
 }
 
