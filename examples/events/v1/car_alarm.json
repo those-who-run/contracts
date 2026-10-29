@@ -2,10 +2,17 @@
   "sessionId": "01JBA2T8M4K6W9X3Q7R5N1PZDE",
   "check": "CAR_CHECK_TYRE_HOT",
   "tyres": [
-    {"corner": "CORNER_REAR_LEFT", "tempC": 176.40371704101562},
-    {"corner": "CORNER_REAR_RIGHT", "tempC": 169.6006317138672}
+    {
+      "corner": "CORNER_REAR_LEFT",
+      "tempC": 176.40371704101562
+    },
+    {
+      "corner": "CORNER_REAR_RIGHT",
+      "tempC": 169.6006317138672
+    }
   ],
   "valueC": 176.40371704101562,
   "thresholdC": 120.0,
-  "at": 1214
+  "at": 1214,
+  "runId": "01JBA2SZ9C3F6H8K1M4P7R2T5W"
 }

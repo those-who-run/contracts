@@ -77,4 +77,7 @@ message CarAlarmRaised {
   // The `seq` of the frame the alarm fired on, in the ecu run that published
   // this event: the event's `at`.
   uint32 at = 6;
+  // The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+  // event's id. It says which run's seqs at counts in, as session_id does not across an ecu restart (paddock#76).
+  string run_id = 7;
 }

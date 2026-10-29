@@ -373,12 +373,16 @@ type PitExited struct {
 	// When the car entered the pit lane, in UTC, as in its PitEntered.
 	EnteredAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=entered_at,json=enteredAt,proto3" json:"entered_at,omitempty"`
 	// When the car left the pit lane, in UTC: the receive time of the first
-	// frame after the exit cut (v1's `exit_t`).
+	// frame after the exit cut, exited_t's frame.
 	ExitedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=exited_at,json=exitedAt,proto3" json:"exited_at,omitempty"`
 	// The `seq` of the first frame after the exit cut, or of the first frame
 	// over the pit lane's speed, in the ecu run that published this event: the
 	// event's `at`.
-	At            uint32 `protobuf:"varint,7,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,7,opt,name=at,proto3" json:"at,omitempty"`
+	// When the car left the pit lane, in seconds on the frames' clock (Frame's
+	// `t`): exited_at's frame (v1's `exit_t`). With PitEntered's entered_t it
+	// gives pit_lane_ms, when both came in the same ecu run.
+	ExitedT       float64 `protobuf:"fixed64,8,opt,name=exited_t,json=exitedT,proto3" json:"exited_t,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -462,6 +466,13 @@ func (x *PitExited) GetAt() uint32 {
 	return 0
 }
 
+func (x *PitExited) GetExitedT() float64 {
+	if x != nil {
+		return x.ExitedT
+	}
+	return 0
+}
+
 // PitTeleport says a PitEntered was not a stop: the car left the pit lane, or
 // what looked like it, without ever coming to rest, with no fuel added and no
 // tyres changed, as when GT7 puts a car back on track after an off (paddock#70;
@@ -478,7 +489,8 @@ type PitTeleport struct {
 	Entry int32 `protobuf:"varint,2,opt,name=entry,proto3" json:"entry,omitempty"`
 	// The `at` of the PitEntered it withdraws, in the same ecu run. Absent when
 	// that PitEntered was published by an earlier ecu run (paddock#76), whose
-	// seqs this run's do not continue.
+	// seqs this run's do not continue. v1's Teleport `entry_t` is that
+	// PitEntered's entered_t.
 	EntryAt *uint32 `protobuf:"varint,3,opt,name=entry_at,json=entryAt,proto3,oneof" json:"entry_at,omitempty"`
 	// The lap the withdrawn entry came on, from 1 (v1's Teleport `lap`, the
 	// entry's in_lap).
@@ -490,7 +502,10 @@ type PitTeleport struct {
 	Evidence string `protobuf:"bytes,5,opt,name=evidence,proto3" json:"evidence,omitempty"`
 	// The `seq` of the frame the entry was withdrawn on, in the ecu run that
 	// published this event (v1's Teleport `t`): the event's `at`.
-	At            uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	// When the entry was withdrawn, in seconds on the frames' clock (Frame's
+	// `t`): at's frame (v1's Teleport `t`).
+	WithdrawnT    float64 `protobuf:"fixed64,7,opt,name=withdrawn_t,json=withdrawnT,proto3" json:"withdrawn_t,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -567,6 +582,13 @@ func (x *PitTeleport) GetAt() uint32 {
 	return 0
 }
 
+func (x *PitTeleport) GetWithdrawnT() float64 {
+	if x != nil {
+		return x.WithdrawnT
+	}
+	return 0
+}
+
 var File_twr_events_v1_pit_proto protoreflect.FileDescriptor
 
 const file_twr_events_v1_pit_proto_rawDesc = "" +
@@ -613,7 +635,7 @@ const file_twr_events_v1_pit_proto_rawDesc = "" +
 	"\bevidence\x18\t \x01(\tR\bevidence\x12\x0e\n" +
 	"\x02at\x18\n" +
 	" \x01(\rR\x02atB\x12\n" +
-	"\x10_position_before\"\x86\x02\n" +
+	"\x10_position_before\"\xa1\x02\n" +
 	"\tPitExited\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12*\n" +
@@ -623,7 +645,8 @@ const file_twr_events_v1_pit_proto_rawDesc = "" +
 	"\n" +
 	"entered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tenteredAt\x127\n" +
 	"\texited_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\bexitedAt\x12\x0e\n" +
-	"\x02at\x18\a \x01(\rR\x02at\"\xad\x01\n" +
+	"\x02at\x18\a \x01(\rR\x02at\x12\x19\n" +
+	"\bexited_t\x18\b \x01(\x01R\aexitedT\"\xce\x01\n" +
 	"\vPitTeleport\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x14\n" +
@@ -631,7 +654,9 @@ const file_twr_events_v1_pit_proto_rawDesc = "" +
 	"\bentry_at\x18\x03 \x01(\rH\x00R\aentryAt\x88\x01\x01\x12\x10\n" +
 	"\x03lap\x18\x04 \x01(\x05R\x03lap\x12\x1a\n" +
 	"\bevidence\x18\x05 \x01(\tR\bevidence\x12\x0e\n" +
-	"\x02at\x18\x06 \x01(\rR\x02atB\v\n" +
+	"\x02at\x18\x06 \x01(\rR\x02at\x12\x1f\n" +
+	"\vwithdrawn_t\x18\a \x01(\x01R\n" +
+	"withdrawnTB\v\n" +
 	"\t_entry_atB\xb5\x01\n" +
 	"\x11com.twr.events.v1B\bPitProtoP\x01Z@github.com/those-who-run/contracts/gen/go/twr/events/v1;eventsv1\xa2\x02\x03TEX\xaa\x02\rTwr.Events.V1\xca\x02\rTwr\\Events\\V1\xe2\x02\x19Twr\\Events\\V1\\GPBMetadata\xea\x02\x0fTwr::Events::V1b\x06proto3"
 

@@ -166,7 +166,10 @@ type RacePositionChanged struct {
 	Position int32 `protobuf:"varint,3,opt,name=position,proto3" json:"position,omitempty"`
 	// The `seq` of the frame the position settled on, 3 s after it changed, in
 	// the ecu run that published this event: the event's `at`.
-	At            uint32 `protobuf:"varint,4,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,4,opt,name=at,proto3" json:"at,omitempty"`
+	// The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+	// event's id. It says which run's seqs at counts in, as session_id does not across an ecu restart (paddock#76).
+	RunId         string `protobuf:"bytes,5,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -227,6 +230,13 @@ func (x *RacePositionChanged) GetAt() uint32 {
 		return x.At
 	}
 	return 0
+}
+
+func (x *RacePositionChanged) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
 }
 
 // RaceFinished says the race reached its finish: the chequered flag in a lap
@@ -355,13 +365,14 @@ const file_twr_events_v1_race_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x10\n" +
 	"\x03lap\x18\x02 \x01(\x05R\x03lap\x12\x0e\n" +
-	"\x02at\x18\x03 \x01(\rR\x02at\"\xa8\x01\n" +
+	"\x02at\x18\x03 \x01(\rR\x02at\"\xbf\x01\n" +
 	"\x13RacePositionChanged\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x120\n" +
 	"\x11previous_position\x18\x02 \x01(\x05H\x00R\x10previousPosition\x88\x01\x01\x12\x1a\n" +
 	"\bposition\x18\x03 \x01(\x05R\bposition\x12\x0e\n" +
-	"\x02at\x18\x04 \x01(\rR\x02atB\x14\n" +
+	"\x02at\x18\x04 \x01(\rR\x02at\x12\x15\n" +
+	"\x06run_id\x18\x05 \x01(\tR\x05runIdB\x14\n" +
 	"\x12_previous_position\"\xd7\x02\n" +
 	"\fRaceFinished\x12\x1d\n" +
 	"\n" +

@@ -175,6 +175,9 @@ func (c *Catalogue) Check(messages Messages) error {
 			byType[s.CEType], typeOf[s.Message] = s.Message, s.CEType
 		}
 		checkMessage(s, messages, fail)
+		if !s.IsKV() {
+			checkRunField(s, messages, fail)
+		}
 		if len(s.Producers) == 0 {
 			fail("no producers")
 		}
@@ -282,6 +285,29 @@ func checkEventID(s Subject, fail func(string, ...any)) {
 	}
 	if t := typeName.FindStringSubmatch(s.CEType); t != nil && t[1] != m[2] {
 		fail("msg_id %q names %s, but the ce_type is %s's", s.MsgID, m[2], t[1])
+	}
+}
+
+// RunField is the field an event whose msg_id has <run> carries the run in,
+// so its id is built from the message alone (paddock#70).
+const RunField = "run_id"
+
+// checkRunField fails an event whose msg_id has <run> and whose message has no
+// string run_id. A frame's id has <run> too, but a frame is not an event.
+func checkRunField(s Subject, messages Messages, fail func(string, ...any)) {
+	if !strings.Contains(s.Pattern, ".evt.") || !strings.Contains(s.MsgID, "<run>") {
+		return
+	}
+	d, err := messages.FindDescriptorByName(protoreflect.FullName(s.Message))
+	if err != nil {
+		return // checkMessage reports it
+	}
+	m, ok := d.(protoreflect.MessageDescriptor)
+	if !ok {
+		return
+	}
+	if f := m.Fields().ByName(RunField); f == nil || f.Kind() != protoreflect.StringKind || f.IsList() {
+		fail("msg_id %q has <run>, but %s has no string %s to build it from", s.MsgID, s.Message, RunField)
 	}
 }
 

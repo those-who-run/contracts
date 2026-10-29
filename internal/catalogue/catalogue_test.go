@@ -213,8 +213,9 @@ func TestCETypesAndMessagesAreOneToOne(t *testing.T) {
 	// One message and ce-type on several subjects passes: the same event with no
 	// session open (the _ token, paddock#70), and one entry per callout level.
 	c = load(t, repo, subjects)
-	noSession := c.Subjects[2]
-	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.lap.completed", "<src>:<run>:lap.completed:<n>"
+	// SessionKindChanged, which carries the run its <run> needs.
+	noSession := c.Subjects[slices.IndexFunc(c.Subjects, func(s catalogue.Subject) bool { return s.Message == "twr.events.v1.SessionKindChanged" })]
+	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.session.kind", "<src>:<run>:session.kind:<seq>"
 	c.Subjects = append(c.Subjects, noSession)
 	for _, level := range []string{"p0", "p1", "p2"} {
 		callout := c.Subjects[2]
@@ -257,6 +258,12 @@ func TestEventMsgIDs(t *testing.T) {
 			assertFails(t, c, protoregistry.GlobalFiles, tc.want)
 		})
 	}
+	// An event whose id has <run> carries the run in its message (paddock#70),
+	// so an id is built from its message: LapCompleted has no run_id.
+	c0 := load(t, repo, subjects)
+	c0.Subjects[2].MsgID = "<src>:<sid>:lap.completed:<run>:<seq>"
+	assertFails(t, c0, protoregistry.GlobalFiles,
+		`msg_id "<src>:<sid>:lap.completed:<run>:<seq>" has <run>, but twr.events.v1.LapCompleted has no string run_id`)
 	// More than one part is fine, as #70's car alarms have.
 	c := load(t, repo, subjects)
 	c.Subjects[2].MsgID = "<src>:<sid>:lap.completed:<n>:1"

@@ -101,7 +101,7 @@ func TestPitStopFromV1(t *testing.T) {
 	}
 
 	exitFrame, _ := exit.object("frame")
-	exitSeq, _, exitedAt := v1Frame(exitFrame, firstPacket, firstT)
+	exitSeq, exitT, exitedAt := v1Frame(exitFrame, firstPacket, firstT)
 	stopAtExit, _ := exit.object("stop")
 	wantExited := &eventsv1.PitExited{
 		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC",
@@ -111,6 +111,7 @@ func TestPitStopFromV1(t *testing.T) {
 		EnteredAt: enteredAt,
 		ExitedAt:  exitedAt,
 		At:        exitSeq,
+		ExitedT:   exitT,
 	}
 	var exited eventsv1.PitExited
 	if err := ce.Unmarshal(readExample(t, "events/v1/pit_exited.json"), &exited); err != nil {
@@ -125,8 +126,11 @@ func TestPitStopFromV1(t *testing.T) {
 	if s.GetFuelAfter() != 100 || !s.GetTyresChanged() || gotExit.GetStint() != 2 || s.GetOutLap() != 7 {
 		t.Errorf("the Gilles Villeneuve stop is %v", gotExit)
 	}
-	// pit_lane_ms is v1's pit_lane_secs, which is the exit less the entry on
-	// the frames' clock, to 10 ms.
+	// pit_lane_ms is v1's pit_lane_secs: exited_t less entered_t, to 10 ms,
+	// and the UTC times agree.
+	if d := gotExit.GetExitedT() - got.GetEnteredT() - float64(s.GetPitLaneMs())/1000; math.Abs(d) > 0.005 {
+		t.Errorf("pit_lane_ms %d is not exited_t less entered_t", s.GetPitLaneMs())
+	}
 	lane := exitedAt.AsTime().Sub(enteredAt.AsTime())
 	if d := lane - time.Duration(s.GetPitLaneMs())*time.Millisecond; d < -5*time.Millisecond || d > 5*time.Millisecond {
 		t.Errorf("pit_lane_ms %d is not exited_at less entered_at, %v", s.GetPitLaneMs(), lane)

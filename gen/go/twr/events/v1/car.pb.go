@@ -237,7 +237,10 @@ type CarAlarmRaised struct {
 	ThresholdC float64 `protobuf:"fixed64,5,opt,name=threshold_c,json=thresholdC,proto3" json:"threshold_c,omitempty"`
 	// The `seq` of the frame the alarm fired on, in the ecu run that published
 	// this event: the event's `at`.
-	At            uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	// The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+	// event's id. It says which run's seqs at counts in, as session_id does not across an ecu restart (paddock#76).
+	RunId         string `protobuf:"bytes,7,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -314,6 +317,13 @@ func (x *CarAlarmRaised) GetAt() uint32 {
 	return 0
 }
 
+func (x *CarAlarmRaised) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
 var File_twr_events_v1_car_proto protoreflect.FileDescriptor
 
 const file_twr_events_v1_car_proto_rawDesc = "" +
@@ -321,7 +331,7 @@ const file_twr_events_v1_car_proto_rawDesc = "" +
 	"\x17twr/events/v1/car.proto\x12\rtwr.events.v1\"P\n" +
 	"\bTyreTemp\x12-\n" +
 	"\x06corner\x18\x01 \x01(\x0e2\x15.twr.events.v1.CornerR\x06corner\x12\x15\n" +
-	"\x06temp_c\x18\x02 \x01(\x01R\x05tempC\"\xd7\x01\n" +
+	"\x06temp_c\x18\x02 \x01(\x01R\x05tempC\"\xee\x01\n" +
 	"\x0eCarAlarmRaised\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12-\n" +
@@ -330,7 +340,8 @@ const file_twr_events_v1_car_proto_rawDesc = "" +
 	"\avalue_c\x18\x04 \x01(\x01R\x06valueC\x12\x1f\n" +
 	"\vthreshold_c\x18\x05 \x01(\x01R\n" +
 	"thresholdC\x12\x0e\n" +
-	"\x02at\x18\x06 \x01(\rR\x02at*\x87\x01\n" +
+	"\x02at\x18\x06 \x01(\rR\x02at\x12\x15\n" +
+	"\x06run_id\x18\a \x01(\tR\x05runId*\x87\x01\n" +
 	"\bCarCheck\x12\x19\n" +
 	"\x15CAR_CHECK_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12CAR_CHECK_TYRE_HOT\x10\x01\x12\x18\n" +

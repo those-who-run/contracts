@@ -127,12 +127,16 @@ message PitExited {
   // When the car entered the pit lane, in UTC, as in its PitEntered.
   google.protobuf.Timestamp entered_at = 5;
   // When the car left the pit lane, in UTC: the receive time of the first
-  // frame after the exit cut (v1's `exit_t`).
+  // frame after the exit cut, exited_t's frame.
   google.protobuf.Timestamp exited_at = 6;
   // The `seq` of the first frame after the exit cut, or of the first frame
   // over the pit lane's speed, in the ecu run that published this event: the
   // event's `at`.
   uint32 at = 7;
+  // When the car left the pit lane, in seconds on the frames' clock (Frame's
+  // `t`): exited_at's frame (v1's `exit_t`). With PitEntered's entered_t it
+  // gives pit_lane_ms, when both came in the same ecu run.
+  double exited_t = 8;
 }
 
 // PitTeleport says a PitEntered was not a stop: the car left the pit lane, or
@@ -150,7 +154,8 @@ message PitTeleport {
   int32 entry = 2;
   // The `at` of the PitEntered it withdraws, in the same ecu run. Absent when
   // that PitEntered was published by an earlier ecu run (paddock#76), whose
-  // seqs this run's do not continue.
+  // seqs this run's do not continue. v1's Teleport `entry_t` is that
+  // PitEntered's entered_t.
   optional uint32 entry_at = 3;
   // The lap the withdrawn entry came on, from 1 (v1's Teleport `lap`, the
   // entry's in_lap).
@@ -163,4 +168,7 @@ message PitTeleport {
   // The `seq` of the frame the entry was withdrawn on, in the ecu run that
   // published this event (v1's Teleport `t`): the event's `at`.
   uint32 at = 6;
+  // When the entry was withdrawn, in seconds on the frames' clock (Frame's
+  // `t`): at's frame (v1's Teleport `t`).
+  double withdrawn_t = 7;
 }

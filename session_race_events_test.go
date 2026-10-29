@@ -98,6 +98,11 @@ func TestAddedFieldNumbers(t *testing.T) {
 		{&eventsv1.SessionSummary{}, "pit_stops", 31, protoreflect.MessageKind, false},
 		{&eventsv1.SessionSummary{}, "gaps", 32, protoreflect.MessageKind, false},
 		{&eventsv1.SessionSummary{}, "laps", 33, protoreflect.MessageKind, false},
+		// paddock#70 retrofits the run to v0.2.0's events whose ids carry <run>.
+		{&eventsv1.SessionContinued{}, "run_id", 5, protoreflect.StringKind, false},
+		{&eventsv1.SessionKindChanged{}, "run_id", 4, protoreflect.StringKind, false},
+		{&eventsv1.SessionTrackChanged{}, "run_id", 4, protoreflect.StringKind, false},
+		{&eventsv1.RacePositionChanged{}, "run_id", 5, protoreflect.StringKind, false},
 	} {
 		desc := tc.msg.ProtoReflect().Descriptor()
 		fd := desc.Fields().ByName(tc.field)
