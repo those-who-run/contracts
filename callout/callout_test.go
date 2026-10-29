@@ -30,7 +30,7 @@ func TestEachV1PriorityHasItsLevel(t *testing.T) {
 		{"a lap time", 20, callout.P2},
 		{"the race summary", 25, callout.P2},
 		// The edges, and what no v1 rule uses.
-		{"the most urgent", 0, callout.P0},
+		{"the most urgent", 1, callout.P0},
 		{"below zero", -1, callout.P0},
 		{"just under p1", 9, callout.P0},
 		{"just under p2", 19, callout.P1},
@@ -84,8 +84,19 @@ func TestSubjectsAreTheCatalogues(t *testing.T) {
 // subscribes, or match more than it should.
 func TestABadSourceFails(t *testing.T) {
 	for _, src := range []string{"", "live.x", "*", ">", "my replay"} {
-		if got, err := callout.Subject(src, &eventsv1.Callout{}); err == nil {
+		if got, err := callout.Subject(src, &eventsv1.Callout{Priority: 5}); err == nil {
 			t.Errorf("source %q gave %s", src, got)
 		}
+	}
+}
+
+// A callout with no priority (0, unset) has no level: the helper refuses it
+// rather than sending it as the most urgent.
+func TestNoPriorityFails(t *testing.T) {
+	if got, err := callout.Subject("live", &eventsv1.Callout{}); err == nil || !strings.Contains(err.Error(), "no priority") {
+		t.Errorf("priority 0 gave %s, %v", got, err)
+	}
+	if got, err := callout.Subject("live", &eventsv1.Callout{Priority: 1}); err != nil || got != "twr.v1.live.callout.p0" {
+		t.Errorf("priority 1 gave %s, %v", got, err)
 	}
 }

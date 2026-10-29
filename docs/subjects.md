@@ -13,8 +13,8 @@ no session is open. An event's id is `<src>:<sid>:<area>.<what>:<part>`, with it
 once per session ends in `:1`, and with no session open `<run>` takes `<sid>`'s place.
 The source comes first because `EVENTS` deduplicates by `Nats-Msg-Id` across the
 whole stream, and two sources can carry the same session id. A frame's id is
-`<run>:frame:<seq>`, without the source. A callout's is `<id>`, its own id, which its
-publisher mints once per callout; the callout's level, `p0` to `p2`, is in the subject.
+`<run>:frame:<seq>`, without the source. A callout's is `<id>`, its own id, unique per
+callout within the duplicate window; the callout's level, `p0` to `p2`, is in the subject.
 
 | Subject | Message | `ce-type` | Stream | Producers | Consumers | `ce-id` and `Nats-Msg-Id` |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -87,4 +87,4 @@ Parts of an event, not events themselves, so they have no subject: `twr.events.v
 | `<entry>` | a pit entry's number in the session, from 1, counting the entries a pit.teleport withdraws (PitEntered's entry), which ecu carries across a restart | `msg_id` |
 | `<stop>` | a pit stop's number in the session, from 1 (PitStop's stop), which ecu carries across a restart | `msg_id` |
 | `<check>` | a car alarm's check, CarCheck's value in lower case without its prefix: `tyre_hot`, `tyres_cold`, `water_hot` or `oil_hot` | `msg_id` |
-| `<id>` | a callout's own id (Callout's id), a ULID its publisher mints for each callout: a publish sent again keeps it, and no two callouts share one, whatever the run or source | `msg_id` |
+| `<id>` | a callout's own id (Callout's id): unique per callout across runs and sources within the duplicate window, and kept by a publish sent again; minted (a ULID) or derived from run_id, at, rule and an index within the frame | `msg_id` |

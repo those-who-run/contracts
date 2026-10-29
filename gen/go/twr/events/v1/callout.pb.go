@@ -35,8 +35,13 @@ const (
 	// calls are about the stop, or the flag can fall in a lane that crosses the
 	// line).
 	PitLane_PIT_LANE_SPEAK PitLane = 1
-	// Kept until the pit exit, then spoken if it has not expired (v1's default:
-	// lap_time, final_lap, start_brief, temps, telemetry).
+	// Kept until the pit exit, then released as if raised there (v1's default:
+	// lap_time, final_lap, start_brief, temps, telemetry). v1's Engine._release
+	// re-raised a held callout at the exit with created_at the exit and no
+	// hold, so the time in the lane does not age it: its life restarts at the
+	// exit, and it expires at the exit plus (expires_at less created_at).
+	// hold_until no longer applies once it is released. A session that
+	// finishes in the lane has no exit: held callouts are released at the flag.
 	PitLane_PIT_LANE_HOLD PitLane = 2
 	// Dropped (v1's position: the order before the stop; the net change follows
 	// the exit).
@@ -131,12 +136,14 @@ type Callout struct {
 	// The session's id, as in its SessionStarted. Empty when no session is
 	// open, as for a telemetry callout between sessions.
 	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	// The callout's id, a ULID its publisher mints for it: the ce-id and the
-	// Nats-Msg-Id (<id> in subjects.yaml), and the id radio logs it under
-	// (those-who-run#341 R5). A publish sent again keeps it, so the CALLOUTS
-	// stream drops the copy and radio speaks it once; a new callout always has
-	// a new one, whatever the run or source, so no two collide in the stream's
-	// duplicate window.
+	// The callout's id: the ce-id and the Nats-Msg-Id (<id> in subjects.yaml),
+	// and the id radio logs it under (those-who-run#341 R5). It is unique per
+	// callout across runs and sources within the CALLOUTS stream's duplicate
+	// window, printable ASCII without %, and a publish sent again keeps it, so
+	// the stream drops the copy and radio speaks it once. A publisher may mint
+	// it, such as a ULID, or derive it deterministically, such as from run_id,
+	// at, rule and the callout's index within its frame, so a replay can be
+	// reproducible.
 	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 	// The rule that raised it: v1's rule name (lap_time, fuel, final_lap,
 	// position, start_brief, race_summary, temps or telemetry), or another
@@ -152,7 +159,9 @@ type Callout struct {
 	// The sentence to speak as it is. Empty from ecu, whose callouts radio
 	// phrases from kind and slots; set by a publisher with no script key.
 	Text string `protobuf:"bytes,6,opt,name=text,proto3" json:"text,omitempty"`
-	// v1's priority: lower is more urgent. It picks the subject's level (p0
+	// v1's priority, from 1: lower is more urgent. 0 is unset, and invalid: a
+	// publisher always sets it, and package callout refuses a callout without
+	// one. It picks the subject's level (p0
 	// under 10, p1 10 to 19, p2 20 and over) and orders callouts within it.
 	// v1's defaults: telemetry, critical fuel and the pit call 5, the start
 	// brief 8, the final lap 10, a new best 11, position 12, temps 14, fuel
@@ -172,11 +181,14 @@ type Callout struct {
 	// created_at plus the rule's own max_age where it sets one (v1's
 	// race_summary, 30 s, so it waits behind the final lap time), or the
 	// queue's otherwise (v1's queue.max_age_seconds, 8 s). Absent: it never
-	// goes stale, as for a replay, whose queue v1 ran without a limit.
+	// goes stale, as for a replay, whose queue v1 ran without a limit. A
+	// callout held in the pit lane (PIT_LANE_HOLD) restarts its life at the
+	// exit: it then expires at the exit plus (expires_at less created_at).
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	// Not spoken before this, in UTC (v1's hold, made absolute): created_at
 	// plus the rule's hold_secs, such as position's 1 s, in which a pit entry
-	// drops it (those-who-run#244). Absent: no hold.
+	// drops it (those-who-run#244). Absent: no hold. It no longer applies to a
+	// callout released at the pit exit (PIT_LANE_HOLD).
 	HoldUntil *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=hold_until,json=holdUntil,proto3" json:"hold_until,omitempty"`
 	// What radio does with it in the pit lane (PitLane): the rule's pit_lane.
 	PitLane       PitLane `protobuf:"varint,13,opt,name=pit_lane,json=pitLane,proto3,enum=twr.events.v1.PitLane" json:"pit_lane,omitempty"`
@@ -317,12 +329,17 @@ type CalloutSlots struct {
 	Lap *int32 `protobuf:"varint,1,opt,name=lap,proto3,oneof" json:"lap,omitempty"`
 	// The lap's time, in milliseconds ({time}): GT7's last lap time.
 	LapTimeMs *int32 `protobuf:"varint,2,opt,name=lap_time_ms,json=lapTimeMs,proto3,oneof" json:"lap_time_ms,omitempty"`
-	// The lap's time less the best before it, in milliseconds, exact: negative
-	// for a new best, whose {gap} it is, and positive or 0 for {delta}. radio
-	// speaks it as v1 did, the difference between the two times each rounded to
-	// tenths, so the spoken delta matches the spoken times. Absent when v1 said
-	// no delta (delta_first): no best yet, or lap 2 of a lap race measured
-	// against lap 1 only.
+	// The lap's time less the best before it, in milliseconds, exact. v1
+	// chose by the spoken difference, not this one: each time rounded half up
+	// to tenths, then the difference (v1's spoken_delta_ms), so the spoken
+	// delta matches the spoken times. The kind is chosen the same way
+	// (template_new_best when the spoken difference is negative, so its
+	// delta_ms is negative, the {gap}), and radio picks the pool (equal,
+	// slower, small or large) from the spoken difference too. So under
+	// template a negative delta_ms can occur, and reads as equal: 63120 ms
+	// against a best of 63140 is -20 exact but 0 spoken, "equal to best".
+	// Absent when v1 said no delta (delta_first): no best yet, or lap 2 of a
+	// lap race measured against lap 1 only.
 	DeltaMs *int32 `protobuf:"varint,3,opt,name=delta_ms,json=deltaMs,proto3,oneof" json:"delta_ms,omitempty"`
 	// A number of laps ({laps}): the fuel's, in whole laps (v1 rounds up within
 	// round_up_laps, which template_short says); the race's distance in the

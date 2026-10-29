@@ -96,7 +96,7 @@ var Placeholders = []Placeholder{
 	{"<entry>", "a pit entry's number in the session, from 1, counting the entries a pit.teleport withdraws (PitEntered's entry), which ecu carries across a restart", false, false, true},
 	{"<stop>", "a pit stop's number in the session, from 1 (PitStop's stop), which ecu carries across a restart", false, false, true},
 	{"<check>", "a car alarm's check, CarCheck's value in lower case without its prefix: `tyre_hot`, `tyres_cold`, `water_hot` or `oil_hot`", false, false, true},
-	{"<id>", "a callout's own id (Callout's id), a ULID its publisher mints for each callout: a publish sent again keeps it, and no two callouts share one, whatever the run or source", false, false, true},
+	{"<id>", "a callout's own id (Callout's id): unique per callout across runs and sources within the duplicate window, and kept by a publish sent again; minted (a ULID) or derived from run_id, at, rule and an index within the frame", false, false, true},
 }
 
 // word is a token of a subject's <area> or <what>, or of a ce-type: lower-case
@@ -318,9 +318,9 @@ func checkRunField(s Subject, messages Messages, fail func(string, ...any)) {
 	}
 }
 
-// CalloutID is every callout's msg_id: the callout's own id, which its
-// publisher mints once per callout (paddock#71). It is unique whatever the run
-// or source, so CALLOUTS drops only a publish sent again.
+// CalloutID is every callout's msg_id: the callout's own id (paddock#71),
+// unique per callout across runs and sources within CALLOUTS' duplicate
+// window, so the stream drops only a publish sent again.
 const CalloutID = "<id>"
 
 // IDField is the field a message whose msg_id has <id> carries it in.
@@ -416,8 +416,8 @@ func (c *Catalogue) Render() []byte {
 	b.WriteString("once per session ends in `:1`, and with no session open `<run>` takes `<sid>`'s place.\n")
 	b.WriteString("The source comes first because `EVENTS` deduplicates by `Nats-Msg-Id` across the\n")
 	b.WriteString("whole stream, and two sources can carry the same session id. A frame's id is\n")
-	b.WriteString("`<run>:frame:<seq>`, without the source. A callout's is `<id>`, its own id, which its\n")
-	b.WriteString("publisher mints once per callout; the callout's level, `p0` to `p2`, is in the subject.\n\n")
+	b.WriteString("`<run>:frame:<seq>`, without the source. A callout's is `<id>`, its own id, unique per\n")
+	b.WriteString("callout within the duplicate window; the callout's level, `p0` to `p2`, is in the subject.\n\n")
 	b.WriteString("| Subject | Message | `ce-type` | Stream | Producers | Consumers | `ce-id` and `Nats-Msg-Id` |\n")
 	b.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
 	var kv []Subject

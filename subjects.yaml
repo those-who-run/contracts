@@ -56,10 +56,12 @@
 #                 source comes first because EVENTS deduplicates by
 #                 Nats-Msg-Id across the whole stream, and two sources can carry the same session id
 #                 (paddock#279). A frame's is <run>:frame:<seq>, without it.
-#                 A callout's is <id>, the Callout's own id: a ULID its
-#                 publisher mints for each callout, so a publish sent again
-#                 dedupes in CALLOUTS and no two callouts collide, whatever
-#                 the run or source (paddock#71).
+#                 A callout's is <id>, the Callout's own id, unique per
+#                 callout across runs and sources within CALLOUTS' duplicate
+#                 window; a publish sent again keeps it, so it dedupes. A
+#                 publisher may mint it (a ULID) or derive it from run_id, at,
+#                 rule and an index within the frame, so a replay can be
+#                 reproducible (paddock#71).
 #   description   what it is, for the rendered table
 #
 # A KV key's: kv (the bucket), key (with placeholders), message, content_type,
