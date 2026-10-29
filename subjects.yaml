@@ -56,6 +56,10 @@
 #                 source comes first because EVENTS deduplicates by
 #                 Nats-Msg-Id across the whole stream, and two sources can carry the same session id
 #                 (paddock#279). A frame's is <run>:frame:<seq>, without it.
+#                 A callout's is <id>, the Callout's own id: a ULID its
+#                 publisher mints for each callout, so a publish sent again
+#                 dedupes in CALLOUTS and no two callouts collide, whatever
+#                 the run or source (paddock#71).
 #   description   what it is, for the rendered table
 #
 # A KV key's: kv (the bucket), key (with placeholders), message, content_type,
@@ -287,7 +291,38 @@ subjects:
     msg_id: <src>:<run>:telemetry.restored:<seq>
     description: The frames came back after a loss, with no session open.
 
+  - pattern: twr.v1.<src>.callout.p0
+    ce_type: run.thosewho.callout.raised.v1
+    message: twr.events.v1.Callout
+    content_type: application/json
+    stream: CALLOUTS
+    producers: [ecu]
+    consumers: [radio]
+    msg_id: <id>
+    description: A callout with priority under 10, spoken first, such as lost telemetry, critical fuel, the pit call or the start brief.
+
+  - pattern: twr.v1.<src>.callout.p1
+    ce_type: run.thosewho.callout.raised.v1
+    message: twr.events.v1.Callout
+    content_type: application/json
+    stream: CALLOUTS
+    producers: [ecu]
+    consumers: [radio]
+    msg_id: <id>
+    description: A callout with priority 10 to 19, such as the final lap, a new best, position, temperatures or fuel.
+
+  - pattern: twr.v1.<src>.callout.p2
+    ce_type: run.thosewho.callout.raised.v1
+    message: twr.events.v1.Callout
+    content_type: application/json
+    stream: CALLOUTS
+    producers: [ecu]
+    consumers: [radio]
+    msg_id: <id>
+    description: A callout with priority 20 or over, such as a lap time or the race summary.
+
 helpers:
+  - twr.events.v1.CalloutSlots
   - twr.events.v1.PitStop
   - twr.events.v1.SessionGap
   - twr.events.v1.SessionKind

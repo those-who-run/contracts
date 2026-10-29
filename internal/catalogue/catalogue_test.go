@@ -82,6 +82,10 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"twr.v1.<src>.evt._.telemetry.lost":         "twr.events.v1.TelemetryLost",
 		"twr.v1.<src>.evt.<sid>.telemetry.restored": "twr.events.v1.TelemetryRestored",
 		"twr.v1.<src>.evt._.telemetry.restored":     "twr.events.v1.TelemetryRestored",
+		// paddock#71: one callout message, on three levels.
+		"twr.v1.<src>.callout.p0": "twr.events.v1.Callout",
+		"twr.v1.<src>.callout.p1": "twr.events.v1.Callout",
+		"twr.v1.<src>.callout.p2": "twr.events.v1.Callout",
 	}
 	if len(c.Subjects) != len(want) {
 		t.Errorf("%d subjects, want %d", len(c.Subjects), len(want))
@@ -217,10 +221,10 @@ func TestCETypesAndMessagesAreOneToOne(t *testing.T) {
 	noSession := c.Subjects[slices.IndexFunc(c.Subjects, func(s catalogue.Subject) bool { return s.Message == "twr.events.v1.SessionKindChanged" })]
 	noSession.Pattern, noSession.MsgID = "twr.v1.<src>.evt._.session.kind", "<src>:<run>:session.kind:<seq>"
 	c.Subjects = append(c.Subjects, noSession)
-	for _, level := range []string{"p0", "p1", "p2"} {
-		callout := c.Subjects[2]
-		callout.Pattern, callout.Stream, callout.MsgID = "twr.v1.<src>.callout."+level, "CALLOUTS", "<run>:"+level
-		c.Subjects = append(c.Subjects, callout)
+	// The real catalogue's callout, one message and ce-type on p0, p1 and p2.
+	if n := slices.IndexFunc(c.Subjects, func(s catalogue.Subject) bool { return s.Pattern == "twr.v1.<src>.callout.p2" }); n < 0 ||
+		c.Subjects[n].Message != "twr.events.v1.Callout" {
+		t.Fatal("the catalogue has no callout.p2 carrying the Callout")
 	}
 	assertPasses(t, c, protoregistry.GlobalFiles)
 
@@ -268,6 +272,36 @@ func TestEventMsgIDs(t *testing.T) {
 	c := load(t, repo, subjects)
 	c.Subjects[2].MsgID = "<src>:<sid>:lap.completed:<n>:1"
 	assertPasses(t, c, protoregistry.GlobalFiles)
+}
+
+// A callout's msg_id is its own id (paddock#71, R4), which the message
+// carries, so the id is built from the message; anything else fails.
+func TestCalloutMsgIDs(t *testing.T) {
+	c := load(t, repo, subjects)
+	callouts := 0
+	for i, s := range c.Subjects {
+		if !strings.Contains(s.Pattern, ".callout.") {
+			continue
+		}
+		callouts++
+		if s.MsgID != catalogue.CalloutID || s.Stream != "CALLOUTS" || s.CEType != "run.thosewho.callout.raised.v1" {
+			t.Errorf("%s: msg_id %s, stream %s, ce_type %s", s.Pattern, s.MsgID, s.Stream, s.CEType)
+		}
+		for _, msgID := range []string{"<src>:<id>", "<run>:<seq>", "<src>:<sid>:callout.raised:<id>"} {
+			t.Run(s.Pattern+" "+msgID, func(t *testing.T) {
+				c := load(t, repo, subjects)
+				c.Subjects[i].MsgID = msgID
+				assertFails(t, c, protoregistry.GlobalFiles, "is not <id>: a callout's Nats-Msg-Id is its own id")
+			})
+		}
+	}
+	if callouts != 3 {
+		t.Errorf("%d callout subjects, want p0, p1 and p2", callouts)
+	}
+	// <id> is built from the message's string id: a frame has none.
+	c.Subjects[0].MsgID = "<id>"
+	assertFails(t, c, protoregistry.GlobalFiles,
+		`msg_id "<id>" has <id>, but twr.telemetry.v1.Frame has no string id to build it from`)
 }
 
 // A token of an event's <area> or <what>, and of its ce-type, is lower-case
@@ -393,7 +427,7 @@ func TestAnUnknownKeyFails(t *testing.T) {
 // The event messages are every events-package message but the helpers.
 func TestEventMessages(t *testing.T) {
 	got := load(t, repo, subjects).EventMessages(protoregistry.GlobalFiles)
-	want := "twr.events.v1.CarAlarmRaised twr.events.v1.LapBestChanged twr.events.v1.LapCompleted " +
+	want := "twr.events.v1.Callout twr.events.v1.CarAlarmRaised twr.events.v1.LapBestChanged twr.events.v1.LapCompleted " +
 		"twr.events.v1.PitEntered twr.events.v1.PitExited twr.events.v1.PitTeleport " +
 		"twr.events.v1.RaceFinalLapStarted " +
 		"twr.events.v1.RaceFinished twr.events.v1.RacePositionChanged twr.events.v1.SessionContinued " +

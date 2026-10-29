@@ -13,7 +13,8 @@ no session is open. An event's id is `<src>:<sid>:<area>.<what>:<part>`, with it
 once per session ends in `:1`, and with no session open `<run>` takes `<sid>`'s place.
 The source comes first because `EVENTS` deduplicates by `Nats-Msg-Id` across the
 whole stream, and two sources can carry the same session id. A frame's id is
-`<run>:frame:<seq>`, without the source.
+`<run>:frame:<seq>`, without the source. A callout's is `<id>`, its own id, which its
+publisher mints once per callout; the callout's level, `p0` to `p2`, is in the subject.
 
 | Subject | Message | `ce-type` | Stream | Producers | Consumers | `ce-id` and `Nats-Msg-Id` |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -39,6 +40,9 @@ whole stream, and two sources can carry the same session id. A frame's id is
 | `twr.v1.<src>.evt._.telemetry.lost` | `twr.events.v1.TelemetryLost` | `run.thosewho.telemetry.lost.v1` | `EVENTS` | ecu | logbook | `<src>:<run>:telemetry.lost:<seq>` |
 | `twr.v1.<src>.evt.<sid>.telemetry.restored` | `twr.events.v1.TelemetryRestored` | `run.thosewho.telemetry.restored.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:telemetry.restored:<run>:<seq>` |
 | `twr.v1.<src>.evt._.telemetry.restored` | `twr.events.v1.TelemetryRestored` | `run.thosewho.telemetry.restored.v1` | `EVENTS` | ecu | logbook | `<src>:<run>:telemetry.restored:<seq>` |
+| `twr.v1.<src>.callout.p0` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
+| `twr.v1.<src>.callout.p1` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
+| `twr.v1.<src>.callout.p2` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
 
 ## What each one is
 
@@ -64,8 +68,11 @@ whole stream, and two sources can carry the same session id. A frame's id is
 - `twr.v1.<src>.evt._.telemetry.lost`: The frames stopped arriving while no session was open.
 - `twr.v1.<src>.evt.<sid>.telemetry.restored`: The frames came back after a loss, with a session open.
 - `twr.v1.<src>.evt._.telemetry.restored`: The frames came back after a loss, with no session open.
+- `twr.v1.<src>.callout.p0`: A callout with priority under 10, spoken first, such as lost telemetry, critical fuel, the pit call or the start brief.
+- `twr.v1.<src>.callout.p1`: A callout with priority 10 to 19, such as the final lap, a new best, position, temperatures or fuel.
+- `twr.v1.<src>.callout.p2`: A callout with priority 20 or over, such as a lap time or the race summary.
 
-Parts of an event, not events themselves, so they have no subject: `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`.
+Parts of an event, not events themselves, so they have no subject: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`.
 
 ## Placeholders
 
@@ -80,3 +87,4 @@ Parts of an event, not events themselves, so they have no subject: `twr.events.v
 | `<entry>` | a pit entry's number in the session, from 1, counting the entries a pit.teleport withdraws (PitEntered's entry), which ecu carries across a restart | `msg_id` |
 | `<stop>` | a pit stop's number in the session, from 1 (PitStop's stop), which ecu carries across a restart | `msg_id` |
 | `<check>` | a car alarm's check, CarCheck's value in lower case without its prefix: `tyre_hot`, `tyres_cold`, `water_hot` or `oil_hot` | `msg_id` |
+| `<id>` | a callout's own id (Callout's id), a ULID its publisher mints for each callout: a publish sent again keeps it, and no two callouts share one, whatever the run or source | `msg_id` |

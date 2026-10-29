@@ -63,6 +63,15 @@ needs the NATS binding's percent-encoding. `ce.Header` has the
 shape of `nats.Header`, so `ce` needs no NATS client. Encoding a frame with its
 headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 
+A callout's subject carries its level, from its priority: package
+[`callout`](callout/callout.go) builds it, so every producer splits the levels
+the same way (p0 under 10, p1 10 to 19, p2 20 and over).
+
+```go
+subject, err := callout.Subject("live", c) // twr.v1.live.callout.p0 for the start brief (8)
+h, data, err := ce.Encode(c, ce.Event{ID: c.GetId(), Source: "/twr/ecu/gt7", Time: c.GetCreatedAt().AsTime()})
+```
+
 ## The messages
 
 | Message | What it is | Example |
@@ -87,12 +96,15 @@ headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
 | `twr.events.v1.CarAlarmRaised` | A tyre, water or oil temperature check raised its alarm. | [`car_alarm.json`](examples/events/v1/car_alarm.json) |
 | `twr.events.v1.TelemetryLost` | The frames stopped arriving, in a session or with none open. | [`telemetry_lost.json`](examples/events/v1/telemetry_lost.json) |
 | `twr.events.v1.TelemetryRestored` | The frames came back after a loss. | [`telemetry_restored.json`](examples/events/v1/telemetry_restored.json) |
+| `twr.events.v1.Callout` | Something to say to the driver: the rule, the script key (`kind`) and the values that fill it (`slots`), which radio phrases, or a sentence (`text`); its priority, when it goes stale, how long it waits, and what happens to it in the pit lane. | [`callout_lap_time.json`](examples/events/v1/callout_lap_time.json), [`callout_telemetry.json`](examples/events/v1/callout_telemetry.json); from v1's callouts, [`callout_start_brief.json`](examples/events/v1/callout_start_brief.json), [`callout_position.json`](examples/events/v1/callout_position.json), [`callout_new_best.json`](examples/events/v1/callout_new_best.json) and [`callout_race_summary.json`](examples/events/v1/callout_race_summary.json) |
 
 `SessionSummary`, `SessionKind`, `TrackVerdict`, `TrackCandidate`,
-`SessionGap`, `PitStop` and `TyreTemp` are parts of these events, not events of their own.
+`SessionGap`, `PitStop`, `TyreTemp` and `CalloutSlots` are parts of these events, not
+events of their own.
 [`summary_v1_test.go`](summary_v1_test.go) checks the two summaries from v1
 against what v1.0.0 wrote for its recordings, kept under
-[`testdata/v1/`](testdata/v1), field by field.
+[`testdata/v1/`](testdata/v1), field by field, and
+[`callout_test.go`](callout_test.go) does the same for four of v1's callouts.
 
 Which subject each message travels on, with its `ce-type`, stream,
 producers, consumers and `Nats-Msg-Id` scheme, and which KV key holds which

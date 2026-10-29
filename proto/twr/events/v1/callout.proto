@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package twr.events.v1;
+
+import "google/protobuf/timestamp.proto";
+import "twr/events/v1/car.proto";
+
+// PitLane is what radio does with a callout between the car's pit entry and
+// its exit (v1's per-rule `pit_lane`, those-who-run#244), including a callout
+// still waiting to be spoken at the entry.
+enum PitLane {
+  // Not set: radio reads it as PIT_LANE_HOLD, v1's default for a rule that
+  // sets none.
+  PIT_LANE_UNSPECIFIED = 0;
+  // Spoken in the lane as anywhere else (v1's fuel and race_summary: their
+  // calls are about the stop, or the flag can fall in a lane that crosses the
+  // line).
+  PIT_LANE_SPEAK = 1;
+  // Kept until the pit exit, then spoken if it has not expired (v1's default:
+  // lap_time, final_lap, start_brief, temps, telemetry).
+  PIT_LANE_HOLD = 2;
+  // Dropped (v1's position: the order before the stop; the net change follows
+  // the exit).
+  PIT_LANE_DROP = 3;
+}
+
+// Callout is something to say to the driver (paddock#71; v1's Callout in
+// callouts.py). It travels on twr.v1.<src>.callout.p0, .p1 or .p2, the level
+// its priority falls in (p0 under 10, p1 10 to 19, p2 20 and over; the Go
+// helper is package callout), so radio can take p0 before p1 and p2.
+//
+// It carries what to say, not how: ecu's rules set `rule`, `kind` (the key of
+// the phrase in v1's script.yaml) and `slots` (the values that fill it), and
+// radio phrases the sentence with v1's script, phrasing and verbalise (those-who-run#187).
+// kind and slots are enough to phrase it again, at another verbosity or in
+// another language, without reading `text`. Another publisher may set `text`
+// instead, to have a sentence spoken as it is.
+//
+// The kinds ecu sends, by rule, are v1's script keys. Where v1 picked a
+// situational pool with a fallback (template_new_best_small,
+// template_gained_lead and _podium, template_lost_lead,
+// template_position_win and _podium, delta_slower_small and _large), kind is
+// the general key and radio picks the pool from the slots, as v1's rule did:
+//   - lap_time: template (lap, lap_time_ms, delta_ms when there is one),
+//     template_new_best (lap, lap_time_ms, delta_ms, negative), and
+//     template_in_lap, template_out_lap and template_pit_lap (lap,
+//     lap_time_ms).
+//   - fuel: template and template_short (laps), template_critical,
+//     template_pit_next, template_pit, template_last_lap_enough and
+//     template_tight (no slots).
+//   - final_lap: template (no slots).
+//   - position: template_gained and template_lost (position,
+//     previous_position).
+//   - start_brief: template, the brief: v1 spoke one sentence for each slot
+//     set, in this order: template_track (track), template_laps (laps) or
+//     template_laps_to_go (laps_left), template_timed (timed), and
+//     template_position (position, total_cars). template_track alone (track)
+//     is the track named after the brief; template_joined (lap, laps when
+//     the race has a lap total, position and total_cars when it has a field)
+//     is the brief of a session ecu joined part way.
+//   - race_summary: template, at the flag (position when the race has a
+//     field, best_lap_ms when there is a best), and template_quit, leaving a
+//     solo session (laps, best_lap_ms).
+//   - temps: template_tyre_hot (corners), template_tyres_cold,
+//     template_water and template_oil.
+//   - telemetry: template_lost and template_back (no slots).
+message Callout {
+  // The session's id, as in its SessionStarted. Empty when no session is
+  // open, as for a telemetry callout between sessions.
+  string session_id = 1;
+  // The callout's id, a ULID its publisher mints for it: the ce-id and the
+  // Nats-Msg-Id (<id> in subjects.yaml), and the id radio logs it under
+  // (those-who-run#341 R5). A publish sent again keeps it, so the CALLOUTS
+  // stream drops the copy and radio speaks it once; a new callout always has
+  // a new one, whatever the run or source, so no two collide in the stream's
+  // duplicate window.
+  string id = 2;
+  // The rule that raised it: v1's rule name (lap_time, fuel, final_lap,
+  // position, start_brief, race_summary, temps or telemetry), or another
+  // publisher's own.
+  string rule = 3;
+  // The key of the phrase in the rule's part of v1's script.yaml, such as
+  // template_new_best: Callout's comment lists them. Set by ecu on every
+  // callout; empty only beside text from another publisher.
+  string kind = 4;
+  // The values that fill the phrase. Absent, or empty, for a phrase with no
+  // values, such as final_lap's.
+  CalloutSlots slots = 5;
+  // The sentence to speak as it is. Empty from ecu, whose callouts radio
+  // phrases from kind and slots; set by a publisher with no script key.
+  string text = 6;
+  // v1's priority: lower is more urgent. It picks the subject's level (p0
+  // under 10, p1 10 to 19, p2 20 and over) and orders callouts within it.
+  // v1's defaults: telemetry, critical fuel and the pit call 5, the start
+  // brief 8, the final lap 10, a new best 11, position 12, temps 14, fuel
+  // 15, a lap time 20 and the race summary 25 (rules.example.yaml).
+  int32 priority = 7;
+  // The `seq` of the frame the rule raised it on, in the ecu run that
+  // published it; for a telemetry callout, the last frame before the loss or
+  // the first after it.
+  uint32 at = 8;
+  // The ecu run's id, the ULID ecu mints when it starts: which run's seqs at
+  // counts in, as session_id does not across an ecu restart (paddock#76) or
+  // with no session open. Empty from a publisher that is not ecu.
+  string run_id = 9;
+  // When it was raised, in UTC, on the publisher's clock (v1's created_at).
+  google.protobuf.Timestamp created_at = 10;
+  // When it goes stale, in UTC: radio drops it unspoken after this (paddock#56).
+  // created_at plus the rule's own max_age where it sets one (v1's
+  // race_summary, 30 s, so it waits behind the final lap time), or the
+  // queue's otherwise (v1's queue.max_age_seconds, 8 s). Absent: it never
+  // goes stale, as for a replay, whose queue v1 ran without a limit.
+  google.protobuf.Timestamp expires_at = 11;
+  // Not spoken before this, in UTC (v1's hold, made absolute): created_at
+  // plus the rule's hold_secs, such as position's 1 s, in which a pit entry
+  // drops it (those-who-run#244). Absent: no hold.
+  google.protobuf.Timestamp hold_until = 12;
+  // What radio does with it in the pit lane (PitLane): the rule's pit_lane.
+  PitLane pit_lane = 13;
+}
+
+// CalloutSlots are the values that fill a callout's phrase, typed and
+// unspoken: radio turns each into words as v1's verbalise did. Each one fills
+// v1's script placeholder of the same meaning, and a callout sets only those
+// its kind says (Callout's comment lists them). A slot that is not set is not
+// said.
+message CalloutSlots {
+  // A lap's number: the lap whose time lap_time calls ({lap}), or the lap
+  // being driven in template_joined.
+  optional int32 lap = 1;
+  // The lap's time, in milliseconds ({time}): GT7's last lap time.
+  optional int32 lap_time_ms = 2;
+  // The lap's time less the best before it, in milliseconds, exact: negative
+  // for a new best, whose {gap} it is, and positive or 0 for {delta}. radio
+  // speaks it as v1 did, the difference between the two times each rounded to
+  // tenths, so the spoken delta matches the spoken times. Absent when v1 said
+  // no delta (delta_first): no best yet, or lap 2 of a lap race measured
+  // against lap 1 only.
+  optional int32 delta_ms = 3;
+  // A number of laps ({laps}): the fuel's, in whole laps (v1 rounds up within
+  // round_up_laps, which template_short says); the race's distance in the
+  // brief and template_joined; the laps done in template_quit.
+  optional int32 laps = 4;
+  // The laps still to go, in the brief of a race ecu came to after lap 1
+  // (template_laps_to_go's {laps}).
+  optional int32 laps_left = 5;
+  // The car's position ({position} and {p}).
+  optional int32 position = 6;
+  // The position before the change, in position's callouts: radio says
+  // template_lost_lead when it was 1, as v1 did.
+  optional int32 previous_position = 7;
+  // The cars in the session ({total}).
+  optional int32 total_cars = 8;
+  // The track's name as ecu's track verdict gives it ({track}), or the
+  // circuit's when ecu cannot pick its layout. Empty: not said.
+  string track = 9;
+  // The tyres in a tyre alarm, in GT7's order ({corners}): radio says them as
+  // v1 did ("Rear tyres", "All tyres").
+  repeated Corner corners = 10;
+  // The session's best lap time, in milliseconds (race_summary's {best}).
+  optional int32 best_lap_ms = 11;
+  // The brief's session is timed: no lap total, and other cars
+  // (template_timed).
+  bool timed = 12;
+}
