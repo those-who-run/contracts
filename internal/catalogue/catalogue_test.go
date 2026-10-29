@@ -414,7 +414,7 @@ func TestKVEntries(t *testing.T) {
 		{"a bucket with capitals", func(s *catalogue.Subject) { s.KV = "Live" }, `kv bucket "Live" is not lower-case`},
 		{"a key with a space", func(s *catalogue.Subject) { s.Key = "ecu status" }, `key "ecu status" is not dot-separated`},
 		{"a placeholder not allowed in a key", func(s *catalogue.Subject) { s.Key = "ecu.frame.<seq>" }, "unknown placeholder <seq> in the key"},
-		{"a key without its source", func(s *catalogue.Subject) { s.Key = "ecu.status" }, `key "ecu.status" does not carry <src>`},
+		{"a key without its source", func(s *catalogue.Subject) { s.Key = "ecu.status" }, `key "ecu.status" does not carry <src>: every key in the live bucket`},
 		{"no writers", func(s *catalogue.Subject) { s.Producers = nil }, "no producers"},
 		{"no readers", func(s *catalogue.Subject) { s.Consumers = nil }, "no consumers"},
 	} {
@@ -424,6 +424,19 @@ func TestKVEntries(t *testing.T) {
 			assertFails(t, c, messages, tc.want)
 		})
 	}
+
+	// The open session's bucket is one per source too.
+	c = load(t, repo, subjects)
+	open := slices.IndexFunc(c.Subjects, func(s catalogue.Subject) bool { return s.KV == "ecu" })
+	c.Subjects[open].Key = "sessions.open"
+	assertFails(t, c, messages, `key "sessions.open" does not carry <src>: every key in the ecu bucket`)
+
+	// A key in another bucket, such as the planned config bucket's, need not
+	// carry <src>.
+	c = load(t, repo, subjects)
+	n := kvEntry(t, c)
+	c.Subjects[n].KV, c.Subjects[n].Key = "config", "ecu.ps5.address"
+	assertPasses(t, c, messages)
 
 	c = load(t, repo, subjects)
 	c.Subjects[0].Key = "frames"

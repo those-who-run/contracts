@@ -71,6 +71,9 @@ func TestKVFieldShapes(t *testing.T) {
 		{&statev1.OpenSession{}, "entries", false},
 		{&statev1.OpenSession{}, "pause", true},
 		{&statev1.OpenSession{}, "pit_entry", true},
+		{&statev1.OpenSession{}, "final_lap_started", false},
+		// P1 is a place; before the first race.position, absent.
+		{&statev1.OpenSession{}, "published_position", true},
 	} {
 		f := tc.msg.ProtoReflect().Descriptor().Fields().ByName(tc.field)
 		if f == nil {
@@ -89,8 +92,8 @@ func TestKVCommentsSayHowToReadThem(t *testing.T) {
 		file, name string
 		says       []string
 	}{
-		{"twr/state/v1/live.proto", "EcuStatus", []string{"`ecu.status.<src>`", "never the live source's", "at least every 5 s", "updated_at", "`voice_connected` is radio's"}},
-		{"twr/state/v1/live.proto", "idle_secs", []string{"as of updated_at", "0 while idle is false"}},
+		{"twr/state/v1/live.proto", "EcuStatus", []string{"`ecu.status.<src>`", "never the live source's", "every second while idle", "at least every 5 s while busy", "updated_at", "`voice_connected` is radio's"}},
+		{"twr/state/v1/live.proto", "idle_secs", []string{"as of updated_at", "0 while idle is false", "While idle is true, a reader adds the time since updated_at", "idle_secs is 0 whatever the time"}},
 		{"twr/state/v1/live.proto", "ACTIVITY_IDLE", []string{"exactly when EcuStatus's idle is true", "left open by a feed that stopped is idle"}},
 		{"twr/state/v1/live.proto", "ACTIVITY_REPLAY", []string{"GT7 is playing back a race", "Not a recording replayed through ecu"}},
 		{"twr/state/v1/live.proto", "LiveSession", []string{"`ecu.session.<src>`", "deletes the key when the session ends"}},
@@ -102,6 +105,8 @@ func TestKVCommentsSayHowToReadThem(t *testing.T) {
 		}},
 		{"twr/state/v1/open_session.proto", "SessionSummary summary", []string{"the same session.ended", "laps holds only the laps a LapCompleted has carried", "ended_at and ended_paused"}},
 		{"twr/state/v1/open_session.proto", "run_id", []string{"PitTeleport's entry_at"}},
+		{"twr/state/v1/open_session.proto", "final_lap_started", []string{"once per session", "paddock#84, R1", "2 min duplicate window"}},
+		{"twr/state/v1/open_session.proto", "published_position", []string{"last RacePositionChanged published", "which summary's final_position, the last frame's place, is not"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			comment := leadingComment(t, tc.file, tc.name)

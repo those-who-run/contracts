@@ -113,7 +113,9 @@ func (x *OpenLap) GetPitRole() v1.PitRole {
 // verdict and the kind are summary's track and kind; the last lap is lap's
 // lap; the time since the session was last seen is last_seen_at's; the
 // <pause> count is pauses; the <entry> count is entries; the <stop> count is
-// the number of summary's pit_stops, and the stint summary's stints.
+// the number of summary's pit_stops, and the stint summary's stints; whether
+// race.final_lap was published is final_lap_started, and the old place of the
+// next race.position published_position.
 type OpenSession struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session's id, as in its SessionStarted.
@@ -157,9 +159,19 @@ type OpenSession struct {
 	// not yet exited: a continuing run counts the stop on from it, and a
 	// session ended in the pit lane records it as an open stop. Absent when the
 	// car is not in the pit lane.
-	PitEntry      *v1.PitEntered `protobuf:"bytes,10,opt,name=pit_entry,json=pitEntry,proto3" json:"pit_entry,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	PitEntry *v1.PitEntered `protobuf:"bytes,10,opt,name=pit_entry,json=pitEntry,proto3" json:"pit_entry,omitempty"`
+	// Whether the session's RaceFinalLapStarted was published, so a continuing
+	// run does not publish it again: race.final_lap is once per session
+	// (paddock#84, R1), and EVENTS' 2 min duplicate window does not cover a
+	// restart longer than that.
+	FinalLapStarted bool `protobuf:"varint,11,opt,name=final_lap_started,json=finalLapStarted,proto3" json:"final_lap_started,omitempty"`
+	// The place the session's last RacePositionChanged published, from 1: the
+	// old place a continuing run's next race.position compares with
+	// (paddock#84, R2 and R3), which summary's final_position, the last frame's
+	// place, is not. Absent until a race.position was published.
+	PublishedPosition *int32 `protobuf:"varint,12,opt,name=published_position,json=publishedPosition,proto3,oneof" json:"published_position,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *OpenSession) Reset() {
@@ -262,6 +274,20 @@ func (x *OpenSession) GetPitEntry() *v1.PitEntered {
 	return nil
 }
 
+func (x *OpenSession) GetFinalLapStarted() bool {
+	if x != nil {
+		return x.FinalLapStarted
+	}
+	return false
+}
+
+func (x *OpenSession) GetPublishedPosition() int32 {
+	if x != nil && x.PublishedPosition != nil {
+		return *x.PublishedPosition
+	}
+	return 0
+}
+
 var File_twr_state_v1_open_session_proto protoreflect.FileDescriptor
 
 const file_twr_state_v1_open_session_proto_rawDesc = "" +
@@ -270,7 +296,7 @@ const file_twr_state_v1_open_session_proto_rawDesc = "" +
 	"\aOpenLap\x12\x10\n" +
 	"\x03lap\x18\x01 \x01(\x05R\x03lap\x12\"\n" +
 	"\rfuel_at_start\x18\x02 \x01(\x01R\vfuelAtStart\x121\n" +
-	"\bpit_role\x18\x03 \x01(\x0e2\x16.twr.events.v1.PitRoleR\apitRole\"\x99\x03\n" +
+	"\bpit_role\x18\x03 \x01(\x0e2\x16.twr.events.v1.PitRoleR\apitRole\"\x90\x04\n" +
 	"\vOpenSession\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
@@ -284,7 +310,10 @@ const file_twr_state_v1_open_session_proto_rawDesc = "" +
 	"\aentries\x18\b \x01(\x05R\aentries\x122\n" +
 	"\x05pause\x18\t \x01(\v2\x1c.twr.events.v1.SessionPausedR\x05pause\x126\n" +
 	"\tpit_entry\x18\n" +
-	" \x01(\v2\x19.twr.events.v1.PitEnteredR\bpitEntryB\xb6\x01\n" +
+	" \x01(\v2\x19.twr.events.v1.PitEnteredR\bpitEntry\x12*\n" +
+	"\x11final_lap_started\x18\v \x01(\bR\x0ffinalLapStarted\x122\n" +
+	"\x12published_position\x18\f \x01(\x05H\x00R\x11publishedPosition\x88\x01\x01B\x15\n" +
+	"\x13_published_positionB\xb6\x01\n" +
 	"\x10com.twr.state.v1B\x10OpenSessionProtoP\x01Z>github.com/those-who-run/contracts/gen/go/twr/state/v1;statev1\xa2\x02\x03TSX\xaa\x02\fTwr.State.V1\xca\x02\fTwr\\State\\V1\xe2\x02\x18Twr\\State\\V1\\GPBMetadata\xea\x02\x0eTwr::State::V1b\x06proto3"
 
 var (
@@ -328,6 +357,7 @@ func file_twr_state_v1_open_session_proto_init() {
 	if File_twr_state_v1_open_session_proto != nil {
 		return
 	}
+	file_twr_state_v1_open_session_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

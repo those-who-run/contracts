@@ -67,9 +67,10 @@
 # A KV key's: kv (the bucket), key (with placeholders), message, content_type,
 # producers (its writers), consumers (its readers) and description. It has no
 # pattern, stream, ce_type or msg_id: a value written with Put carries no
-# headers. Every key carries its <src>, so a replay writes its own keys and
-# never the live source's (paddock#72). Every message in a state package
-# (twr.state.*, any version) is a KV entry's value or a helper.
+# headers. Every key in the live and ecu buckets carries its <src>, so a replay
+# writes its own keys and never the live source's (paddock#72); a bucket that
+# is not per source, such as the planned config, need not. Every message in a
+# state package (twr.state.*, any version) is a KV entry's value or a helper.
 #
 # helpers lists the messages in an events or state package that are parts of
 # an event or a value, not one of their own, so they need no entry.
@@ -333,7 +334,7 @@ subjects:
     content_type: application/json
     producers: [ecu]
     consumers: [pitwall, radio]
-    description: What ecu is doing (activity, idle, the telemetry link), written on change and at least every 5 s.
+    description: What ecu is doing (activity, idle, the telemetry link), written on change, every second while idle and at least every 5 s while busy.
 
   - kv: live
     key: ecu.session.<src>

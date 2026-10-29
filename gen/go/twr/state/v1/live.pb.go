@@ -106,9 +106,10 @@ func (Activity) EnumDescriptor() ([]byte, []int) {
 // `GET /api/v1/status` body (v1's status.py EngineStatus) and of its
 // /healthz, in the `live` bucket under `ecu.status.<src>`, one key per
 // source, so a replay writes its own key and never the live source's
-// (paddock#88). ecu writes it on change, at most once a second, and at least
-// every 5 s while it runs, so a reader such as the pit wall's chip
-// (paddock#125) can take a value far older than updated_at's 5 s as ecu gone.
+// (paddock#88). ecu writes it on change, at most once a second; every second
+// while idle, so idle_secs stays current (paddock#125's triage); and at least
+// every 5 s while busy. So a reader such as the pit wall's chip (paddock#125)
+// can take a value whose updated_at is far older than 5 s as ecu gone.
 // v1's `voice_connected` is radio's, in its own key (paddock#62), and v1's
 // `session` is LiveSession, under `ecu.session.<src>`.
 type EcuStatus struct {
@@ -135,9 +136,10 @@ type EcuStatus struct {
 	Idle bool `protobuf:"varint,6,opt,name=idle,proto3" json:"idle,omitempty"`
 	// The seconds since the last driving frame, as of updated_at, rounded to 1
 	// decimal: 0 while idle is false, and since ecu started when no driving
-	// frame came yet (v1's `idle_secs`). A reader adds the time since
-	// updated_at. In seconds as a double, as v1 had it: an idle ecu can wait
-	// longer than an int32 of milliseconds holds.
+	// frame came yet (v1's `idle_secs`). While idle is true, a reader adds the
+	// time since updated_at; while it is false, idle_secs is 0 whatever the
+	// time. In seconds as a double, as v1 had it: an idle ecu can wait longer
+	// than an int32 of milliseconds holds.
 	IdleSecs float64 `protobuf:"fixed64,7,opt,name=idle_secs,json=idleSecs,proto3" json:"idle_secs,omitempty"`
 	// Whether a packet arrived within the telemetry timeout (v1's
 	// `telemetry.connected` and /healthz `telemetry_connected`). False whenever
@@ -156,7 +158,8 @@ type EcuStatus struct {
 	// The sessions started in this ecu run (v1's /healthz `races_started`).
 	RacesStarted int32 `protobuf:"varint,12,opt,name=races_started,json=racesStarted,proto3" json:"races_started,omitempty"`
 	// When ecu wrote this value, in UTC: idle_secs and last_packet_age_secs are
-	// as of then.
+	// as of then. ecu rewrites the value every second while idle and at least
+	// every 5 s while busy.
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -145,5 +145,6 @@
     "pitRole": "PIT_ROLE_NONE"
   },
   "pauses": 1,
-  "entries": 1
+  "entries": 1,
+  "publishedPosition": 1
 }

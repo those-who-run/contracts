@@ -76,6 +76,10 @@ func TestOpenSessionIsTheSessionBeforeTheRestart(t *testing.T) {
 		{"game_best_lap_ms", s.GetGameBestLapMs() == final.GetGameBestLapMs()},
 		{"no ended_at while open", s.GetEndedAt() == nil && !s.GetEndedPaused()},
 		{"source and run", open.GetSource() == "live" && open.GetRunId() != ""},
+		// A timed session never has a final lap (paddock#84, R1).
+		{"no final lap in a timed session", !open.GetFinalLapStarted()},
+		// The lead on lap 7, settled before the restart (paddock#84, R2).
+		{"published_position", open.PublishedPosition != nil && open.GetPublishedPosition() == final.GetFinalPosition()},
 	} {
 		if !v.set {
 			t.Errorf("%s is not what the session had before the restart", v.name)

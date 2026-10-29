@@ -326,7 +326,7 @@ func openSuzuka() *statev1.OpenSession {
 			Laps: laps,
 		},
 		Lap:    &statev1.OpenLap{Lap: 7, FuelAtStart: 100, PitRole: eventsv1.PitRole_PIT_ROLE_NONE},
-		Pauses: 1, Entries: 1,
+		Pauses: 1, Entries: 1, PublishedPosition: proto.Int32(1),
 	}
 }
 

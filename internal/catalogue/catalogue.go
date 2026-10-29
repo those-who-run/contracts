@@ -359,9 +359,15 @@ func checkIDField(s Subject, messages Messages, fail func(string, ...any)) {
 	}
 }
 
-// checkKV checks a KV entry: a bucket and a key that carries its source, and no
-// subject, stream, ce_type or msg_id, since a value written with Put carries no
-// headers.
+// SourceBuckets are the KV buckets whose every key carries its <src>, one key
+// per source, so a replay writes its own keys and never the live source's
+// (paddock#72's triage): `live` and ecu's open sessions. Another bucket, such
+// as the planned `config`, holds keys that are not per source.
+var SourceBuckets = []string{"live", "ecu"}
+
+// checkKV checks a KV entry: a bucket and a key, the key carrying its source
+// in SourceBuckets, and no subject, stream, ce_type or msg_id, since a value
+// written with Put carries no headers.
 func checkKV(s Subject, fail func(string, ...any)) {
 	if !bucket.MatchString(s.KV) {
 		fail("kv bucket %q is not lower-case letters, digits, - and _", s.KV)
@@ -370,9 +376,8 @@ func checkKV(s Subject, fail func(string, ...any)) {
 		fail("key %q is not dot-separated tokens and placeholders", s.Key)
 	}
 	checkTokens(s.Key, "the key", func(p Placeholder) bool { return p.Key }, fail)
-	// paddock#72: a replay writes its own keys and never the live source's.
-	if !strings.Contains(s.Key, "<src>") {
-		fail("key %q does not carry <src>: every key is one per source", s.Key)
+	if slices.Contains(SourceBuckets, s.KV) && !strings.Contains(s.Key, "<src>") {
+		fail("key %q does not carry <src>: every key in the %s bucket is one per source", s.Key, s.KV)
 	}
 	for _, f := range [...]struct{ name, value string }{
 		{"pattern", s.Pattern}, {"stream", s.Stream}, {"ce_type", s.CEType}, {"msg_id", s.MsgID},
