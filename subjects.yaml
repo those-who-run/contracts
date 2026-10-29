@@ -27,7 +27,8 @@
 #   content_type  the ce-datacontenttype header: application/json, protobuf's
 #                 JSON form (ADR 0002, point 2)
 #   stream        the JetStream stream that captures the subject (ADR 0001,
-#                 point 1)
+#                 point 1). The 20 Hz frame (frame.<game>.lo) has none: it is
+#                 a core-only copy of the frames, never kept (paddock#271).
 #   producers     the components that publish it
 #   consumers     the components that read it
 #   msg_id        the ce-id and Nats-Msg-Id scheme. An event's is
@@ -322,6 +323,16 @@ subjects:
     consumers: [radio]
     msg_id: <id>
     description: A callout with priority 20 or over, such as a lap time or the race summary.
+
+  # 20 Hz: at most one frame per 50 ms of frame time, for the dash (paddock#137).
+  - pattern: twr.v1.<src>.frame.gt7.lo
+    ce_type: run.thosewho.frame.gt7.v1
+    message: twr.telemetry.v1.Frame
+    content_type: application/json
+    producers: [ecu]
+    consumers: [dash]
+    msg_id: <run>:frame:<seq>
+    description: The same frames at 20 Hz, at most one per 50 ms of frame time, with the same headers; core NATS only, for the dash.
 
 helpers:
   - twr.events.v1.CalloutSlots

@@ -110,13 +110,16 @@ var (
 	ceType = regexp.MustCompile(`^run\.thosewho(\.` + word + `){2,}\.v[1-9][0-9]*$`)
 	// ADR 0001, point 2, with the stream point 1 captures each kind of subject
 	// in. Callouts are listed one entry per level, p0, p1 and p2, each a subject
-	// a consumer subscribes to, sharing one message and ce-type.
+	// a consumer subscribes to, sharing one message and ce-type. The 20 Hz frame,
+	// frame.<game>.lo, is in no stream: it is a core-only copy of the frames
+	// (ADR 0001, point 1; paddock#137).
 	schemes = []struct {
 		kind    string
 		pattern *regexp.Regexp
 		stream  string
 	}{
 		{"frame", regexp.MustCompile(`^twr\.v1\.<src>\.frame\.[a-z0-9]+$`), "TELEMETRY"},
+		{"20 Hz frame", regexp.MustCompile(`^twr\.v1\.<src>\.frame\.[a-z0-9]+\.lo$`), ""},
 		{"event", regexp.MustCompile(`^twr\.v1\.<src>\.evt\.(<sid>|_)\.` + word + `\.` + word + `$`), "EVENTS"},
 		{"callout", regexp.MustCompile(`^twr\.v1\.<src>\.callout\.p[0-2]$`), "CALLOUTS"},
 	}
@@ -238,7 +241,11 @@ func checkSubject(s Subject, fail func(string, ...any)) {
 		for _, scheme := range schemes {
 			if scheme.pattern.MatchString(s.Pattern) {
 				matched = true
-				if s.Stream != scheme.stream {
+				switch {
+				case s.Stream == scheme.stream:
+				case scheme.stream == "":
+					fail("a %s subject is captured by no stream, not %q", scheme.kind, s.Stream)
+				default:
 					fail("a %s subject is captured by the %s stream, not %q", scheme.kind, scheme.stream, s.Stream)
 				}
 				switch scheme.kind {
@@ -252,7 +259,7 @@ func checkSubject(s Subject, fail func(string, ...any)) {
 			}
 		}
 		if !matched {
-			fail("the pattern does not follow ADR 0001's subject scheme (frame, evt.<sid> or evt._, or callout.p0 to p2)")
+			fail("the pattern does not follow ADR 0001's subject scheme (frame, frame.<game>.lo, evt.<sid> or evt._, or callout.p0 to p2)")
 		}
 	}
 	if !ceType.MatchString(s.CEType) {
@@ -417,7 +424,8 @@ func (c *Catalogue) Render() []byte {
 	b.WriteString("The source comes first because `EVENTS` deduplicates by `Nats-Msg-Id` across the\n")
 	b.WriteString("whole stream, and two sources can carry the same session id. A frame's id is\n")
 	b.WriteString("`<run>:frame:<seq>`, without the source. A callout's is `<id>`, its own id, unique per\n")
-	b.WriteString("callout within the duplicate window; the callout's level, `p0` to `p2`, is in the subject.\n\n")
+	b.WriteString("callout within the duplicate window; the callout's level, `p0` to `p2`, is in the subject.\n")
+	b.WriteString("A subject with no stream is core NATS only, never kept.\n\n")
 	b.WriteString("| Subject | Message | `ce-type` | Stream | Producers | Consumers | `ce-id` and `Nats-Msg-Id` |\n")
 	b.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
 	var kv []Subject
@@ -426,8 +434,12 @@ func (c *Catalogue) Render() []byte {
 			kv = append(kv, s)
 			continue
 		}
-		fmt.Fprintf(&b, "| `%s` | `%s` | `%s` | `%s` | %s | %s | `%s` |\n",
-			s.Pattern, s.Message, s.CEType, s.Stream, strings.Join(s.Producers, ", "), strings.Join(s.Consumers, ", "), s.MsgID)
+		stream := "none"
+		if s.Stream != "" {
+			stream = "`" + s.Stream + "`"
+		}
+		fmt.Fprintf(&b, "| `%s` | `%s` | `%s` | %s | %s | %s | `%s` |\n",
+			s.Pattern, s.Message, s.CEType, stream, strings.Join(s.Producers, ", "), strings.Join(s.Consumers, ", "), s.MsgID)
 	}
 	if len(kv) > 0 {
 		b.WriteString("\n## KV keys\n\n")
