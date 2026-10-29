@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/those-who-run/contracts/compare/v0.2.0...v0.2.1) (2026-10-29)
+
+
+### Features
+
+* the pit, car and telemetry events ([#25](https://github.com/those-who-run/contracts/issues/25)) ([8e89653](https://github.com/those-who-run/contracts/commit/8e8965317357c5fded0a138ce4217e4fbef516fd))
+
 ## [0.2.0](https://github.com/those-who-run/contracts/compare/v0.1.5...v0.2.0) (2026-10-28)
 
 
