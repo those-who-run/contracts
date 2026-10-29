@@ -1,0 +1,35 @@
+# The Python package of the contracts (paddock#265): the code buf generates under
+# twr/, and the helpers in twr_contracts/, written by hand. A consumer installs it
+# from a release tag, with no package registry:
+#
+#   twr-contracts @ git+https://github.com/those-who-run/contracts@vX.Y.Z#subdirectory=gen/python
+#
+# Everything here but twr/ is written by hand; `make generate` writes twr/.
+[project]
+name = "twr-contracts"
+# release-please moves it with the tag (release-please-config.json).
+version = "0.2.2"
+description = "The contracts of Those Who Run v2: the generated protobuf messages and the helpers every Python component uses"
+readme = "README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.13"
+dependencies = [
+  # The runtime the generated code is written for: protoc <M>.<m> writes code
+  # that needs protobuf 7.<M>.<m> or later in the same major version. It moves
+  # with scripts/protoc.py's pin (tests/test_python_package.py).
+  "protobuf>=7.36.2,<8",
+]
+
+[project.urls]
+Repository = "https://github.com/those-who-run/contracts"
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+# Two top-level packages beside this file: twr, the generated code, a namespace
+# package as protoc writes it (no __init__.py), and twr_contracts, the helpers.
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["twr", "twr_contracts"]
+namespace = true
