@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.3](https://github.com/those-who-run/contracts/compare/v0.2.2...v0.2.3) (2026-10-29)
+
+
+### Features
+
+* Python generation and the twr-contracts package ([#32](https://github.com/those-who-run/contracts/issues/32)) ([bc6c953](https://github.com/those-who-run/contracts/commit/bc6c953e14c910c72461cb34dc1ff08680f85cc0))
+* **subjects:** the 20 Hz frame on frame.gt7.lo ([#30](https://github.com/those-who-run/contracts/issues/30)) ([d32f941](https://github.com/those-who-run/contracts/commit/d32f9412ae77b8014bd7fb3d9026ac0b7860b6a5))
+* the KV values for the live bucket and the open session ([#31](https://github.com/those-who-run/contracts/issues/31)) ([e067f32](https://github.com/those-who-run/contracts/commit/e067f3238f10298ba84776bd99b4dc2ddf26eddb))
+
 ## [0.2.2](https://github.com/those-who-run/contracts/compare/v0.2.1...v0.2.2) (2026-10-29)
 
 
