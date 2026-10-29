@@ -203,6 +203,56 @@ var examples = []struct {
 		RunId: "01JBBWZ5C8E2H4K7M9P1R3T6VX", LostAt: 52340, GapMs: 1843250, At: 52341,
 		LostPhase: telemetryv1.Phase_PHASE_PAUSED,
 	}},
+	// paddock#71's callout: AC3's lap time and telemetry callouts, and four of
+	// v1's from the Suzuka no-stop race (callout_test.go).
+	{"events/v1/callout_lap_time.json", &eventsv1.Callout{
+		SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE", Id: "01JB8Z9F2H4K6M8P0R2T4V6X8Z", Rule: "lap_time", Kind: "delta_slower",
+		Slots:    &eventsv1.CalloutSlots{Lap: proto.Int32(3), LapTimeMs: proto.Int32(99000), DeltaMs: proto.Int32(1000)},
+		Priority: 20, At: 19236, RunId: "01JB8Z2W6Y8A0C2E4G6J8M0P2R",
+		CreatedAt: timestamppb.New(time.Date(2026, 10, 26, 19, 35, 21, 875_000_000, time.UTC)),
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 26, 19, 35, 29, 875_000_000, time.UTC)),
+		PitLane:   eventsv1.PitLane_PIT_LANE_HOLD,
+	}},
+	{"events/v1/callout_telemetry.json", &eventsv1.Callout{
+		Id: "01JBBX9A3C5E7G9J1M3P5R7T9V", Rule: "telemetry", Kind: "template_lost", Priority: 5, At: 52340,
+		RunId:     "01JBBWZ5C8E2H4K7M9P1R3T6VX",
+		CreatedAt: timestamppb.New(time.Date(2026, 10, 17, 19, 12, 4, 250_000_000, time.UTC)),
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 17, 19, 12, 12, 250_000_000, time.UTC)),
+		PitLane:   eventsv1.PitLane_PIT_LANE_HOLD,
+	}},
+	{"events/v1/callout_start_brief.json", &eventsv1.Callout{
+		SessionId: "01JB5N2E8R4T6W9Y1A3C5E7G9H", Id: "01JB5N3A1C2E4G6J8M0P2R4T6V", Rule: "start_brief", Kind: "template",
+		Slots:    &eventsv1.CalloutSlots{Laps: proto.Int32(6), Position: proto.Int32(10), TotalCars: proto.Int32(20)},
+		Priority: 8, At: 1122, RunId: "01JB5N1Z7Q3S5V8X0B2D4F6H8K",
+		CreatedAt: timestamppb.New(time.Date(2026, 10, 15, 19, 0, 18, 793_056_000, time.UTC)),
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 15, 19, 0, 26, 793_056_000, time.UTC)),
+		PitLane:   eventsv1.PitLane_PIT_LANE_HOLD,
+	}},
+	{"events/v1/callout_position.json", &eventsv1.Callout{
+		SessionId: "01JB5N2E8R4T6W9Y1A3C5E7G9H", Id: "01JB5N3B3D5F7H9K1N3Q5S7W9Y", Rule: "position", Kind: "template_lost",
+		Slots:    &eventsv1.CalloutSlots{Position: proto.Int32(12), PreviousPosition: proto.Int32(10)},
+		Priority: 12, At: 2100, RunId: "01JB5N1Z7Q3S5V8X0B2D4F6H8K",
+		CreatedAt: timestamppb.New(time.Date(2026, 10, 15, 19, 0, 35, 88_536_000, time.UTC)),
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 15, 19, 0, 43, 88_536_000, time.UTC)),
+		HoldUntil: timestamppb.New(time.Date(2026, 10, 15, 19, 0, 36, 88_536_000, time.UTC)),
+		PitLane:   eventsv1.PitLane_PIT_LANE_DROP,
+	}},
+	{"events/v1/callout_new_best.json", &eventsv1.Callout{
+		SessionId: "01JB5N2E8R4T6W9Y1A3C5E7G9H", Id: "01JB5N3C5E7G9J1M3P5R7T9X1Z", Rule: "lap_time", Kind: "template_new_best",
+		Slots:    &eventsv1.CalloutSlots{Lap: proto.Int32(3), LapTimeMs: proto.Int32(63139), DeltaMs: proto.Int32(-1472)},
+		Priority: 11, At: 12273, RunId: "01JB5N1Z7Q3S5V8X0B2D4F6H8K",
+		CreatedAt: timestamppb.New(time.Date(2026, 10, 15, 19, 3, 24, 808_570_000, time.UTC)),
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 15, 19, 3, 32, 808_570_000, time.UTC)),
+		PitLane:   eventsv1.PitLane_PIT_LANE_HOLD,
+	}},
+	{"events/v1/callout_race_summary.json", &eventsv1.Callout{
+		SessionId: "01JB5N2E8R4T6W9Y1A3C5E7G9H", Id: "01JB5N3D7F9H1K3N5Q7S9V1X3A", Rule: "race_summary", Kind: "template_position_podium",
+		Slots:    &eventsv1.CalloutSlots{Position: proto.Int32(2), BestLapMs: proto.Int32(61186)},
+		Priority: 25, At: 23585, RunId: "01JB5N1Z7Q3S5V8X0B2D4F6H8K",
+		CreatedAt: timestamppb.New(time.Date(2026, 10, 15, 19, 6, 33, 531_882_000, time.UTC)),
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 15, 19, 7, 3, 531_882_000, time.UTC)),
+		PitLane:   eventsv1.PitLane_PIT_LANE_SPEAK,
+	}},
 }
 
 var readers = protojson.UnmarshalOptions{DiscardUnknown: true}

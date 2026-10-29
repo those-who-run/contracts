@@ -44,8 +44,8 @@ func TestEveryEventCarriesItsSessionAndAt(t *testing.T) {
 			t.Errorf("%s has no plain uint32 %s", name, field)
 		}
 	}
-	if n != 19 {
-		t.Errorf("%d events, want 19: v0.1's 3, paddock#69's 10 and paddock#70's 6", n)
+	if n != 20 {
+		t.Errorf("%d events, want 20: v0.1's 3, paddock#69's 10, paddock#70's 6 and paddock#71's callout", n)
 	}
 }
 
@@ -59,6 +59,7 @@ func descriptorOf(t *testing.T, name protoreflect.FullName) protoreflect.Message
 		&eventsv1.RaceFinished{},
 		&eventsv1.PitEntered{}, &eventsv1.PitExited{}, &eventsv1.PitTeleport{},
 		&eventsv1.CarAlarmRaised{}, &eventsv1.TelemetryLost{}, &eventsv1.TelemetryRestored{},
+		&eventsv1.Callout{},
 	} {
 		if d := m.ProtoReflect().Descriptor(); d.FullName() == name {
 			return d
