@@ -90,7 +90,8 @@ func python(t *testing.T, req pyRequest) pyResponse {
 // encoded to the example's values, an unknown field included, and Go decodes
 // what Python's helper encodes to the values the test expects. The headers make
 // the same trip through ce.Encode, Python's ce.decode and ce.encode, and
-// ce.Decode. Both sides compare decoded values, never JSON text (paddock#265
+// ce.Decode, and Python's ce refuses the events and headers Go's refuses. Both
+// sides compare decoded values, never JSON text (paddock#265
 // AC3 and AC4: the callouts, among them ones with no text and with a kind and
 // slots, and v1's Gilles Villeneuve stop in pit_exited.json).
 func TestPythonRoundTrip(t *testing.T) {

@@ -14,6 +14,8 @@ payload, from ce.Encode), and callout priorities. For each, this script:
   to them too;
 - decodes Go's event with ce.decode, fails unless the headers say what Go
   encoded, and encodes it again with ce.encode;
+- checks, on the first event, that ce.encode and ce.decode refuse what Go's
+  ce refuses;
 - gives each priority's level and subject from twr_contracts.callout.
 
 It prints, as JSON, its ce-type table, what Python encoded and the callout
@@ -23,6 +25,7 @@ error, and it exits 1.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import json
 import os
@@ -79,6 +82,48 @@ def event(ev: dict[str, Any], failures: list[str]) -> dict[str, Any]:
     return {"message": ev["message"], "headers": headers, "data": data.decode()}
 
 
+def refusals(ev: dict[str, Any], failures: list[str]) -> None:
+    """What Go's ce refuses, Python's refuses too: an event without an id or a
+    source, with a character the NATS binding would percent-encode or a time
+    without a zone; headers with another ce-type (WrongTypeError), another
+    spec version or content type, no id or source, or a time that isn't one."""
+    m = new(ev["message"])
+    good = ce.Event(id=ev["id"], source=ev["source"], time=datetime.datetime.fromisoformat(ev["time"]))
+    for what, e in (
+        ("no id", dataclasses.replace(good, id="")),
+        ("no source", dataclasses.replace(good, source="")),
+        ("a space in the id", dataclasses.replace(good, id="a b")),
+        ("a % in the source", dataclasses.replace(good, source="/twr/%41")),
+        ("a non-ASCII id", dataclasses.replace(good, id="café")),
+        ("a time without a zone", dataclasses.replace(good, time=good.time.replace(tzinfo=None))),
+    ):
+        try:
+            ce.encode(m, e)
+            failures.append(f"encode accepted an event with {what}")
+        except ValueError:
+            pass
+    other = "run.thosewho.lap.completed.v1" if ev["message"] != "twr.events.v1.LapCompleted" else "x"
+    for what, change, error in (
+        ("another ce-type", {ce.TYPE_HEADER: other}, ce.WrongTypeError),
+        ("another spec version", {ce.SPEC_VERSION_HEADER: "0.3"}, ValueError),
+        ("another content type", {ce.CONTENT_TYPE_HEADER: "application/protobuf"}, ValueError),
+        ("no id", {ce.ID_HEADER: ""}, ValueError),
+        ("no source", {ce.SOURCE_HEADER: ""}, ValueError),
+        ("a time that isn't one", {ce.TIME_HEADER: "yesterday"}, ValueError),
+        ("a time without a zone", {ce.TIME_HEADER: "2026-10-29T18:03:07"}, ValueError),
+    ):
+        try:
+            ce.decode({**ev["headers"], **change}, ev["data"], new(ev["message"]))
+            failures.append(f"decode accepted headers with {what}")
+        except error:
+            pass
+    try:
+        ce.ce_type(callout_pb2.CalloutSlots())
+        failures.append("ce_type gave a part of a message a ce-type")
+    except ValueError:
+        pass
+
+
 def level(priority: int) -> dict[str, Any]:
     try:
         subject: str | None = callout.subject("live", callout_pb2.Callout(priority=priority))
@@ -97,6 +142,8 @@ def main(argv: list[str]) -> int:
         "events": [event(ev, failures) for ev in request["events"] or []],
         "levels": [level(p) for p in request["priorities"] or []],
     }
+    for ev in (request["events"] or [])[:1]:
+        refusals(ev, failures)
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1
