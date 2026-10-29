@@ -93,7 +93,8 @@ var examples = []struct {
 			TrackId: proto.Int32(10), Name: "Suzuka Circuit", Confidence: eventsv1.TrackConfidence_TRACK_CONFIDENCE_CONFIRMED,
 			Evidence: "carried over from before the engineer restart", Carried: true,
 		},
-		At: 1,
+		At:    1,
+		RunId: "01JB9R1BX4N7Q2S5V8Z3D6F9JP",
 	}},
 	{"events/v1/session_discarded.json", &eventsv1.SessionDiscarded{
 		SessionId: "01JB9S2D5F7R3X8Z1V4L6N9QYC",
@@ -109,7 +110,8 @@ var examples = []struct {
 			FuelUse: eventsv1.FuelUse_FUEL_USE_ON, CarsOnTrack: true, Start: eventsv1.StartType_START_TYPE_ROLLING,
 			Evidence: "6 laps, 2 cars; fuel use on; rolling start at 128 km/h",
 		},
-		At: 1384,
+		At:    1384,
+		RunId: "01JB9QYR2T6W8Y1A3C5E7G9HKM",
 	}},
 	{"events/v1/session_track.json", &eventsv1.SessionTrackChanged{
 		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA",
@@ -118,7 +120,8 @@ var examples = []struct {
 			Evidence:   "finish line crossed, a full lap fits the layout (1.00)",
 			Candidates: []*eventsv1.TrackCandidate{{TrackId: 442, Name: "Suzuka Circuit East Course", Fit: 0.995, LineCrossed: true}},
 		},
-		At: 4790,
+		At:    4790,
+		RunId: "01JB9QYR2T6W8Y1A3C5E7G9HKM",
 	}},
 	{"events/v1/session_paused.json", &eventsv1.SessionPaused{
 		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA",
@@ -148,11 +151,57 @@ var examples = []struct {
 	}},
 	{"events/v1/race_position.json", &eventsv1.RacePositionChanged{
 		SessionId: "01JB9R1C8E4Q6W2Y9T3K7M5PXB", PreviousPosition: proto.Int32(11), Position: 3, At: 31877,
+		RunId: "01JB9R1BX4N7Q2S5V8Z3D6F9JP",
 	}},
 	{"events/v1/race_finished.json", &eventsv1.RaceFinished{
 		SessionId: "01JB9QZ4V3X8M2K7T5R1N6PDWA", Kind: eventsv1.FinishKind_FINISH_KIND_FLAG, Lap: 6,
 		Position: proto.Int32(1), TotalTimeMs: proto.Int32(389934), BestLap: proto.Int32(5), BestLapTimeMs: proto.Int32(59541),
 		At: 23410,
+	}},
+	// paddock#70's events. The pit stop is v1's at Gilles Villeneuve
+	// (pit_car_telemetry_events_test.go), the teleport v1's reset to track
+	// (v1's tests/test_pitstop.py), and the alarm v1's temps rule on
+	// real-nuc-tsukuba-brz-drift-2026-10-15's first "Rear tyres hot.".
+	{"events/v1/pit_entered.json", &eventsv1.PitEntered{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", Entry: 1, Stop: 1, InLap: 6, EnteredT: 6853843.563197786,
+		EnteredAt:  timestamppb.New(time.Date(2026, 10, 17, 18, 3, 7, 588_057_000, time.UTC)),
+		FuelBefore: 8.685, PositionBefore: proto.Int32(5), Evidence: "entry loading cut at 60.0 km/h", At: 11245,
+	}},
+	{"events/v1/pit_exited.json", &eventsv1.PitExited{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC",
+		Stop: &eventsv1.PitStop{
+			Stop: 1, InLap: 6, OutLap: proto.Int32(7), PitLaneMs: proto.Int32(30220), StationaryMs: 17130,
+			FuelBefore: 8.685, FuelAfter: 100, FuelAdded: 91.315, TyresChanged: true, PitLaneKph: proto.Float64(60),
+			PositionBefore: proto.Int32(5), PositionAfter: proto.Int32(10),
+			Evidence: "entry loading cut at 60.0 km/h; exit loading cut",
+		},
+		Stint: 2, Entry: 1,
+		EnteredAt: timestamppb.New(time.Date(2026, 10, 17, 18, 3, 7, 588_057_000, time.UTC)),
+		ExitedAt:  timestamppb.New(time.Date(2026, 10, 17, 18, 3, 37, 804_885_000, time.UTC)),
+		At:        13056,
+		ExitedT:   6853873.780025139,
+		EnteredT:  6853843.563197786,
+	}},
+	{"events/v1/pit_teleport.json", &eventsv1.PitTeleport{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", Entry: 1, EntryAt: proto.Uint32(3), Lap: 3,
+		Evidence: "entry loading cut at 40.0 km/h; over 100 km/h; never at rest, no fuel, no tyres", At: 241,
+		WithdrawnT: 4,
+	}},
+	{"events/v1/car_alarm.json", &eventsv1.CarAlarmRaised{
+		SessionId: "01JBA2T8M4K6W9X3Q7R5N1PZDE", Check: eventsv1.CarCheck_CAR_CHECK_TYRE_HOT,
+		Tyres: []*eventsv1.TyreTemp{
+			{Corner: eventsv1.Corner_CORNER_REAR_LEFT, TempC: 176.40371704101562},
+			{Corner: eventsv1.Corner_CORNER_REAR_RIGHT, TempC: 169.6006317138672},
+		},
+		ValueC: 176.40371704101562, ThresholdC: 120, At: 1214, RunId: "01JBA2SZ9C3F6H8K1M4P7R2T5W",
+	}},
+	{"events/v1/telemetry_lost.json", &eventsv1.TelemetryLost{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", RunId: "01JBBWZ5C8E2H4K7M9P1R3T6VX",
+		Phase: telemetryv1.Phase_PHASE_PAUSED, SilenceMs: 3412, At: 52340,
+	}},
+	{"events/v1/telemetry_restored.json", &eventsv1.TelemetryRestored{
+		RunId: "01JBBWZ5C8E2H4K7M9P1R3T6VX", LostAt: 52340, GapMs: 1843250, At: 52341,
+		LostPhase: telemetryv1.Phase_PHASE_PAUSED,
 	}},
 }
 

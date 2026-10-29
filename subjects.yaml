@@ -39,13 +39,22 @@
 #                 a restart: a pause open across one keeps its number, so a
 #                 pause sent again after the restart dedupes. One that
 #                 can happen at any frame, more than once a session, with no
-#                 count of its own (kind, track, position), ends in
-#                 <run>:<seq>, the ecu run and the event's `at`: seq starts
+#                 count of its own (kind, track, position, car.alarm after
+#                 its <check>), ends in <run>:<seq>, the ecu run and the
+#                 event's `at`: seq starts
 #                 again with each run, and a session continued after an ecu
-#                 restart (paddock#76) spans two runs. On an evt._ subject, with no session
-#                 open, <run> takes <sid>'s place. The source comes first
-#                 because EVENTS deduplicates by Nats-Msg-Id across the whole
-#                 stream, and two sources can carry the same session id
+#                 restart (paddock#76) spans two runs. A pit stop's are its
+#                 <entry> (pit.entered, pit.teleport) or <stop> (pit.exited),
+#                 counted like <pause>; an entry has its own count because a
+#                 teleport gives its stop number back to the next entry. On an
+#                 evt._ subject, with no session open, <run> takes <sid>'s
+#                 place: telemetry.lost is <src>:<run>:telemetry.lost:<seq>
+#                 there, and <src>:<sid>:telemetry.lost:<run>:<seq> in a
+#                 session. An event whose id has <run> carries it in its
+#                 message as run_id, so every id is built from its message
+#                 (internal/catalogue checks it; paddock#70). The
+#                 source comes first because EVENTS deduplicates by
+#                 Nats-Msg-Id across the whole stream, and two sources can carry the same session id
 #                 (paddock#279). A frame's is <run>:frame:<seq>, without it.
 #   description   what it is, for the rendered table
 #
@@ -198,6 +207,86 @@ subjects:
     msg_id: <src>:<sid>:race.finished:1
     description: The race finished, at the chequered flag or a timed race's finish.
 
+  - pattern: twr.v1.<src>.evt.<sid>.pit.entered
+    ce_type: run.thosewho.pit.entered.v1
+    message: twr.events.v1.PitEntered
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:pit.entered:<entry>
+    description: The car came into the pit lane; a pit.teleport may withdraw it.
+
+  - pattern: twr.v1.<src>.evt.<sid>.pit.exited
+    ce_type: run.thosewho.pit.exited.v1
+    message: twr.events.v1.PitExited
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:pit.exited:<stop>
+    description: The car left the pit lane, with the stop it made; a stint starts.
+
+  - pattern: twr.v1.<src>.evt.<sid>.pit.teleport
+    ce_type: run.thosewho.pit.teleport.v1
+    message: twr.events.v1.PitTeleport
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:pit.teleport:<entry>
+    description: A pit entry was not a stop (never at rest, no fuel, no tyres), so it is withdrawn.
+
+  - pattern: twr.v1.<src>.evt.<sid>.car.alarm
+    ce_type: run.thosewho.car.alarm.v1
+    message: twr.events.v1.CarAlarmRaised
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:car.alarm:<check>:<run>:<seq>
+    description: A tyre, water or oil temperature check raised its alarm.
+
+  - pattern: twr.v1.<src>.evt.<sid>.telemetry.lost
+    ce_type: run.thosewho.telemetry.lost.v1
+    message: twr.events.v1.TelemetryLost
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:telemetry.lost:<run>:<seq>
+    description: The frames stopped arriving while a session was open.
+
+  - pattern: twr.v1.<src>.evt._.telemetry.lost
+    ce_type: run.thosewho.telemetry.lost.v1
+    message: twr.events.v1.TelemetryLost
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<run>:telemetry.lost:<seq>
+    description: The frames stopped arriving while no session was open.
+
+  - pattern: twr.v1.<src>.evt.<sid>.telemetry.restored
+    ce_type: run.thosewho.telemetry.restored.v1
+    message: twr.events.v1.TelemetryRestored
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:telemetry.restored:<run>:<seq>
+    description: The frames came back after a loss, with a session open.
+
+  - pattern: twr.v1.<src>.evt._.telemetry.restored
+    ce_type: run.thosewho.telemetry.restored.v1
+    message: twr.events.v1.TelemetryRestored
+    content_type: application/json
+    stream: EVENTS
+    producers: [ecu]
+    consumers: [logbook]
+    msg_id: <src>:<run>:telemetry.restored:<seq>
+    description: The frames came back after a loss, with no session open.
+
 helpers:
   - twr.events.v1.PitStop
   - twr.events.v1.SessionGap
@@ -205,3 +294,4 @@ helpers:
   - twr.events.v1.SessionSummary
   - twr.events.v1.TrackCandidate
   - twr.events.v1.TrackVerdict
+  - twr.events.v1.TyreTemp

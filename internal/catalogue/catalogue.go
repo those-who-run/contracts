@@ -93,6 +93,9 @@ var Placeholders = []Placeholder{
 	{"<seq>", "a frame's sequence number within the ecu run: a frame's own, or the `at` of the frame an event happened on", false, false, true},
 	{"<n>", "a lap's number: lap.completed's own, or for lap.best the lap whose end published it (LapBestChanged's ended_lap)", false, false, true},
 	{"<pause>", "the pause's number in the session, from 1, which ecu carries across a restart: a pause open across one keeps its number", false, false, true},
+	{"<entry>", "a pit entry's number in the session, from 1, counting the entries a pit.teleport withdraws (PitEntered's entry), which ecu carries across a restart", false, false, true},
+	{"<stop>", "a pit stop's number in the session, from 1 (PitStop's stop), which ecu carries across a restart", false, false, true},
+	{"<check>", "a car alarm's check, CarCheck's value in lower case without its prefix: `tyre_hot`, `tyres_cold`, `water_hot` or `oil_hot`", false, false, true},
 }
 
 // word is a token of a subject's <area> or <what>, or of a ce-type: lower-case
@@ -172,6 +175,9 @@ func (c *Catalogue) Check(messages Messages) error {
 			byType[s.CEType], typeOf[s.Message] = s.Message, s.CEType
 		}
 		checkMessage(s, messages, fail)
+		if !s.IsKV() {
+			checkRunField(s, messages, fail)
+		}
 		if len(s.Producers) == 0 {
 			fail("no producers")
 		}
@@ -279,6 +285,29 @@ func checkEventID(s Subject, fail func(string, ...any)) {
 	}
 	if t := typeName.FindStringSubmatch(s.CEType); t != nil && t[1] != m[2] {
 		fail("msg_id %q names %s, but the ce_type is %s's", s.MsgID, m[2], t[1])
+	}
+}
+
+// RunField is the field an event whose msg_id has <run> carries the run in,
+// so its id is built from the message alone (paddock#70).
+const RunField = "run_id"
+
+// checkRunField fails an event whose msg_id has <run> and whose message has no
+// string run_id. A frame's id has <run> too, but a frame is not an event.
+func checkRunField(s Subject, messages Messages, fail func(string, ...any)) {
+	if !strings.Contains(s.Pattern, ".evt.") || !strings.Contains(s.MsgID, "<run>") {
+		return
+	}
+	d, err := messages.FindDescriptorByName(protoreflect.FullName(s.Message))
+	if err != nil {
+		return // checkMessage reports it
+	}
+	m, ok := d.(protoreflect.MessageDescriptor)
+	if !ok {
+		return
+	}
+	if f := m.Fields().ByName(RunField); f == nil || f.Kind() != protoreflect.StringKind || f.IsList() {
+		fail("msg_id %q has <run>, but %s has no string %s to build it from", s.MsgID, s.Message, RunField)
 	}
 }
 

@@ -1205,7 +1205,11 @@ type SessionContinued struct {
 	Track *TrackVerdict `protobuf:"bytes,3,opt,name=track,proto3" json:"track,omitempty"`
 	// The `seq` of the session's first frame in this ecu run: the event's
 	// `at`.
-	At            uint32 `protobuf:"varint,4,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,4,opt,name=at,proto3" json:"at,omitempty"`
+	// The id of the ecu run that continued the session, the ULID ecu mints
+	// when it starts: the <run> in the event's id, and the run whose seqs at
+	// counts in. A run continues a session at most once.
+	RunId         string `protobuf:"bytes,5,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1266,6 +1270,13 @@ func (x *SessionContinued) GetAt() uint32 {
 		return x.At
 	}
 	return 0
+}
+
+func (x *SessionContinued) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
 }
 
 // SessionDiscarded says a start that GT7's cars-on-track flag was off for was
@@ -1369,7 +1380,11 @@ type SessionKindChanged struct {
 	Kind *SessionKind `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
 	// The `seq` of the frame it changed on, in the ecu run that published this
 	// event: the event's `at`.
-	At            uint32 `protobuf:"varint,3,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,3,opt,name=at,proto3" json:"at,omitempty"`
+	// The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+	// event's id. It says which run's seqs `at` counts in, which session_id
+	// alone does not after an ecu restart (paddock#76).
+	RunId         string `protobuf:"bytes,4,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1425,6 +1440,13 @@ func (x *SessionKindChanged) GetAt() uint32 {
 	return 0
 }
 
+func (x *SessionKindChanged) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
 // SessionTrackChanged says ecu's verdict on the session's track changed: a
 // verdict that ranks higher (confidence, then naming a layout), or a layout
 // the detector ruled out. A change of candidates or wording alone publishes
@@ -1437,7 +1459,11 @@ type SessionTrackChanged struct {
 	Track *TrackVerdict `protobuf:"bytes,2,opt,name=track,proto3" json:"track,omitempty"`
 	// The `seq` of the frame it changed on, in the ecu run that published this
 	// event: the event's `at`.
-	At            uint32 `protobuf:"varint,3,opt,name=at,proto3" json:"at,omitempty"`
+	At uint32 `protobuf:"varint,3,opt,name=at,proto3" json:"at,omitempty"`
+	// The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+	// event's id. It says which run's seqs `at` counts in, which session_id
+	// alone does not after an ecu restart (paddock#76).
+	RunId         string `protobuf:"bytes,4,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1491,6 +1517,13 @@ func (x *SessionTrackChanged) GetAt() uint32 {
 		return x.At
 	}
 	return 0
+}
+
+func (x *SessionTrackChanged) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
 }
 
 // SessionPaused says the session paused (paddock#77). A pause never ends a
@@ -2260,30 +2293,33 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\rfuel_capacity\x18\x0e \x01(\x01R\ffuelCapacityB\r\n" +
 	"\v_total_lapsB\x11\n" +
 	"\x0f_frame_track_idB\x10\n" +
-	"\x0e_joined_on_lap\"\xa1\x01\n" +
+	"\x0e_joined_on_lap\"\xb8\x01\n" +
 	"\x10SessionContinued\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12+\n" +
 	"\x03gap\x18\x02 \x01(\v2\x19.twr.events.v1.SessionGapR\x03gap\x121\n" +
 	"\x05track\x18\x03 \x01(\v2\x1b.twr.events.v1.TrackVerdictR\x05track\x12\x0e\n" +
-	"\x02at\x18\x04 \x01(\rR\x02at\"\xb0\x01\n" +
+	"\x02at\x18\x04 \x01(\rR\x02at\x12\x15\n" +
+	"\x06run_id\x18\x05 \x01(\tR\x05runId\"\xb0\x01\n" +
 	"\x10SessionDiscarded\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x124\n" +
 	"\x06reason\x18\x02 \x01(\x0e2\x1c.twr.events.v1.DiscardReasonR\x06reason\x12\x1a\n" +
 	"\bevidence\x18\x03 \x01(\tR\bevidence\x12\x1b\n" +
 	"\tfirst_seq\x18\x04 \x01(\rR\bfirstSeq\x12\x0e\n" +
-	"\x02at\x18\x05 \x01(\rR\x02at\"s\n" +
+	"\x02at\x18\x05 \x01(\rR\x02at\"\x8a\x01\n" +
 	"\x12SessionKindChanged\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12.\n" +
 	"\x04kind\x18\x02 \x01(\v2\x1a.twr.events.v1.SessionKindR\x04kind\x12\x0e\n" +
-	"\x02at\x18\x03 \x01(\rR\x02at\"w\n" +
+	"\x02at\x18\x03 \x01(\rR\x02at\x12\x15\n" +
+	"\x06run_id\x18\x04 \x01(\tR\x05runId\"\x8e\x01\n" +
 	"\x13SessionTrackChanged\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x121\n" +
 	"\x05track\x18\x02 \x01(\v2\x1b.twr.events.v1.TrackVerdictR\x05track\x12\x0e\n" +
-	"\x02at\x18\x03 \x01(\rR\x02at\"\xea\x01\n" +
+	"\x02at\x18\x03 \x01(\rR\x02at\x12\x15\n" +
+	"\x06run_id\x18\x04 \x01(\tR\x05runId\"\xea\x01\n" +
 	"\rSessionPaused\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12,\n" +

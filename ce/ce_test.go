@@ -258,11 +258,11 @@ func TestTypesAgreeWithTheCatalogue(t *testing.T) {
 	}
 	types := ce.Types()
 	delete(types, "twr.events.v1.SessionEnded")
-	types["twr.events.v1.PitEntered"] = "run.thosewho.pit.entered.v1"
+	types["twr.events.v1.PenaltyServed"] = "run.thosewho.penalty.served.v1"
 	err = load(t, repo, "subjects.yaml").Agrees(types)
 	for _, want := range []string{
 		"twr.events.v1.SessionEnded (run.thosewho.session.ended.v1) has no ce-type in the helper",
-		"twr.events.v1.PitEntered (run.thosewho.pit.entered.v1) is in the helper but not the catalogue",
+		"twr.events.v1.PenaltyServed (run.thosewho.penalty.served.v1) is in the helper but not the catalogue",
 	} {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("got %v, want an error with %q", err, want)

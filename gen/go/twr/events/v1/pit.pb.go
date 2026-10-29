@@ -9,6 +9,7 @@ package eventsv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -23,7 +24,8 @@ const (
 
 // PitStop is one pit stop: the car came into the pit lane on one lap and left
 // it on the same lap or a later one. It is a part of SessionSummary, as one of
-// v1's summary.json `pit_stops`; the pit events (paddock#70) may carry it too.
+// v1's summary.json `pit_stops`, and of PitExited, as v1's PitStop.record()
+// writes it once the car has left.
 type PitStop struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The stop's number in the session, from 1 (v1's `stop`). A session
@@ -194,11 +196,417 @@ func (x *PitStop) GetEvidence() string {
 	return ""
 }
 
+// PitEntered says the car came into the pit lane (paddock#70; v1's
+// PitDetector._enter, which v1's Engine._apply_pits logged as "pit entry"). GT7
+// sends no pit flag: ecu reads the entry from a cut, a one-frame loading screen
+// in the race with the lap counter kept, or from a teleport, the car moving
+// faster than any car can between two frames when that frame was lost. Not
+// every entry is a stop: one the car leaves without ever coming to rest, with
+// no fuel added and no tyres changed, is withdrawn by a PitTeleport, so a
+// consumer that acted on the entry, such as radio holding callouts, undoes it
+// there. Otherwise PitExited follows, unless the session ends with the car
+// still in the pit lane.
+type PitEntered struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The entry's number in the session, from 1, counting every entry, the ones
+	// a PitTeleport withdraws included: the <entry> in the event's id. ecu
+	// carries the count across an ecu restart (paddock#76), as it carries the
+	// stops: an entry still open when ecu stopped keeps its number in the
+	// continuing run, so a PitEntered sent again for it dedupes, and the next
+	// entry takes the next number. stop alone could repeat: a withdrawn entry's
+	// stop number is taken again by the next one.
+	Entry int32 `protobuf:"varint,2,opt,name=entry,proto3" json:"entry,omitempty"`
+	// The number the stop takes if it is one, from 1 (v1's `stop`): one more
+	// than the stops completed before it. PitExited's stop has it once the car
+	// has left. A PitTeleport gives the number back, and the next entry takes it
+	// again.
+	Stop int32 `protobuf:"varint,3,opt,name=stop,proto3" json:"stop,omitempty"`
+	// The lap the car came into the pit lane on, from 1 (v1's `in_lap`): the
+	// lap counter on the frame before the cut, so the lap posted in the entry
+	// cut, as at Suzuka East, is the in-lap.
+	InLap int32 `protobuf:"varint,4,opt,name=in_lap,json=inLap,proto3" json:"in_lap,omitempty"`
+	// When the car entered, in seconds on the frames' clock (Frame's `t`): the
+	// first frame after the cut (v1's `entry_t`). As with Frame's `t`, only
+	// differences between times from one ecu run mean anything.
+	EnteredT float64 `protobuf:"fixed64,5,opt,name=entered_t,json=enteredT,proto3" json:"entered_t,omitempty"`
+	// When the car entered, in UTC: entered_t's frame's receive time.
+	EnteredAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=entered_at,json=enteredAt,proto3" json:"entered_at,omitempty"`
+	// The fuel in the tank on the frame before the cut, in litres, rounded to
+	// 3 decimals (v1's `fuel_before`).
+	FuelBefore float64 `protobuf:"fixed64,7,opt,name=fuel_before,json=fuelBefore,proto3" json:"fuel_before,omitempty"`
+	// The car's position on the frame before the cut, from 1 (v1's
+	// `position_before`). Absent when the game reported none.
+	PositionBefore *int32 `protobuf:"varint,8,opt,name=position_before,json=positionBefore,proto3,oneof" json:"position_before,omitempty"`
+	// What the pit detector saw, in a sentence for people, such as "entry
+	// loading cut at 60.0 km/h" (v1's `evidence` at the entry). Its wording is
+	// not part of the contract.
+	Evidence string `protobuf:"bytes,9,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	// The `seq` of the first frame after the cut, in the ecu run that published
+	// this event: the event's `at`.
+	At            uint32 `protobuf:"varint,10,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PitEntered) Reset() {
+	*x = PitEntered{}
+	mi := &file_twr_events_v1_pit_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PitEntered) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PitEntered) ProtoMessage() {}
+
+func (x *PitEntered) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_pit_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PitEntered.ProtoReflect.Descriptor instead.
+func (*PitEntered) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_pit_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PitEntered) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *PitEntered) GetEntry() int32 {
+	if x != nil {
+		return x.Entry
+	}
+	return 0
+}
+
+func (x *PitEntered) GetStop() int32 {
+	if x != nil {
+		return x.Stop
+	}
+	return 0
+}
+
+func (x *PitEntered) GetInLap() int32 {
+	if x != nil {
+		return x.InLap
+	}
+	return 0
+}
+
+func (x *PitEntered) GetEnteredT() float64 {
+	if x != nil {
+		return x.EnteredT
+	}
+	return 0
+}
+
+func (x *PitEntered) GetEnteredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EnteredAt
+	}
+	return nil
+}
+
+func (x *PitEntered) GetFuelBefore() float64 {
+	if x != nil {
+		return x.FuelBefore
+	}
+	return 0
+}
+
+func (x *PitEntered) GetPositionBefore() int32 {
+	if x != nil && x.PositionBefore != nil {
+		return *x.PositionBefore
+	}
+	return 0
+}
+
+func (x *PitEntered) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+func (x *PitEntered) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+// PitExited says the car left the pit lane, and the stop it made (paddock#70;
+// v1's PitDetector._in_pits closing a stop, which v1's Engine._apply_pits
+// logged as "pit exit"): an exit cut once the car had been at rest and moved
+// off, or the car going faster than any pit lane allows when that cut was
+// lost. A stint starts.
+type PitExited struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The stop, as v1's PitStop.record() writes it once the car has left, and
+	// as SessionSummary's pit_stops will hold it: out_lap and pit_lane_ms are
+	// set. Its stop is the <stop> in the event's id. ecu carries the stop count
+	// across an ecu restart (paddock#76), so a PitExited sent again for a stop
+	// dedupes.
+	Stop *PitStop `protobuf:"bytes,2,opt,name=stop,proto3" json:"stop,omitempty"`
+	// The stint that starts, from 2: one more than the stops completed, this
+	// one included (v1's PitStatus.stint, and SessionSummary's `stints` if the
+	// session ended now).
+	Stint int32 `protobuf:"varint,3,opt,name=stint,proto3" json:"stint,omitempty"`
+	// The number of the entry this stop began with, as in its PitEntered.
+	Entry int32 `protobuf:"varint,4,opt,name=entry,proto3" json:"entry,omitempty"`
+	// When the car entered the pit lane, in UTC, as in its PitEntered.
+	EnteredAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=entered_at,json=enteredAt,proto3" json:"entered_at,omitempty"`
+	// When the car left the pit lane, in UTC: the receive time of the first
+	// frame after the exit cut, exited_t's frame.
+	ExitedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=exited_at,json=exitedAt,proto3" json:"exited_at,omitempty"`
+	// The `seq` of the first frame after the exit cut, or of the first frame
+	// over the pit lane's speed, in the ecu run that published this event: the
+	// event's `at`.
+	At uint32 `protobuf:"varint,7,opt,name=at,proto3" json:"at,omitempty"`
+	// When the car left the pit lane, in seconds on the frames' clock (Frame's
+	// `t`): exited_at's frame (v1's `exit_t`). Less entered_t, it is the stop's
+	// pit_lane_ms, when both came in the same ecu run.
+	ExitedT float64 `protobuf:"fixed64,8,opt,name=exited_t,json=exitedT,proto3" json:"exited_t,omitempty"`
+	// When the car entered the pit lane, in seconds on the frames' clock, as in
+	// its PitEntered (v1's `entry_t`), so the event alone gives pit_lane_ms. Only
+	// differences between times from one ecu run mean anything: across an ecu
+	// restart (paddock#76), the UTC times give it instead.
+	EnteredT      float64 `protobuf:"fixed64,9,opt,name=entered_t,json=enteredT,proto3" json:"entered_t,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PitExited) Reset() {
+	*x = PitExited{}
+	mi := &file_twr_events_v1_pit_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PitExited) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PitExited) ProtoMessage() {}
+
+func (x *PitExited) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_pit_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PitExited.ProtoReflect.Descriptor instead.
+func (*PitExited) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_pit_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PitExited) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *PitExited) GetStop() *PitStop {
+	if x != nil {
+		return x.Stop
+	}
+	return nil
+}
+
+func (x *PitExited) GetStint() int32 {
+	if x != nil {
+		return x.Stint
+	}
+	return 0
+}
+
+func (x *PitExited) GetEntry() int32 {
+	if x != nil {
+		return x.Entry
+	}
+	return 0
+}
+
+func (x *PitExited) GetEnteredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EnteredAt
+	}
+	return nil
+}
+
+func (x *PitExited) GetExitedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExitedAt
+	}
+	return nil
+}
+
+func (x *PitExited) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+func (x *PitExited) GetExitedT() float64 {
+	if x != nil {
+		return x.ExitedT
+	}
+	return 0
+}
+
+func (x *PitExited) GetEnteredT() float64 {
+	if x != nil {
+		return x.EnteredT
+	}
+	return 0
+}
+
+// PitTeleport says a PitEntered was not a stop: the car left the pit lane, or
+// what looked like it, without ever coming to rest, with no fuel added and no
+// tyres changed, as when GT7 puts a car back on track after an off (paddock#70;
+// v1's PitDetector._in_pits withdrawing the stop and keeping it as a
+// Teleport). It withdraws the entry: no stop was made, no stint starts, and no
+// lap is a pit lap. A consumer that acted on the PitEntered, such as radio
+// holding callouts for the pit exit, undoes it.
+type PitTeleport struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session's id, as in its SessionStarted.
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The number of the entry it withdraws, as in its PitEntered: the <entry>
+	// in the event's id. Each entry is withdrawn at most once.
+	Entry int32 `protobuf:"varint,2,opt,name=entry,proto3" json:"entry,omitempty"`
+	// The `at` of the PitEntered it withdraws, in the same ecu run. Absent when
+	// that PitEntered was published by an earlier ecu run (paddock#76), whose
+	// seqs this run's do not continue. v1's Teleport `entry_t` is that
+	// PitEntered's entered_t.
+	EntryAt *uint32 `protobuf:"varint,3,opt,name=entry_at,json=entryAt,proto3,oneof" json:"entry_at,omitempty"`
+	// The lap the withdrawn entry came on, from 1 (v1's Teleport `lap`, the
+	// entry's in_lap).
+	Lap int32 `protobuf:"varint,4,opt,name=lap,proto3" json:"lap,omitempty"`
+	// What the pit detector saw, in a sentence for people, such as "entry
+	// loading cut at 40.0 km/h; over 100 km/h; never at rest, no fuel, no
+	// tyres" (v1's Teleport `evidence`). Its wording is not part of the
+	// contract.
+	Evidence string `protobuf:"bytes,5,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	// The `seq` of the frame the entry was withdrawn on, in the ecu run that
+	// published this event (v1's Teleport `t`): the event's `at`.
+	At uint32 `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	// When the entry was withdrawn, in seconds on the frames' clock (Frame's
+	// `t`): at's frame (v1's Teleport `t`).
+	WithdrawnT    float64 `protobuf:"fixed64,7,opt,name=withdrawn_t,json=withdrawnT,proto3" json:"withdrawn_t,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PitTeleport) Reset() {
+	*x = PitTeleport{}
+	mi := &file_twr_events_v1_pit_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PitTeleport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PitTeleport) ProtoMessage() {}
+
+func (x *PitTeleport) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_events_v1_pit_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PitTeleport.ProtoReflect.Descriptor instead.
+func (*PitTeleport) Descriptor() ([]byte, []int) {
+	return file_twr_events_v1_pit_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PitTeleport) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *PitTeleport) GetEntry() int32 {
+	if x != nil {
+		return x.Entry
+	}
+	return 0
+}
+
+func (x *PitTeleport) GetEntryAt() uint32 {
+	if x != nil && x.EntryAt != nil {
+		return *x.EntryAt
+	}
+	return 0
+}
+
+func (x *PitTeleport) GetLap() int32 {
+	if x != nil {
+		return x.Lap
+	}
+	return 0
+}
+
+func (x *PitTeleport) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+func (x *PitTeleport) GetAt() uint32 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+func (x *PitTeleport) GetWithdrawnT() float64 {
+	if x != nil {
+		return x.WithdrawnT
+	}
+	return 0
+}
+
 var File_twr_events_v1_pit_proto protoreflect.FileDescriptor
 
 const file_twr_events_v1_pit_proto_rawDesc = "" +
 	"\n" +
-	"\x17twr/events/v1/pit.proto\x12\rtwr.events.v1\"\x91\x04\n" +
+	"\x17twr/events/v1/pit.proto\x12\rtwr.events.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x91\x04\n" +
 	"\aPitStop\x12\x12\n" +
 	"\x04stop\x18\x01 \x01(\x05R\x04stop\x12\x15\n" +
 	"\x06in_lap\x18\x02 \x01(\x05R\x05inLap\x12\x1c\n" +
@@ -223,7 +631,47 @@ const file_twr_events_v1_pit_proto_rawDesc = "" +
 	"\f_pit_lane_msB\x0f\n" +
 	"\r_pit_lane_kphB\x12\n" +
 	"\x10_position_beforeB\x11\n" +
-	"\x0f_position_afterB\xb5\x01\n" +
+	"\x0f_position_after\"\xd3\x02\n" +
+	"\n" +
+	"PitEntered\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x14\n" +
+	"\x05entry\x18\x02 \x01(\x05R\x05entry\x12\x12\n" +
+	"\x04stop\x18\x03 \x01(\x05R\x04stop\x12\x15\n" +
+	"\x06in_lap\x18\x04 \x01(\x05R\x05inLap\x12\x1b\n" +
+	"\tentered_t\x18\x05 \x01(\x01R\benteredT\x129\n" +
+	"\n" +
+	"entered_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tenteredAt\x12\x1f\n" +
+	"\vfuel_before\x18\a \x01(\x01R\n" +
+	"fuelBefore\x12,\n" +
+	"\x0fposition_before\x18\b \x01(\x05H\x00R\x0epositionBefore\x88\x01\x01\x12\x1a\n" +
+	"\bevidence\x18\t \x01(\tR\bevidence\x12\x0e\n" +
+	"\x02at\x18\n" +
+	" \x01(\rR\x02atB\x12\n" +
+	"\x10_position_before\"\xbe\x02\n" +
+	"\tPitExited\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12*\n" +
+	"\x04stop\x18\x02 \x01(\v2\x16.twr.events.v1.PitStopR\x04stop\x12\x14\n" +
+	"\x05stint\x18\x03 \x01(\x05R\x05stint\x12\x14\n" +
+	"\x05entry\x18\x04 \x01(\x05R\x05entry\x129\n" +
+	"\n" +
+	"entered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tenteredAt\x127\n" +
+	"\texited_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\bexitedAt\x12\x0e\n" +
+	"\x02at\x18\a \x01(\rR\x02at\x12\x19\n" +
+	"\bexited_t\x18\b \x01(\x01R\aexitedT\x12\x1b\n" +
+	"\tentered_t\x18\t \x01(\x01R\benteredT\"\xce\x01\n" +
+	"\vPitTeleport\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x14\n" +
+	"\x05entry\x18\x02 \x01(\x05R\x05entry\x12\x1e\n" +
+	"\bentry_at\x18\x03 \x01(\rH\x00R\aentryAt\x88\x01\x01\x12\x10\n" +
+	"\x03lap\x18\x04 \x01(\x05R\x03lap\x12\x1a\n" +
+	"\bevidence\x18\x05 \x01(\tR\bevidence\x12\x0e\n" +
+	"\x02at\x18\x06 \x01(\rR\x02at\x12\x1f\n" +
+	"\vwithdrawn_t\x18\a \x01(\x01R\n" +
+	"withdrawnTB\v\n" +
+	"\t_entry_atB\xb5\x01\n" +
 	"\x11com.twr.events.v1B\bPitProtoP\x01Z@github.com/those-who-run/contracts/gen/go/twr/events/v1;eventsv1\xa2\x02\x03TEX\xaa\x02\rTwr.Events.V1\xca\x02\rTwr\\Events\\V1\xe2\x02\x19Twr\\Events\\V1\\GPBMetadata\xea\x02\x0fTwr::Events::V1b\x06proto3"
 
 var (
@@ -238,16 +686,24 @@ func file_twr_events_v1_pit_proto_rawDescGZIP() []byte {
 	return file_twr_events_v1_pit_proto_rawDescData
 }
 
-var file_twr_events_v1_pit_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_twr_events_v1_pit_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_twr_events_v1_pit_proto_goTypes = []any{
-	(*PitStop)(nil), // 0: twr.events.v1.PitStop
+	(*PitStop)(nil),               // 0: twr.events.v1.PitStop
+	(*PitEntered)(nil),            // 1: twr.events.v1.PitEntered
+	(*PitExited)(nil),             // 2: twr.events.v1.PitExited
+	(*PitTeleport)(nil),           // 3: twr.events.v1.PitTeleport
+	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
 }
 var file_twr_events_v1_pit_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	4, // 0: twr.events.v1.PitEntered.entered_at:type_name -> google.protobuf.Timestamp
+	0, // 1: twr.events.v1.PitExited.stop:type_name -> twr.events.v1.PitStop
+	4, // 2: twr.events.v1.PitExited.entered_at:type_name -> google.protobuf.Timestamp
+	4, // 3: twr.events.v1.PitExited.exited_at:type_name -> google.protobuf.Timestamp
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_twr_events_v1_pit_proto_init() }
@@ -256,13 +712,15 @@ func file_twr_events_v1_pit_proto_init() {
 		return
 	}
 	file_twr_events_v1_pit_proto_msgTypes[0].OneofWrappers = []any{}
+	file_twr_events_v1_pit_proto_msgTypes[1].OneofWrappers = []any{}
+	file_twr_events_v1_pit_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_twr_events_v1_pit_proto_rawDesc), len(file_twr_events_v1_pit_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

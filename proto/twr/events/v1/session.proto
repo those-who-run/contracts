@@ -348,6 +348,10 @@ message SessionContinued {
   // The `seq` of the session's first frame in this ecu run: the event's
   // `at`.
   uint32 at = 4;
+  // The id of the ecu run that continued the session, the ULID ecu mints
+  // when it starts: the <run> in the event's id, and the run whose seqs at
+  // counts in. A run continues a session at most once.
+  string run_id = 5;
 }
 
 // SessionDiscarded says a start that GT7's cars-on-track flag was off for was
@@ -383,6 +387,10 @@ message SessionKindChanged {
   // The `seq` of the frame it changed on, in the ecu run that published this
   // event: the event's `at`.
   uint32 at = 3;
+  // The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+  // event's id. It says which run's seqs `at` counts in, which session_id
+  // alone does not after an ecu restart (paddock#76).
+  string run_id = 4;
 }
 
 // SessionTrackChanged says ecu's verdict on the session's track changed: a
@@ -397,6 +405,10 @@ message SessionTrackChanged {
   // The `seq` of the frame it changed on, in the ecu run that published this
   // event: the event's `at`.
   uint32 at = 3;
+  // The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+  // event's id. It says which run's seqs `at` counts in, which session_id
+  // alone does not after an ecu restart (paddock#76).
+  string run_id = 4;
 }
 
 // SessionPaused says the session paused (paddock#77). A pause never ends a

@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package twr.events.v1;
+
+// CarCheck is one of the car's alarms, as v1's temps rule checked them.
+enum CarCheck {
+  // Not set.
+  CAR_CHECK_UNSPECIFIED = 0;
+  // A tyre stayed over the hot threshold (v1's `tyre_hot_c`, 120 °C): one
+  // alarm for every corner over it at that moment (v1's "{corners} hot.").
+  CAR_CHECK_TYRE_HOT = 1;
+  // A tyre was under the cold threshold (v1's `tyre_cold_c`, 50 °C) at the
+  // start: checked once, 2 s into the session (v1's `cold_settle_secs`), and
+  // not in a session ecu joined part way (v1's "Tyres cold.").
+  CAR_CHECK_TYRES_COLD = 2;
+  // The water stayed over its threshold (v1's `water_hot_c`, 110 °C; v1's
+  // "Water temperature high.").
+  CAR_CHECK_WATER_HOT = 3;
+  // The oil stayed over its threshold (v1's `oil_hot_c`, 130 °C; v1's "Oil
+  // temperature high.").
+  CAR_CHECK_OIL_HOT = 4;
+}
+
+// Corner is one of the car's four corners, as GT7 orders its tyres.
+enum Corner {
+  // Not set.
+  CORNER_UNSPECIFIED = 0;
+  // Front left.
+  CORNER_FRONT_LEFT = 1;
+  // Front right.
+  CORNER_FRONT_RIGHT = 2;
+  // Rear left.
+  CORNER_REAR_LEFT = 3;
+  // Rear right.
+  CORNER_REAR_RIGHT = 4;
+}
+
+// TyreTemp is one tyre in a tyre alarm: its corner and its temperature.
+message TyreTemp {
+  // The tyre's corner (Corner).
+  Corner corner = 1;
+  // The tyre's surface temperature on the alarm's frame, in degrees Celsius
+  // (Frame's tire_fl_temp and the rest).
+  double temp_c = 2;
+}
+
+// CarAlarmRaised says one of the car's checks raised its alarm (paddock#70;
+// v1's temps rule). A hot alarm fires when its value has stayed over the
+// threshold for 5 s (v1's `sustain_secs`), so a spin heating one tyre for a
+// moment does not; it then fires once, and again only after the value has
+// dropped 10 °C under the threshold (v1's `hysteresis_c`) and at least 60 s
+// after it last fired (v1's `cooldown_secs`). Paused frames are not checked,
+// and a gap longer than 5 s starts the wait again. The thresholds are ecu's
+// settings, and v1's defaults are in CarCheck. ecu raises it only in a race
+// frame of an open session; radio decides whether and how to say it.
+message CarAlarmRaised {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // Which check (CarCheck): its value's name in lower case, without the
+  // CAR_CHECK_ prefix (tyre_hot, tyres_cold, water_hot or oil_hot), is the
+  // <check> in the event's id.
+  CarCheck check = 2;
+  // For a tyre alarm, the tyres in it, in GT7's order (front left, front
+  // right, rear left, rear right). For CAR_CHECK_TYRE_HOT every tyre over the
+  // threshold that is armed and past its cooldown: v1 reported them together
+  // rather than each a moment apart (v1's alarm `join`). For
+  // CAR_CHECK_TYRES_COLD every tyre under the threshold. Empty for water and
+  // oil.
+  repeated TyreTemp tyres = 3;
+  // The value that raised the alarm, in degrees Celsius: the hottest tyre in
+  // tyres for CAR_CHECK_TYRE_HOT, the coldest for CAR_CHECK_TYRES_COLD, and
+  // the water's or the oil's temperature (Frame's water_temp or oil_temp).
+  double value_c = 4;
+  // The threshold it crossed, in degrees Celsius: over it for a hot alarm,
+  // under it for a cold one.
+  double threshold_c = 5;
+  // The `seq` of the frame the alarm fired on, in the ecu run that published
+  // this event: the event's `at`.
+  uint32 at = 6;
+  // The ecu run's id, the ULID ecu mints when it starts: the <run> in the
+  // event's id. It says which run's seqs `at` counts in, which session_id
+  // alone does not after an ecu restart (paddock#76).
+  string run_id = 7;
+}

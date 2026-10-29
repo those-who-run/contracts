@@ -31,6 +31,14 @@ whole stream, and two sources can carry the same session id. A frame's id is
 | `twr.v1.<src>.evt.<sid>.race.final_lap` | `twr.events.v1.RaceFinalLapStarted` | `run.thosewho.race.final_lap.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.final_lap:1` |
 | `twr.v1.<src>.evt.<sid>.race.position` | `twr.events.v1.RacePositionChanged` | `run.thosewho.race.position.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.position:<run>:<seq>` |
 | `twr.v1.<src>.evt.<sid>.race.finished` | `twr.events.v1.RaceFinished` | `run.thosewho.race.finished.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.finished:1` |
+| `twr.v1.<src>.evt.<sid>.pit.entered` | `twr.events.v1.PitEntered` | `run.thosewho.pit.entered.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:pit.entered:<entry>` |
+| `twr.v1.<src>.evt.<sid>.pit.exited` | `twr.events.v1.PitExited` | `run.thosewho.pit.exited.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:pit.exited:<stop>` |
+| `twr.v1.<src>.evt.<sid>.pit.teleport` | `twr.events.v1.PitTeleport` | `run.thosewho.pit.teleport.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:pit.teleport:<entry>` |
+| `twr.v1.<src>.evt.<sid>.car.alarm` | `twr.events.v1.CarAlarmRaised` | `run.thosewho.car.alarm.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:car.alarm:<check>:<run>:<seq>` |
+| `twr.v1.<src>.evt.<sid>.telemetry.lost` | `twr.events.v1.TelemetryLost` | `run.thosewho.telemetry.lost.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:telemetry.lost:<run>:<seq>` |
+| `twr.v1.<src>.evt._.telemetry.lost` | `twr.events.v1.TelemetryLost` | `run.thosewho.telemetry.lost.v1` | `EVENTS` | ecu | logbook | `<src>:<run>:telemetry.lost:<seq>` |
+| `twr.v1.<src>.evt.<sid>.telemetry.restored` | `twr.events.v1.TelemetryRestored` | `run.thosewho.telemetry.restored.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:telemetry.restored:<run>:<seq>` |
+| `twr.v1.<src>.evt._.telemetry.restored` | `twr.events.v1.TelemetryRestored` | `run.thosewho.telemetry.restored.v1` | `EVENTS` | ecu | logbook | `<src>:<run>:telemetry.restored:<seq>` |
 
 ## What each one is
 
@@ -48,8 +56,16 @@ whole stream, and two sources can carry the same session id. A frame's id is
 - `twr.v1.<src>.evt.<sid>.race.final_lap`: The final lap of a lap race began.
 - `twr.v1.<src>.evt.<sid>.race.position`: The car's position changed and settled for 3 s.
 - `twr.v1.<src>.evt.<sid>.race.finished`: The race finished, at the chequered flag or a timed race's finish.
+- `twr.v1.<src>.evt.<sid>.pit.entered`: The car came into the pit lane; a pit.teleport may withdraw it.
+- `twr.v1.<src>.evt.<sid>.pit.exited`: The car left the pit lane, with the stop it made; a stint starts.
+- `twr.v1.<src>.evt.<sid>.pit.teleport`: A pit entry was not a stop (never at rest, no fuel, no tyres), so it is withdrawn.
+- `twr.v1.<src>.evt.<sid>.car.alarm`: A tyre, water or oil temperature check raised its alarm.
+- `twr.v1.<src>.evt.<sid>.telemetry.lost`: The frames stopped arriving while a session was open.
+- `twr.v1.<src>.evt._.telemetry.lost`: The frames stopped arriving while no session was open.
+- `twr.v1.<src>.evt.<sid>.telemetry.restored`: The frames came back after a loss, with a session open.
+- `twr.v1.<src>.evt._.telemetry.restored`: The frames came back after a loss, with no session open.
 
-Parts of an event, not events themselves, so they have no subject: `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`.
+Parts of an event, not events themselves, so they have no subject: `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`.
 
 ## Placeholders
 
@@ -61,3 +77,6 @@ Parts of an event, not events themselves, so they have no subject: `twr.events.v
 | `<seq>` | a frame's sequence number within the ecu run: a frame's own, or the `at` of the frame an event happened on | `msg_id` |
 | `<n>` | a lap's number: lap.completed's own, or for lap.best the lap whose end published it (LapBestChanged's ended_lap) | `msg_id` |
 | `<pause>` | the pause's number in the session, from 1, which ecu carries across a restart: a pause open across one keeps its number | `msg_id` |
+| `<entry>` | a pit entry's number in the session, from 1, counting the entries a pit.teleport withdraws (PitEntered's entry), which ecu carries across a restart | `msg_id` |
+| `<stop>` | a pit stop's number in the session, from 1 (PitStop's stop), which ecu carries across a restart | `msg_id` |
+| `<check>` | a car alarm's check, CarCheck's value in lower case without its prefix: `tyre_hot`, `tyres_cold`, `water_hot` or `oil_hot` | `msg_id` |
