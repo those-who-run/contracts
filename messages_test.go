@@ -262,8 +262,8 @@ var examples = []struct {
 		Source: "live", RunId: "01JBK7Q2C5E8G1J4M7P0S3V6XZ", Version: "1.0.0",
 		StartedAt: timestamppb.New(time.Date(2026, 10, 29, 13, 52, 4, 125_000_000, time.UTC)),
 		Activity:  statev1.Activity_ACTIVITY_DRIVING, Idle: false, IdleSecs: 0,
-		TelemetryConnected: false, TelemetryListening: true, LastPacketAgeSecs: proto.Float64(0),
-		Packets: 0, RacesStarted: 1,
+		TelemetryConnected: true, TelemetryListening: true, LastPacketAgeSecs: proto.Float64(0),
+		Packets: 10053, RacesStarted: 1,
 		UpdatedAt: timestamppb.New(time.Date(2026, 10, 29, 13, 52, 31, 500_000_000, time.UTC)),
 	}},
 	{"state/v1/ecu_session.json", &statev1.LiveSession{

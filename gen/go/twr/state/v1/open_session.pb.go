@@ -110,7 +110,8 @@ func (x *OpenLap) GetPitRole() v1.PitRole {
 // What v1's continue match (`continue_mismatch`) and the session's ids need,
 // and where each is: the car, the session's type, the lap total and the field
 // are summary's car_code, session_type, total_laps and total_cars; the track
-// verdict and the kind are summary's track and kind; the last lap is lap's
+// verdict and the kind are summary's track and kind; the start is summary's
+// started_at; the last lap is lap's
 // lap; the time since the session was last seen is last_seen_at's; the
 // <pause> count is pauses; the <entry> count is entries; the <stop> count is
 // the number of summary's pit_stops, and the stint summary's stints; whether

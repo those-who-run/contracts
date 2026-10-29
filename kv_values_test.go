@@ -97,7 +97,8 @@ func TestKVCommentsSayHowToReadThem(t *testing.T) {
 		{"twr/state/v1/live.proto", "ACTIVITY_IDLE", []string{"exactly when EcuStatus's idle is true", "left open by a feed that stopped is idle"}},
 		{"twr/state/v1/live.proto", "ACTIVITY_REPLAY", []string{"GT7 is playing back a race", "Not a recording replayed through ecu"}},
 		{"twr/state/v1/live.proto", "LiveSession", []string{"`ecu.session.<src>`", "deletes the key when the session ends"}},
-		{"twr/state/v1/live.proto", "position", []string{"Absent where the results card hides it"}},
+		{"twr/state/v1/live.proto", "position", []string{"Absent where the results card hides it", "unless the session's SessionKind has field and cars_on_track both true (v1's `position_shown`)", "when the game reported none"}},
+		{"twr/state/v1/live.proto", "total_cars", []string{"unless the session's SessionKind has field and cars_on_track both true (v1's `position_shown`)", "when the game reported none"}},
 		{"twr/state/v1/live.proto", "in_pit_lane", []string{"PitTeleport"}},
 		{"twr/state/v1/open_session.proto", "OpenSession", []string{
 			"`sessions.open.<src>`", "a replay never reads or clears the live source's", "a reader of `live` never sees the running summary",

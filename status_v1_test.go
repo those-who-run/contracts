@@ -36,9 +36,13 @@ var statusLeftOut = map[string]string{
 }
 
 // v2Only are the fields v1 had no counterpart for, which the test takes from
-// the example.
+// the example. It also takes the telemetry link from the example, which shows
+// a live drive: v1's test fed its app frames with no listener, so the golden
+// says not connected, no packets.
 func v2Only(status *statev1.EcuStatus, session *statev1.LiveSession, wantStatus *statev1.EcuStatus, wantSession *statev1.LiveSession) {
 	status.Source, status.RunId, status.UpdatedAt = wantStatus.GetSource(), wantStatus.GetRunId(), wantStatus.GetUpdatedAt()
+	status.TelemetryConnected, status.Packets = wantStatus.GetTelemetryConnected(), wantStatus.GetPackets()
+	status.LastPacketAgeSecs = wantStatus.LastPacketAgeSecs
 	session.SessionId = wantSession.GetSessionId()
 }
 
@@ -74,6 +78,10 @@ func TestStatusFromV1(t *testing.T) {
 	if err := json.Unmarshal(data, &bodies); err != nil {
 		t.Fatal(err)
 	}
+	// v1's kind, whose field and cars_on_track decide whether a position shows
+	// (results.position_shown), read before the records take their fields.
+	kindRec, _ := bodies["healthz"]["session"].(map[string]any)
+	shown := kindRec["field"] == true && kindRec["cars_on_track"] == true
 	status := v1Record{t, "status.", bodies["status"]}
 	health := v1Record{t, "healthz.", bodies["healthz"]}
 
@@ -124,6 +132,12 @@ func TestStatusFromV1(t *testing.T) {
 		rest(t, track)
 	}
 
+	if (session.Position != nil) != shown || (session.TotalCars != nil) != shown {
+		t.Errorf("position %v and cars %v, but v1's position_shown is %v", session.Position, session.TotalCars, shown)
+	}
+	if !shown {
+		t.Error("the golden's kind hides the position, so this checks nothing")
+	}
 	for _, r := range []v1Record{status, health, telemetry, s} {
 		rest(t, r)
 	}
@@ -131,7 +145,8 @@ func TestStatusFromV1(t *testing.T) {
 	wantStatus := example(t, "state/v1/ecu_status.json", &statev1.EcuStatus{}).(*statev1.EcuStatus)
 	wantSession := example(t, "state/v1/ecu_session.json", &statev1.LiveSession{}).(*statev1.LiveSession)
 	v2Only(got, session, wantStatus, wantSession)
-	if got.GetSource() == "" || got.GetRunId() == "" || got.GetUpdatedAt() == nil || session.GetSessionId() == "" {
+	if got.GetSource() == "" || got.GetRunId() == "" || got.GetUpdatedAt() == nil || session.GetSessionId() == "" ||
+		!got.GetTelemetryConnected() || got.GetPackets() == 0 || got.LastPacketAgeSecs == nil {
 		t.Error("the example leaves a field v1 had no counterpart for unset")
 	}
 	for _, tc := range []struct {

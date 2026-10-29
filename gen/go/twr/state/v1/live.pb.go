@@ -379,12 +379,14 @@ type LiveSession struct {
 	// where GT7 reports 0.
 	TotalLaps *int32 `protobuf:"varint,6,opt,name=total_laps,json=totalLaps,proto3,oneof" json:"total_laps,omitempty"`
 	// The car's position on the last driving frame, from 1 (v1's `position`).
-	// Absent where the results card hides it: outside a field
-	// (SESSION_TYPE_SOLO_LAPS or SESSION_TYPE_SOLO_TIMED), and when the game
-	// reported none.
+	// Absent where the results card hides it: absent unless the session's
+	// SessionKind has field and cars_on_track both true (v1's
+	// `position_shown`), so also while the kind is not known yet, and when the
+	// game reported none.
 	Position *int32 `protobuf:"varint,7,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	// The cars in the field on the last driving frame (v1's `cars`). Absent
-	// where position is, and when the game reported none.
+	// unless the session's SessionKind has field and cars_on_track both true
+	// (v1's `position_shown`), as position, and when the game reported none.
 	TotalCars     *int32 `protobuf:"varint,8,opt,name=total_cars,json=totalCars,proto3,oneof" json:"total_cars,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
