@@ -24,6 +24,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import json
+import re
 from collections.abc import Mapping
 
 from google.protobuf import json_format
@@ -169,6 +170,11 @@ def _format_time(t: datetime.datetime) -> str:
     return s + "Z"
 
 
+# RFC 3339's date and time, the shape Go's time.Parse with RFC3339Nano takes:
+# fromisoformat alone also takes ISO 8601's other forms, which Go refuses.
+_RFC3339 = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})", re.ASCII)
+
+
 class WrongTypeError(ValueError):
     """decode's error for a message whose ce-type is not the one the caller
     expects, raised before the payload is read: Go's ce.ErrWrongType."""
@@ -188,6 +194,8 @@ def decode(headers: Mapping[str, str], data: bytes | str, m: Message) -> Event:
     if not id_ or not source:
         raise ValueError(f"{ID_HEADER} or {SOURCE_HEADER} is missing")
     raw = headers.get(TIME_HEADER, "")
+    if not _RFC3339.fullmatch(raw):
+        raise ValueError(f"{TIME_HEADER}: {raw!r} is not an RFC 3339 time")
     try:
         time = datetime.datetime.fromisoformat(raw)
     except ValueError as err:

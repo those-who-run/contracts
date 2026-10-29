@@ -51,10 +51,11 @@ type pyRequest struct {
 }
 
 type pyResponse struct {
-	Types    map[string]string `json:"types"`
-	Examples []pyExample       `json:"examples"`
-	Events   []pyEvent         `json:"events"`
-	Levels   []pyLevel         `json:"levels"`
+	Types      map[string]string `json:"types"`
+	NotRFC3339 []string          `json:"notRfc3339"`
+	Examples   []pyExample       `json:"examples"`
+	Events     []pyEvent         `json:"events"`
+	Levels     []pyLevel         `json:"levels"`
 }
 
 // python runs scripts/python_roundtrip.py on the request with $TWR_PYTHON, the
@@ -158,6 +159,25 @@ func TestPythonRoundTrip(t *testing.T) {
 		}
 		if ev.Headers[ce.MsgIDHeader] != ev.Headers[ce.IDHeader] {
 			t.Errorf("%s: Python's Nats-Msg-Id %q is not its ce-id %q", ex.file, ev.Headers[ce.MsgIDHeader], ev.Headers[ce.IDHeader])
+		}
+	}
+}
+
+// The ce-time values Python's ce.decode refuses for not being RFC 3339, which
+// fromisoformat alone would take, Go's ce.Decode refuses too.
+func TestPythonRefusesTheTimesGoRefuses(t *testing.T) {
+	resp := python(t, pyRequest{})
+	if len(resp.NotRFC3339) == 0 {
+		t.Fatal("Python listed no ce-time it refuses, so this checks nothing")
+	}
+	h, data, err := ce.Encode(&eventsv1.Callout{Priority: 8}, ce.Event{ID: "live:callout:1", Source: "/twr/ecu/gt7", Time: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range resp.NotRFC3339 {
+		h[ce.TimeHeader] = []string{raw}
+		if _, err := ce.Decode(h, data, &eventsv1.Callout{}); err == nil {
+			t.Errorf("Go's ce.Decode took the ce-time %q, which Python refuses", raw)
 		}
 	}
 }

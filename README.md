@@ -107,7 +107,10 @@ await nc.publish(callout.subject("live", c), data, headers=headers)
 ```
 
 Python's `datetime` holds microseconds, so a `ce-time` with nanoseconds
-decodes to the microsecond. `make python` installs the package into a new
+decodes to the microsecond. protoc's version and its digests in
+`scripts/protoc.py` are bumped by hand, with the `protobuf` floor in
+`pyproject.toml` and `tests/python-constraints.txt` in the same change;
+`tests/test_python_package.py` fails while the three disagree. `make python` installs the package into a new
 virtual environment as a consumer would, and runs the round trip between Go
 and Python (`python_test.go`): every example encoded by Go decodes in Python to
 the same values, and back, headers included.
@@ -156,8 +159,8 @@ Each field's comment in `proto/` gives its unit. The examples under
 `examples/` are what `nats sub` shows, and the round-trip tests in
 [`messages_test.go`](messages_test.go) decode each one.
 
-Only Go is generated so far. TypeScript and Python come when their first
-consumer needs them (Python is those-who-run/paddock#265).
+Go and Python are generated ([Python](#python) says how a component installs
+it). TypeScript comes with its first consumer, the pit wall.
 
 ## Layout
 

@@ -82,6 +82,18 @@ def event(ev: dict[str, Any], failures: list[str]) -> dict[str, Any]:
     return {"message": ev["message"], "headers": headers, "data": data.decode()}
 
 
+# ce-time values ISO 8601 or Python's fromisoformat take and RFC 3339, so Go's
+# time.Parse, refuses; python_test.go checks Go refuses each of them too.
+NOT_RFC3339 = (
+    "2026-10-29 18:03:07Z",
+    "20261029T180307Z",
+    "2026-10-29t18:03:07Z",
+    "2026-10-29T18:03:07+0100",
+    "2026-10-29T18:03Z",
+    "2026-W44-4T18:03:07Z",
+)
+
+
 def refusals(ev: dict[str, Any], failures: list[str]) -> None:
     """What Go's ce refuses, Python's refuses too: an event without an id or a
     source, with a character the NATS binding would percent-encode or a time
@@ -111,6 +123,7 @@ def refusals(ev: dict[str, Any], failures: list[str]) -> None:
         ("no source", {ce.SOURCE_HEADER: ""}, ValueError),
         ("a time that isn't one", {ce.TIME_HEADER: "yesterday"}, ValueError),
         ("a time without a zone", {ce.TIME_HEADER: "2026-10-29T18:03:07"}, ValueError),
+        *((f"the time {t!r}, which isn't RFC 3339", {ce.TIME_HEADER: t}, ValueError) for t in NOT_RFC3339),
     ):
         try:
             ce.decode({**ev["headers"], **change}, ev["data"], new(ev["message"]))
@@ -138,6 +151,7 @@ def main(argv: list[str]) -> int:
     failures: list[str] = []
     response = {
         "types": ce.types(),
+        "notRfc3339": list(NOT_RFC3339),
         "examples": [example(ex, failures) for ex in request["examples"] or []],
         "events": [event(ev, failures) for ev in request["events"] or []],
         "levels": [level(p) for p in request["priorities"] or []],
