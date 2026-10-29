@@ -8,8 +8,8 @@
 # message may travel on several subjects; a pattern follows ADR 0001's subject
 # scheme and goes to that scheme's stream; every placeholder is a known one and
 # allowed where it is; and every message in an events package (twr.events.*, any
-# version) has an entry or is listed under helpers. docs/subjects.md is
-# rendered from this file by `make generate`.
+# version) or a state package (twr.state.*) has an entry or is listed under
+# helpers. docs/subjects.md is rendered from this file by `make generate`.
 #
 # An entry is a subject or a KV key. A subject's keys:
 #   pattern       the subject, with <placeholders> for its variable tokens
@@ -67,10 +67,12 @@
 # A KV key's: kv (the bucket), key (with placeholders), message, content_type,
 # producers (its writers), consumers (its readers) and description. It has no
 # pattern, stream, ce_type or msg_id: a value written with Put carries no
-# headers.
+# headers. Every key carries its <src>, so a replay writes its own keys and
+# never the live source's (paddock#72). Every message in a state package
+# (twr.state.*, any version) is a KV entry's value or a helper.
 #
-# helpers lists the messages in an events package that are parts of an event,
-# not events, so they need no entry.
+# helpers lists the messages in an events or state package that are parts of
+# an event or a value, not one of their own, so they need no entry.
 
 subjects:
   - pattern: twr.v1.<src>.frame.gt7
@@ -323,6 +325,48 @@ subjects:
     msg_id: <id>
     description: A callout with priority 20 or over, such as a lap time or the race summary.
 
+  # paddock#72: the values ecu keeps in KV. Every key carries its source, so a
+  # replay writes its own keys and the deployed ecu only the live source's.
+  - kv: live
+    key: ecu.status.<src>
+    message: twr.state.v1.EcuStatus
+    content_type: application/json
+    producers: [ecu]
+    consumers: [pitwall, radio]
+    description: What ecu is doing (activity, idle, the telemetry link), written on change and at least every 5 s.
+
+  - kv: live
+    key: ecu.session.<src>
+    message: twr.state.v1.LiveSession
+    content_type: application/json
+    producers: [ecu]
+    consumers: [pitwall]
+    description: The open session as of its last frame (kind, track, car, lap, position); no key while none is open.
+
+  - kv: live
+    key: ecu.pit.<src>
+    message: twr.state.v1.PitState
+    content_type: application/json
+    producers: [ecu]
+    consumers: [pitwall]
+    description: Whether the car is in the pit lane, its stint and its stops; no key while no session is open.
+
+  - kv: live
+    key: ecu.fuel.<src>
+    message: twr.state.v1.FuelState
+    content_type: application/json
+    producers: [ecu]
+    consumers: [pitwall]
+    description: The fuel level, the tank and the laps it lasts; no key while no session is open.
+
+  - kv: ecu
+    key: sessions.open.<src>
+    message: twr.state.v1.OpenSession
+    content_type: application/json
+    producers: [ecu]
+    consumers: [ecu]
+    description: The open session and its running summary, which a restarted ecu continues or ends from (paddock#76); ecu's own bucket, which no reader of live sees.
+
 helpers:
   - twr.events.v1.CalloutSlots
   - twr.events.v1.PitStop
@@ -332,3 +376,5 @@ helpers:
   - twr.events.v1.TrackCandidate
   - twr.events.v1.TrackVerdict
   - twr.events.v1.TyreTemp
+  - twr.state.v1.LiveTrack
+  - twr.state.v1.OpenLap

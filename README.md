@@ -31,6 +31,7 @@ go get github.com/those-who-run/contracts@vX.Y.Z
 ```go
 import (
 	eventsv1 "github.com/those-who-run/contracts/gen/go/twr/events/v1"
+	statev1 "github.com/those-who-run/contracts/gen/go/twr/state/v1"
 	telemetryv1 "github.com/those-who-run/contracts/gen/go/twr/telemetry/v1"
 )
 ```
@@ -62,6 +63,14 @@ printable ASCII without `%` (`Encode` refuses anything else), so no header ever
 needs the NATS binding's percent-encoding. `ce.Header` has the
 shape of `nats.Header`, so `ce` needs no NATS client. Encoding a frame with its
 headers takes about 6 µs (`go test -bench EncodeFrame ./ce`).
+
+A KV value is written with `Put` and has no headers, so it goes through
+`ce.Marshal` and `ce.Unmarshal` alone:
+
+```go
+data, err := ce.Marshal(status)               // kv.Put(ctx, "ecu.status."+src, data)
+err = ce.Unmarshal(entry.Value(), status)     // unknown fields ignored, as for an event
+```
 
 A callout's subject carries its level, from its priority: package
 [`callout`](callout/callout.go) builds it, so every producer splits the levels
@@ -98,13 +107,25 @@ h, data, err := ce.Encode(c, ce.Event{ID: c.GetId(), Source: "/twr/ecu/gt7", Tim
 | `twr.events.v1.TelemetryRestored` | The frames came back after a loss. | [`telemetry_restored.json`](examples/events/v1/telemetry_restored.json) |
 | `twr.events.v1.Callout` | Something to say to the driver: the rule, the script key (`kind`) and the values that fill it (`slots`), which radio phrases, or a sentence (`text`); its priority, when it goes stale, how long it waits, and what happens to it in the pit lane. | [`callout_lap_time.json`](examples/events/v1/callout_lap_time.json), [`callout_telemetry.json`](examples/events/v1/callout_telemetry.json); from v1's callouts, [`callout_start_brief.json`](examples/events/v1/callout_start_brief.json), [`callout_position.json`](examples/events/v1/callout_position.json), [`callout_new_best.json`](examples/events/v1/callout_new_best.json) and [`callout_race_summary.json`](examples/events/v1/callout_race_summary.json) |
 
+The values ecu keeps in NATS KV, each under a key that carries its source
+(`<src>`), so a replay writes its own keys and never the live source's:
+
+| Message | Bucket and key | What it is | Example |
+| --- | --- | --- | --- |
+| `twr.state.v1.EcuStatus` | `live` `ecu.status.<src>` | What ecu is doing: its activity, whether it is idle and for how long, the telemetry link. v1's `/api/v1/status` and `/healthz`, but for radio's voice. | [`ecu_status.json`](examples/state/v1/ecu_status.json) |
+| `twr.state.v1.LiveSession` | `live` `ecu.session.<src>` | The open session as of its last frame: kind, track, car, lap, position. | [`ecu_session.json`](examples/state/v1/ecu_session.json) |
+| `twr.state.v1.PitState` | `live` `ecu.pit.<src>` | Whether the car is in the pit lane, its stint and its stops. | [`pit_state.json`](examples/state/v1/pit_state.json) |
+| `twr.state.v1.FuelState` | `live` `ecu.fuel.<src>` | The fuel, the tank, and the laps it lasts. | [`fuel_state.json`](examples/state/v1/fuel_state.json) |
+| `twr.state.v1.OpenSession` | `ecu` `sessions.open.<src>` | The open session and its running summary, which ecu continues or ends from after a restart. In ecu's own bucket, so a reader of `live` never sees it. | [`open_session.json`](examples/state/v1/open_session.json) |
+
 `SessionSummary`, `SessionKind`, `TrackVerdict`, `TrackCandidate`,
 `SessionGap`, `PitStop`, `TyreTemp` and `CalloutSlots` are parts of these events, not
-events of their own.
+events of their own, and `LiveTrack` and `OpenLap` parts of the values.
 [`summary_v1_test.go`](summary_v1_test.go) checks the two summaries from v1
 against what v1.0.0 wrote for its recordings, kept under
 [`testdata/v1/`](testdata/v1), field by field, and
-[`callout_test.go`](callout_test.go) does the same for four of v1's callouts.
+[`callout_test.go`](callout_test.go) does the same for four of v1's callouts, and
+[`status_v1_test.go`](status_v1_test.go) for v1's status route.
 
 Which subject each message travels on, with its `ce-type`, stream,
 producers, consumers and `Nats-Msg-Id` scheme, and which KV key holds which

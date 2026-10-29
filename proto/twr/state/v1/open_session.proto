@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package twr.state.v1;
+
+import "google/protobuf/timestamp.proto";
+import "twr/events/v1/lap.proto";
+import "twr/events/v1/pit.proto";
+import "twr/events/v1/session.proto";
+
+// OpenLap is the lap the car is on in an open session, which no
+// LapCompleted has carried yet.
+message OpenLap {
+  // The lap's number, from 1: the lap counter on the session's last frame.
+  // It is the last lap v1's continue match compares with (`continue_mismatch`
+  // in v1's store.py): a join on an earlier lap does not continue the
+  // session.
+  int32 lap = 1;
+  // The fuel in the tank when the lap started, in litres: the LapCompleted's
+  // fuel_at_start when the lap ends, in the continuing run too, since the lap
+  // an ecu restart falls in is one lap (paddock#76, R4; v1's `fuel_start` of
+  // the lap the gap falls in).
+  double fuel_at_start = 2;
+  // What the lap has had to do with the pits so far (PitRole): PIT_ROLE_OUT_LAP
+  // when it started from the pit lane, PIT_ROLE_IN_LAP or PIT_ROLE_IN_AND_OUT
+  // once the car came into the pit lane on it, and back as it was at a
+  // PitTeleport (paddock#79).
+  twr.events.v1.PitRole pit_role = 3;
+}
+
+// OpenSession is the session ecu has open, kept so that after a restart ecu
+// can continue it, or end it from this value alone (paddock#76), with no
+// request to logbook. It is in the `ecu` bucket under `sessions.open.<src>`,
+// one key per source, so a replay never reads or clears the live source's
+// session; the bucket is ecu's own, so a reader of `live` never sees the
+// running summary. ecu writes it, off the frame path, when the session starts,
+// at every lap, on a pit entry and exit, on a pause and a resume, and on
+// shutdown, and clears it, with a revision check (a KV compare-and-set), when
+// the session ends, so a second ecu never ends it twice.
+//
+// What v1's continue match (`continue_mismatch`) and the session's ids need,
+// and where each is: the car, the session's type, the lap total and the field
+// are summary's car_code, session_type, total_laps and total_cars; the track
+// verdict and the kind are summary's track and kind; the last lap is lap's
+// lap; the time since the session was last seen is last_seen_at's; the
+// <pause> count is pauses; the <entry> count is entries; the <stop> count is
+// the number of summary's pit_stops, and the stint summary's stints.
+message OpenSession {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // Where the telemetry comes from, the key's <src>, as in SessionStarted's
+  // source: a continued session keeps it.
+  string source = 2;
+  // The id of the ecu run that wrote this value, the ULID ecu mints when it
+  // starts: the run whose seqs pause's and pit_entry's `at` count in. A run
+  // that reads another run's value knows those seqs are not its own, as
+  // PitTeleport's entry_at needs.
+  string run_id = 3;
+  // When ecu last received a frame of the session, in UTC (v1's `ended_at`
+  // after a shutdown): a new run continues the session only within the
+  // continue window after it (ECU_CONTINUE_WINDOW_SECS, 600 s by default).
+  google.protobuf.Timestamp last_seen_at = 4;
+  // The running summary, as of last_seen_at: each field as SessionEnded's
+  // summary carries it, so ending the session from this value and ending it
+  // live give the same session.ended, with three differences while the
+  // session is open. laps holds only the laps a LapCompleted has carried (the
+  // one the car is on is lap); pit_stops holds only the stops a PitExited has
+  // carried (one the car is in is pit_entry's); and ended_at and ended_paused
+  // are set only when it ends. driving_ms and paused_ms count up to
+  // last_seen_at, an open pause's time included in paused_ms.
+  twr.events.v1.SessionSummary summary = 5;
+  // The lap the car is on. Absent before the session's first lap counter.
+  OpenLap lap = 6;
+  // The pauses so far in the session, an open one included: the last
+  // <pause> its ids used, so the next pause takes the next number (paddock#77).
+  int32 pauses = 7;
+  // The pit entries so far in the session, the ones a PitTeleport withdrew
+  // included: the last <entry> its ids used, so the next entry takes the next
+  // number (paddock#78, paddock#79).
+  int32 entries = 8;
+  // The pause the session is in, as its SessionPaused was published: since
+  // and pause say when it began and which it is, so a session ended in it
+  // ends paused, as of its start (paddock#76, R2). Absent when the session is
+  // not paused.
+  twr.events.v1.SessionPaused pause = 9;
+  // The pit entry the car is in, as its PitEntered was published, its stop
+  // not yet exited: a continuing run counts the stop on from it, and a
+  // session ended in the pit lane records it as an open stop. Absent when the
+  // car is not in the pit lane.
+  twr.events.v1.PitEntered pit_entry = 10;
+}

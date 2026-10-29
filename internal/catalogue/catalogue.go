@@ -48,8 +48,9 @@ func (s Subject) name() string {
 // Catalogue is subjects.yaml.
 type Catalogue struct {
 	Subjects []Subject `yaml:"subjects"`
-	// Helpers are the messages in an events package that are not events, only
-	// parts of one, such as SessionSummary: they need no entry.
+	// Helpers are the messages in an events or state package that are not
+	// events or values, only parts of one, such as SessionSummary: they need no
+	// entry.
 	Helpers []string `yaml:"helpers"`
 }
 
@@ -72,6 +73,11 @@ const ContentType = "application/json"
 // EventsPackages is the prefix of every events package, whatever its version:
 // each message there is an event and needs an entry, unless it is a helper.
 const EventsPackages = "twr.events."
+
+// StatePackages is the prefix of every state package, whatever its version:
+// each message there is a KV value and needs a KV entry, unless it is a
+// helper (paddock#72).
+const StatePackages = "twr.state."
 
 // NoSession is the token an event subject has in place of <sid> when it is
 // published while no session is open (paddock#70).
@@ -154,6 +160,7 @@ func (c *Catalogue) Check(messages Messages) error {
 	byType := map[string]string{}
 	typeOf := map[string]string{}
 	listed := map[string]bool{}
+	values := map[string]bool{}
 	for i, s := range c.Subjects {
 		fail := func(format string, args ...any) { p.add(s, i, format, args...) }
 		if first, ok := seen[s.name()]; ok {
@@ -162,6 +169,7 @@ func (c *Catalogue) Check(messages Messages) error {
 		seen[s.name()] = i
 		if s.IsKV() {
 			checkKV(s, fail)
+			values[s.Message] = true
 		} else {
 			checkSubject(s, fail)
 			listed[s.Message] = true
@@ -191,20 +199,25 @@ func (c *Catalogue) Check(messages Messages) error {
 		}
 	}
 	for _, h := range c.Helpers {
-		if !strings.HasPrefix(h, EventsPackages) {
-			p = append(p, fmt.Errorf("helper %s is not in an events package", h))
+		if !strings.HasPrefix(h, EventsPackages) && !strings.HasPrefix(h, StatePackages) {
+			p = append(p, fmt.Errorf("helper %s is not in an events package or a state package", h))
 		} else if d, err := messages.FindDescriptorByName(protoreflect.FullName(h)); err != nil {
 			p = append(p, fmt.Errorf("helper %s is not in the generated code", h))
 		} else if _, ok := d.(protoreflect.MessageDescriptor); !ok {
 			p = append(p, fmt.Errorf("helper %s is not a message", h))
 		}
-		if listed[h] {
-			p = append(p, fmt.Errorf("helper %s has an entry: a helper is not an event", h))
+		if listed[h] || values[h] {
+			p = append(p, fmt.Errorf("helper %s has an entry: a helper is not an event or a value", h))
 		}
 	}
 	for _, name := range c.EventMessages(messages) {
 		if !listed[string(name)] {
 			p = append(p, fmt.Errorf("event message %s has no entry in the catalogue, and is not a helper", name))
+		}
+	}
+	for _, name := range c.StateMessages(messages) {
+		if !values[string(name)] {
+			p = append(p, fmt.Errorf("state message %s has no KV entry in the catalogue, and is not a helper", name))
 		}
 	}
 	return errors.Join(p...)
@@ -346,8 +359,9 @@ func checkIDField(s Subject, messages Messages, fail func(string, ...any)) {
 	}
 }
 
-// checkKV checks a KV entry: a bucket and a key, and no subject, stream, ce_type
-// or msg_id, since a value written with Put carries no headers.
+// checkKV checks a KV entry: a bucket and a key that carries its source, and no
+// subject, stream, ce_type or msg_id, since a value written with Put carries no
+// headers.
 func checkKV(s Subject, fail func(string, ...any)) {
 	if !bucket.MatchString(s.KV) {
 		fail("kv bucket %q is not lower-case letters, digits, - and _", s.KV)
@@ -356,6 +370,10 @@ func checkKV(s Subject, fail func(string, ...any)) {
 		fail("key %q is not dot-separated tokens and placeholders", s.Key)
 	}
 	checkTokens(s.Key, "the key", func(p Placeholder) bool { return p.Key }, fail)
+	// paddock#72: a replay writes its own keys and never the live source's.
+	if !strings.Contains(s.Key, "<src>") {
+		fail("key %q does not carry <src>: every key is one per source", s.Key)
+	}
 	for _, f := range [...]struct{ name, value string }{
 		{"pattern", s.Pattern}, {"stream", s.Stream}, {"ce_type", s.CEType}, {"msg_id", s.MsgID},
 	} {
@@ -384,20 +402,32 @@ func checkTokens(text, where string, allowed func(Placeholder) bool, fail func(s
 // EventMessages are the messages in every events package, whatever its version,
 // that are not helpers: each needs an entry.
 func (c *Catalogue) EventMessages(messages Messages) []protoreflect.FullName {
-	var events []protoreflect.FullName
+	return c.messagesIn(messages, EventsPackages)
+}
+
+// StateMessages are the messages in every state package, whatever its version,
+// that are not helpers: each needs a KV entry.
+func (c *Catalogue) StateMessages(messages Messages) []protoreflect.FullName {
+	return c.messagesIn(messages, StatePackages)
+}
+
+// messagesIn are the messages in every package with the prefix that are not
+// helpers, sorted.
+func (c *Catalogue) messagesIn(messages Messages, prefix string) []protoreflect.FullName {
+	var names []protoreflect.FullName
 	messages.RangeFiles(func(f protoreflect.FileDescriptor) bool {
-		if !strings.HasPrefix(string(f.Package()), EventsPackages) {
+		if !strings.HasPrefix(string(f.Package()), prefix) {
 			return true
 		}
 		for i := range f.Messages().Len() {
 			if name := f.Messages().Get(i).FullName(); !slices.Contains(c.Helpers, string(name)) {
-				events = append(events, name)
+				names = append(names, name)
 			}
 		}
 		return true
 	})
-	slices.Sort(events)
-	return events
+	slices.Sort(names)
+	return names
 }
 
 // Render writes the catalogue as Markdown, the docs/subjects.md that
@@ -449,7 +479,7 @@ func (c *Catalogue) Render() []byte {
 		fmt.Fprintf(&b, "- %s: %s\n", name, s.Description)
 	}
 	if len(c.Helpers) > 0 {
-		b.WriteString("\nParts of an event, not events themselves, so they have no subject: ")
+		b.WriteString("\nParts of an event or a value, not events or values themselves, so they have no subject or key: ")
 		b.WriteString("`" + strings.Join(c.Helpers, "`, `") + "`.\n")
 	}
 	b.WriteString("\n## Placeholders\n\n")

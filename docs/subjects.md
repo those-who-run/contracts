@@ -44,6 +44,19 @@ callout within the duplicate window; the callout's level, `p0` to `p2`, is in th
 | `twr.v1.<src>.callout.p1` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
 | `twr.v1.<src>.callout.p2` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
 
+## KV keys
+
+Each value is the message in protobuf's JSON form, written with `Put`, so it has no
+headers.
+
+| Bucket | Key | Message | Writers | Readers |
+| --- | --- | --- | --- | --- |
+| `live` | `ecu.status.<src>` | `twr.state.v1.EcuStatus` | ecu | pitwall, radio |
+| `live` | `ecu.session.<src>` | `twr.state.v1.LiveSession` | ecu | pitwall |
+| `live` | `ecu.pit.<src>` | `twr.state.v1.PitState` | ecu | pitwall |
+| `live` | `ecu.fuel.<src>` | `twr.state.v1.FuelState` | ecu | pitwall |
+| `ecu` | `sessions.open.<src>` | `twr.state.v1.OpenSession` | ecu | ecu |
+
 ## What each one is
 
 - `twr.v1.<src>.frame.gt7`: Every decoded GT7 packet, about 60 a second.
@@ -71,8 +84,13 @@ callout within the duplicate window; the callout's level, `p0` to `p2`, is in th
 - `twr.v1.<src>.callout.p0`: A callout with priority under 10, spoken first, such as lost telemetry, critical fuel, the pit call or the start brief.
 - `twr.v1.<src>.callout.p1`: A callout with priority 10 to 19, such as the final lap, a new best, position, temperatures or fuel.
 - `twr.v1.<src>.callout.p2`: A callout with priority 20 or over, such as a lap time or the race summary.
+- `live` `ecu.status.<src>`: What ecu is doing (activity, idle, the telemetry link), written on change and at least every 5 s.
+- `live` `ecu.session.<src>`: The open session as of its last frame (kind, track, car, lap, position); no key while none is open.
+- `live` `ecu.pit.<src>`: Whether the car is in the pit lane, its stint and its stops; no key while no session is open.
+- `live` `ecu.fuel.<src>`: The fuel level, the tank and the laps it lasts; no key while no session is open.
+- `ecu` `sessions.open.<src>`: The open session and its running summary, which a restarted ecu continues or ends from (paddock#76); ecu's own bucket, which no reader of live sees.
 
-Parts of an event, not events themselves, so they have no subject: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`.
+Parts of an event or a value, not events or values themselves, so they have no subject or key: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`, `twr.state.v1.LiveTrack`, `twr.state.v1.OpenLap`.
 
 ## Placeholders
 
