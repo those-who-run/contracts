@@ -5,8 +5,9 @@ consumer installs it:
     <venv>/bin/python scripts/python_roundtrip.py <request.json>
 
 The request is what Go wrote: each example under examples/ with the JSON Go's
-ce encoded from the values the test expects, each as a whole event (headers and
-payload, from ce.Encode), and callout priorities. For each, this script:
+ce encoded from the values the test expects, each event among them as a whole
+event (headers and payload, from ce.Encode; a KV value has no headers), and
+callout priorities. For each, this script:
 
 - decodes the example and Go's JSON through twr_contracts.ce, and fails unless
   the two hold the same values (never comparing JSON text), and unless the
@@ -35,6 +36,10 @@ from typing import Any
 from google.protobuf import descriptor_pool, json_format, message_factory
 from google.protobuf.message import Message
 from twr.events.v1 import callout_pb2
+
+# The KV values (paddock#72), imported so their types are in the pool: no
+# helper imports them, as they have no ce-type.
+from twr.state.v1 import live_pb2, open_session_pb2  # noqa: F401
 from twr_contracts import callout, ce
 
 EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")

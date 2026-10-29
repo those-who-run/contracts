@@ -115,6 +115,15 @@ headers, data = ce.encode(c, ce.Event(id=c.id, source="/twr/radio", time=created
 await nc.publish(callout.subject("live", c), data, headers=headers)
 ```
 
+A KV value has no headers, so Python reads it with `ce.unmarshal` alone:
+
+```python
+from twr.state.v1 import live_pb2
+
+status = live_pb2.EcuStatus()
+ce.unmarshal(entry.value, status)  # await kv.get("ecu.status.live"), on nats-py
+```
+
 Python's `datetime` holds microseconds, so a `ce-time` with nanoseconds
 decodes to the microsecond. protoc's version and its digests in
 `scripts/protoc.py` are bumped by hand, with the `protobuf` floor in
