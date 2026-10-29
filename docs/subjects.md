@@ -73,7 +73,7 @@ A subject with no stream is core NATS only, never kept.
 - `twr.v1.<src>.callout.p0`: A callout with priority under 10, spoken first, such as lost telemetry, critical fuel, the pit call or the start brief.
 - `twr.v1.<src>.callout.p1`: A callout with priority 10 to 19, such as the final lap, a new best, position, temperatures or fuel.
 - `twr.v1.<src>.callout.p2`: A callout with priority 20 or over, such as a lap time or the race summary.
-- `twr.v1.<src>.frame.gt7.lo`: The same frames at 20 Hz, at most one per 50 ms of frame time, with the same headers; core NATS only, for the dash.
+- `twr.v1.<src>.frame.gt7.lo`: The same frames at 20 Hz, at most one per 50 ms of frame time (ecu's internal/bus enforces it), with the same headers; core NATS only, for the dash.
 
 Parts of an event, not events themselves, so they have no subject: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`.
 

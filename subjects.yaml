@@ -325,6 +325,7 @@ subjects:
     description: A callout with priority 20 or over, such as a lap time or the race summary.
 
   # 20 Hz: at most one frame per 50 ms of frame time, for the dash (paddock#137).
+  # The producer keeps the rate, not this catalogue: ecu's internal/bus (loGap).
   - pattern: twr.v1.<src>.frame.gt7.lo
     ce_type: run.thosewho.frame.gt7.v1
     message: twr.telemetry.v1.Frame
@@ -332,7 +333,7 @@ subjects:
     producers: [ecu]
     consumers: [dash]
     msg_id: <run>:frame:<seq>
-    description: The same frames at 20 Hz, at most one per 50 ms of frame time, with the same headers; core NATS only, for the dash.
+    description: The same frames at 20 Hz, at most one per 50 ms of frame time (ecu's internal/bus enforces it), with the same headers; core NATS only, for the dash.
 
 helpers:
   - twr.events.v1.CalloutSlots
