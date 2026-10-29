@@ -12,7 +12,6 @@
 package callout
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -55,11 +54,12 @@ func LevelSubject(src string, l Level) (string, error) {
 }
 
 // Subject is the subject the callout travels on from src (`live`, `parity`
-// or `replay-<name>`): its priority's level. A priority of 0 is unset, since
-// a publisher sets it from 1, so it is refused rather than sent as p0.
+// or `replay-<name>`): its priority's level. A publisher sets the priority
+// from 1, and 0 is unset, so a priority under 1 is refused rather than sent
+// as p0.
 func Subject(src string, c *eventsv1.Callout) (string, error) {
-	if c.GetPriority() == 0 {
-		return "", errors.New("the callout has no priority: a publisher sets it from 1")
+	if c.GetPriority() < 1 {
+		return "", fmt.Errorf("the callout's priority %d is not set: a publisher sets it from 1", c.GetPriority())
 	}
 	return LevelSubject(src, LevelOf(c.GetPriority()))
 }

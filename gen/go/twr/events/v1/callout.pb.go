@@ -22,28 +22,44 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// PitLane is what radio does with a callout between the car's pit entry and
-// its exit (v1's per-rule `pit_lane`, those-who-run#244), including a callout
-// still waiting to be spoken at the entry.
+// PitLane is what happens to a callout between the car's pit entry and its
+// exit (v1's per-rule `pit_lane`, those-who-run#244). The work is split as
+// v1's engine split it, so neither side races the other across CALLOUTS and
+// EVENTS, which nothing orders:
+//   - ecu applies it to the callouts it raises in the lane, from the frame of
+//     its PitEntered (the entry cut included, where a lap time can post)
+//     until its PitExited, as v1's Engine._quiet did: it never publishes a
+//     dropped one, and publishes a held one only when it is released.
+//   - radio applies it only to the callouts it still has queued, unspoken,
+//     when a PitEntered arrives (v1's queue at the entry). A callout that
+//     arrives after the PitEntered was already handled by ecu, and radio
+//     speaks it as any other.
+//
+// A held callout is released at the exit, PitExited's exited_at; at a
+// PitTeleport, which withdraws the entry, as v1's _apply_pits did when the
+// lane status cleared; or, when the session finishes in the lane and there is
+// no exit, at the flag, RaceFinished. Released, its life restarts: it expires
+// at the release plus (expires_at less created_at), as v1's Engine._release
+// re-raised it with created_at the release and no hold, and hold_until no
+// longer applies. ecu publishes the callouts it held with created_at and
+// expires_at from the release and no hold_until; at stays the frame the rule
+// raised it on.
 type PitLane int32
 
 const (
-	// Not set: radio reads it as PIT_LANE_HOLD, v1's default for a rule that
-	// sets none.
+	// Not set: read as PIT_LANE_HOLD, v1's default for a rule that sets none.
 	PitLane_PIT_LANE_UNSPECIFIED PitLane = 0
 	// Spoken in the lane as anywhere else (v1's fuel and race_summary: their
 	// calls are about the stop, or the flag can fall in a lane that crosses the
 	// line).
 	PitLane_PIT_LANE_SPEAK PitLane = 1
-	// Kept until the pit exit, then released as if raised there (v1's default:
-	// lap_time, final_lap, start_brief, temps, telemetry). v1's Engine._release
-	// re-raised a held callout at the exit with created_at the exit and no
-	// hold, so the time in the lane does not age it: its life restarts at the
-	// exit, and it expires at the exit plus (expires_at less created_at).
-	// hold_until no longer applies once it is released. A session that
-	// finishes in the lane has no exit: held callouts are released at the flag.
+	// Kept until it is released (PitLane's comment says when: the exit,
+	// PitExited's exited_at; a PitTeleport; or the flag, RaceFinished), then
+	// spoken as if raised there: the time in the lane does not age it (v1's
+	// default: lap_time, final_lap, start_brief, temps, telemetry).
 	PitLane_PIT_LANE_HOLD PitLane = 2
-	// Dropped (v1's position: the order before the stop; the net change follows
+	// Dropped, by ecu if raised in the lane and by radio if still queued at the
+	// entry (v1's position: the order before the stop; the net change follows
 	// the exit).
 	PitLane_PIT_LANE_DROP PitLane = 3
 )
@@ -103,31 +119,45 @@ func (PitLane) EnumDescriptor() ([]byte, []int) {
 // another language, without reading `text`. Another publisher may set `text`
 // instead, to have a sentence spoken as it is.
 //
-// The kinds ecu sends, by rule, are v1's script keys. Where v1 picked a
-// situational pool with a fallback (template_new_best_small,
-// template_gained_lead and _podium, template_lost_lead,
-// template_position_win and _podium, delta_slower_small and _large), kind is
-// the general key and radio picks the pool from the slots, as v1's rule did:
-//   - lap_time: template (lap, lap_time_ms, delta_ms when there is one),
-//     template_new_best (lap, lap_time_ms, delta_ms, negative), and
-//     template_in_lap, template_out_lap and template_pit_lap (lap,
-//     lap_time_ms).
+// kind is the script key the rule chose, the situational one where v1 had
+// one: ecu owns the settings that choose it (lap_time's small_gap_ms 200,
+// small_delta_ms 300 and large_delta_ms 2000 are rule settings), so radio
+// never chooses between pools. A situational key falls back to its general
+// key when radio's script lacks it, as v1's first_template did:
+// template_new_best_small to template_new_best, delta_slower_small and
+// delta_slower_large to delta_slower, template_gained_lead and
+// template_gained_podium to template_gained, template_lost_lead to
+// template_lost. The kinds ecu sends, by rule, with their slots:
+//   - lap_time: a lap's call is the rule's template ("Lap {lap}. {time}.
+//     {delta}."), and kind is the key of the phrase that fills its {delta}:
+//     delta_first (no delta: no best yet, or lap 2 of a lap race measured
+//     against lap 1 only), delta_equal, delta_slower, delta_slower_small or
+//     delta_slower_large (lap, lap_time_ms, and delta_ms but for
+//     delta_first). A new best is template_new_best or
+//     template_new_best_small (lap, lap_time_ms, delta_ms, its {gap}; its
+//     {delta} is delta_faster with the same value). template_in_lap,
+//     template_out_lap and template_pit_lap (lap, lap_time_ms) are a lap
+//     with a pit stop.
 //   - fuel: template and template_short (laps), template_critical,
 //     template_pit_next, template_pit, template_last_lap_enough and
 //     template_tight (no slots).
 //   - final_lap: template (no slots).
-//   - position: template_gained and template_lost (position,
-//     previous_position).
+//   - position: template_gained, template_gained_lead,
+//     template_gained_podium, template_lost and template_lost_lead
+//     (position, previous_position).
 //   - start_brief: template, the brief: v1 spoke one sentence for each slot
 //     set, in this order: template_track (track), template_laps (laps) or
 //     template_laps_to_go (laps_left), template_timed (timed), and
 //     template_position (position, total_cars). template_track alone (track)
-//     is the track named after the brief; template_joined (lap, laps when
-//     the race has a lap total, position and total_cars when it has a field)
-//     is the brief of a session ecu joined part way.
+//     is the track named after the brief. template_joined is the brief of a
+//     session ecu joined part way (lap, and laps when the race has a lap
+//     total), followed by template_joined_position (position and total_cars)
+//     when it has a field.
 //   - race_summary: template, at the flag (position when the race has a
 //     field, best_lap_ms when there is a best), and template_quit, leaving a
-//     solo session (laps, best_lap_ms).
+//     solo session (laps, best_lap_ms). Within template, radio fills
+//     {position} from template_position_win, template_position_podium or
+//     template_position by the position alone, and {best} from template_best.
 //   - temps: template_tyre_hot (corners), template_tyres_cold,
 //     template_water and template_oil.
 //   - telemetry: template_lost and template_back (no slots).
@@ -142,8 +172,10 @@ type Callout struct {
 	// window, printable ASCII without %, and a publish sent again keeps it, so
 	// the stream drops the copy and radio speaks it once. A publisher may mint
 	// it, such as a ULID, or derive it deterministically, such as from run_id,
-	// at, rule and the callout's index within its frame, so a replay can be
-	// reproducible.
+	// at, rule and the callout's index within its frame. A derived id repeats
+	// only when run_id does: ecu mints a new run_id at each start, so a replay
+	// is reproducible only if its run_id is too, such as one derived from a
+	// seed.
 	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 	// The rule that raised it: v1's rule name (lap_time, fuel, final_lap,
 	// position, start_brief, race_summary, temps or telemetry), or another
@@ -165,7 +197,9 @@ type Callout struct {
 	// under 10, p1 10 to 19, p2 20 and over) and orders callouts within it.
 	// v1's defaults: telemetry, critical fuel and the pit call 5, the start
 	// brief 8, the final lap 10, a new best 11, position 12, temps 14, fuel
-	// 15, a lap time 20 and the race summary 25 (rules.example.yaml).
+	// 15, a lap time 20 and the race summary 25 (rules.example.yaml). Equal
+	// priorities within a level keep the stream's order, the order they were
+	// published in, as v1's queue kept push order.
 	Priority int32 `protobuf:"varint,7,opt,name=priority,proto3" json:"priority,omitempty"`
 	// The `seq` of the frame the rule raised it on, in the ecu run that
 	// published it; for a telemetry callout, the last frame before the loss or
@@ -182,15 +216,19 @@ type Callout struct {
 	// race_summary, 30 s, so it waits behind the final lap time), or the
 	// queue's otherwise (v1's queue.max_age_seconds, 8 s). Absent: it never
 	// goes stale, as for a replay, whose queue v1 ran without a limit. A
-	// callout held in the pit lane (PIT_LANE_HOLD) restarts its life at the
-	// exit: it then expires at the exit plus (expires_at less created_at).
+	// callout radio holds in the pit lane (PIT_LANE_HOLD) restarts its life
+	// when it is released: it then expires at the release plus (expires_at less
+	// created_at). One ecu held is published with expires_at from its release.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	// Not spoken before this, in UTC (v1's hold, made absolute): created_at
-	// plus the rule's hold_secs, such as position's 1 s, in which a pit entry
-	// drops it (those-who-run#244). Absent: no hold. It no longer applies to a
-	// callout released at the pit exit (PIT_LANE_HOLD).
+	// plus the rule's hold_secs, such as position's 1 s, in which a PitEntered
+	// reaching radio drops it (PIT_LANE_DROP, those-who-run#244). Absent: no
+	// hold. It no longer applies to a held callout once it is released, and ecu
+	// publishes the callouts it held in the lane without it (PitLane).
 	HoldUntil *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=hold_until,json=holdUntil,proto3" json:"hold_until,omitempty"`
-	// What radio does with it in the pit lane (PitLane): the rule's pit_lane.
+	// What happens to it in the pit lane (PitLane): the rule's pit_lane. ecu
+	// has already applied it to a callout raised in the lane; radio applies it
+	// only to callouts still queued when a PitEntered arrives.
 	PitLane       PitLane `protobuf:"varint,13,opt,name=pit_lane,json=pitLane,proto3,enum=twr.events.v1.PitLane" json:"pit_lane,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -329,17 +367,14 @@ type CalloutSlots struct {
 	Lap *int32 `protobuf:"varint,1,opt,name=lap,proto3,oneof" json:"lap,omitempty"`
 	// The lap's time, in milliseconds ({time}): GT7's last lap time.
 	LapTimeMs *int32 `protobuf:"varint,2,opt,name=lap_time_ms,json=lapTimeMs,proto3,oneof" json:"lap_time_ms,omitempty"`
-	// The lap's time less the best before it, in milliseconds, exact. v1
-	// chose by the spoken difference, not this one: each time rounded half up
-	// to tenths, then the difference (v1's spoken_delta_ms), so the spoken
-	// delta matches the spoken times. The kind is chosen the same way
-	// (template_new_best when the spoken difference is negative, so its
-	// delta_ms is negative, the {gap}), and radio picks the pool (equal,
-	// slower, small or large) from the spoken difference too. So under
-	// template a negative delta_ms can occur, and reads as equal: 63120 ms
-	// against a best of 63140 is -20 exact but 0 spoken, "equal to best".
-	// Absent when v1 said no delta (delta_first): no best yet, or lap 2 of a
-	// lap race measured against lap 1 only.
+	// The lap's time less the best before it, in milliseconds, exact. ecu
+	// chooses the kind from the spoken difference, as v1 did: each time
+	// rounded half up to tenths, then the difference (v1's spoken_delta_ms).
+	// So delta_equal can carry a delta_ms that is not 0: 63120 ms against a
+	// best of 63140 is -20 exact but 0 spoken, "equal to best". radio uses the
+	// spoken difference only for the number it says ({delta} or {gap}, so it
+	// matches the spoken times), never to choose the phrase. Negative for a
+	// new best. Absent for delta_first.
 	DeltaMs *int32 `protobuf:"varint,3,opt,name=delta_ms,json=deltaMs,proto3,oneof" json:"delta_ms,omitempty"`
 	// A number of laps ({laps}): the fuel's, in whole laps (v1 rounds up within
 	// round_up_laps, which template_short says); the race's distance in the

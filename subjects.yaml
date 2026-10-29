@@ -209,7 +209,7 @@ subjects:
     content_type: application/json
     stream: EVENTS
     producers: [ecu]
-    consumers: [logbook]
+    consumers: [logbook, radio]
     msg_id: <src>:<sid>:race.finished:1
     description: The race finished, at the chequered flag or a timed race's finish.
 
@@ -219,7 +219,7 @@ subjects:
     content_type: application/json
     stream: EVENTS
     producers: [ecu]
-    consumers: [logbook]
+    consumers: [logbook, radio]
     msg_id: <src>:<sid>:pit.entered:<entry>
     description: The car came into the pit lane; a pit.teleport may withdraw it.
 
@@ -229,7 +229,7 @@ subjects:
     content_type: application/json
     stream: EVENTS
     producers: [ecu]
-    consumers: [logbook]
+    consumers: [logbook, radio]
     msg_id: <src>:<sid>:pit.exited:<stop>
     description: The car left the pit lane, with the stop it made; a stint starts.
 
@@ -239,7 +239,7 @@ subjects:
     content_type: application/json
     stream: EVENTS
     producers: [ecu]
-    consumers: [logbook]
+    consumers: [logbook, radio]
     msg_id: <src>:<sid>:pit.teleport:<entry>
     description: A pit entry was not a stop (never at rest, no fuel, no tyres), so it is withdrawn.
 

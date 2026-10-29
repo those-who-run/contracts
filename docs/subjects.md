@@ -31,10 +31,10 @@ callout within the duplicate window; the callout's level, `p0` to `p2`, is in th
 | `twr.v1.<src>.evt.<sid>.lap.best` | `twr.events.v1.LapBestChanged` | `run.thosewho.lap.best.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:lap.best:<n>` |
 | `twr.v1.<src>.evt.<sid>.race.final_lap` | `twr.events.v1.RaceFinalLapStarted` | `run.thosewho.race.final_lap.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.final_lap:1` |
 | `twr.v1.<src>.evt.<sid>.race.position` | `twr.events.v1.RacePositionChanged` | `run.thosewho.race.position.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.position:<run>:<seq>` |
-| `twr.v1.<src>.evt.<sid>.race.finished` | `twr.events.v1.RaceFinished` | `run.thosewho.race.finished.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:race.finished:1` |
-| `twr.v1.<src>.evt.<sid>.pit.entered` | `twr.events.v1.PitEntered` | `run.thosewho.pit.entered.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:pit.entered:<entry>` |
-| `twr.v1.<src>.evt.<sid>.pit.exited` | `twr.events.v1.PitExited` | `run.thosewho.pit.exited.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:pit.exited:<stop>` |
-| `twr.v1.<src>.evt.<sid>.pit.teleport` | `twr.events.v1.PitTeleport` | `run.thosewho.pit.teleport.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:pit.teleport:<entry>` |
+| `twr.v1.<src>.evt.<sid>.race.finished` | `twr.events.v1.RaceFinished` | `run.thosewho.race.finished.v1` | `EVENTS` | ecu | logbook, radio | `<src>:<sid>:race.finished:1` |
+| `twr.v1.<src>.evt.<sid>.pit.entered` | `twr.events.v1.PitEntered` | `run.thosewho.pit.entered.v1` | `EVENTS` | ecu | logbook, radio | `<src>:<sid>:pit.entered:<entry>` |
+| `twr.v1.<src>.evt.<sid>.pit.exited` | `twr.events.v1.PitExited` | `run.thosewho.pit.exited.v1` | `EVENTS` | ecu | logbook, radio | `<src>:<sid>:pit.exited:<stop>` |
+| `twr.v1.<src>.evt.<sid>.pit.teleport` | `twr.events.v1.PitTeleport` | `run.thosewho.pit.teleport.v1` | `EVENTS` | ecu | logbook, radio | `<src>:<sid>:pit.teleport:<entry>` |
 | `twr.v1.<src>.evt.<sid>.car.alarm` | `twr.events.v1.CarAlarmRaised` | `run.thosewho.car.alarm.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:car.alarm:<check>:<run>:<seq>` |
 | `twr.v1.<src>.evt.<sid>.telemetry.lost` | `twr.events.v1.TelemetryLost` | `run.thosewho.telemetry.lost.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:telemetry.lost:<run>:<seq>` |
 | `twr.v1.<src>.evt._.telemetry.lost` | `twr.events.v1.TelemetryLost` | `run.thosewho.telemetry.lost.v1` | `EVENTS` | ecu | logbook | `<src>:<run>:telemetry.lost:<seq>` |

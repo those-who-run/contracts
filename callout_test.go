@@ -25,7 +25,10 @@ import (
 // replay as v1's tests/test_real_recording.py runs it): v1's Callout, the
 // rule's pit_lane, and the frame it was raised on. The examples' clock puts
 // the recording's first frame at 2026-10-15T19:00:00Z, to the microsecond, and
-// a frame's seq is its packet_id less the first one's, plus 1.
+// a frame's seq is its packet_id less the first one's, plus 1. The examples
+// carry the expires_at a live ecu would send (the queue's 8 s, or the race
+// summary's 30 s): the replay that produced them ran v1's queue without a
+// limit, and a replay's callouts carry none.
 var suzukaFirstFrame = time.Date(2026, 10, 15, 19, 0, 0, 0, time.UTC)
 
 // v1QueueMaxAge is v1's queue.max_age_seconds, a callout's life when its rule
@@ -178,7 +181,7 @@ func TestTheLapTimeAndTelemetryCallouts(t *testing.T) {
 	}{
 		{"callout_lap_time.json", "twr.v1.live.callout.p2", func(c *eventsv1.Callout) bool {
 			s := c.GetSlots()
-			return c.GetSessionId() != "" && c.GetRule() == "lap_time" && c.GetKind() == "template" &&
+			return c.GetSessionId() != "" && c.GetRule() == "lap_time" && c.GetKind() == "delta_slower" &&
 				s.GetLap() == 3 && s.GetLapTimeMs() == 99000 && s.GetDeltaMs() == 1000
 		}},
 		{"callout_telemetry.json", "twr.v1.live.callout.p0", func(c *eventsv1.Callout) bool {

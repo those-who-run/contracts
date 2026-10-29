@@ -206,7 +206,7 @@ var examples = []struct {
 	// paddock#71's callout: AC3's lap time and telemetry callouts, and four of
 	// v1's from the Suzuka no-stop race (callout_test.go).
 	{"events/v1/callout_lap_time.json", &eventsv1.Callout{
-		SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE", Id: "01JB8Z9F2H4K6M8P0R2T4V6X8Z", Rule: "lap_time", Kind: "template",
+		SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE", Id: "01JB8Z9F2H4K6M8P0R2T4V6X8Z", Rule: "lap_time", Kind: "delta_slower",
 		Slots:    &eventsv1.CalloutSlots{Lap: proto.Int32(3), LapTimeMs: proto.Int32(99000), DeltaMs: proto.Int32(1000)},
 		Priority: 20, At: 19236, RunId: "01JB8Z2W6Y8A0C2E4G6J8M0P2R",
 		CreatedAt: timestamppb.New(time.Date(2026, 10, 26, 19, 35, 21, 875_000_000, time.UTC)),
