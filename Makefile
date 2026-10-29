@@ -33,6 +33,7 @@ help:
 	@echo "proto     - buf's checks: format, lint, breaking changes, no 64-bit integers, no unlisted removal, gen/ is fresh (in make test)"
 	@echo "proto-fmt - format the .proto files with buf format"
 	@echo "generate  - write gen/ from proto/ with buf generate, and docs/subjects.md from subjects.yaml; commit the result"
+	@echo "python    - the Python leg: gen/python installed in a virtual environment, and the round trip between Go and Python"
 	@echo "links     - every internal link and anchor in the Markdown resolves (offline)"
 	@echo "guard     - .claude/ holds those-who-run/.github's guard and settings at the pinned commit"
 
@@ -46,11 +47,25 @@ check:
 .PHONY: test
 test: proto go-test test-repo
 
-# The repository's own checks apart from the Go tests: links, the guard copy, and
-# the tests in tests/.
+# The repository's own checks apart from the Go tests: links, the guard copy, the
+# tests in tests/ and the Python leg.
 .PHONY: test-repo
-test-repo: links guard
+test-repo: links guard python
 	$(PY) -m unittest discover -s tests
+
+# The Python leg (paddock#265): gen/python installed into a new virtual
+# environment, as a consumer installs it, with the protobuf runtime
+# tests/python-constraints.txt pins, then python_test.go's round trip between
+# Go and Python. Its build tag keeps it out of `go test ./...`, which has no
+# such Python.
+PY_VENV := $(BUILD)/python
+.PHONY: python
+python:
+	rm -rf $(PY_VENV)
+	$(PY) -m venv $(PY_VENV)
+	$(PY_VENV)/bin/python -m pip install --quiet --disable-pip-version-check \
+	  --constraint tests/python-constraints.txt ./gen/python
+	TWR_PYTHON=$(abspath $(PY_VENV))/bin/python go test -tags python -count=1 -run '^TestPython' .
 
 .PHONY: hooks
 hooks:
@@ -108,13 +123,16 @@ proto:
 proto-fmt:
 	$(GO_TOOL) $(BUF) format --write
 
-# gen/ is only ever written by buf: stale files go first. docs/subjects.md is
+# gen/ is written by buf, apart from the Python package's own files, which are
+# written by hand (gen/python/pyproject.toml): stale generated files go first, and
+# the generated Python gets its type marker, py.typed. docs/subjects.md is
 # rendered from subjects.yaml by internal/catalogue's test, which fails while
 # the committed copy differs.
 .PHONY: generate
 generate:
-	rm -rf gen
+	rm -rf gen/go gen/python/twr
 	$(GO_TOOL) $(BUF) generate
+	touch gen/python/twr/py.typed
 	go test ./internal/catalogue -run TestSubjectsDocIsFresh -update
 
 .PHONY: links
