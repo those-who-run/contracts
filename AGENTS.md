@@ -115,9 +115,11 @@ in paddock mean for a change here:
   message, producers and consumers. A subject also has its `ce-type`
   (`run.thosewho.<area>.<what>.v<N>`, one to one with its message), stream and
   `Nats-Msg-Id` scheme, which for an event is `<src>:<sid>:<area>.<what>:<part>`
-  (`<src>:<sid>:lap.completed:<n>`); a KV key its bucket. A new message in an events package
-  (`twr.events.*`, any version) needs its entry in the same change, or a line
-  under `helpers` if it is only a part of an event: `internal/catalogue`'s test
+  (`<src>:<sid>:lap.completed:<n>`); a KV key its bucket, and a key in the
+  `live` and `ecu` buckets carries its `<src>` (`catalogue.SourceBuckets`). A new message in an events package
+  (`twr.events.*`, any version) needs its entry in the same change, and one in
+  a state package (`twr.state.*`) its KV entry, or a line
+  under `helpers` if it is only a part of an event or a value: `internal/catalogue`'s test
   fails without one, and on a pattern outside ADR 0001's subject scheme. A new
   placeholder goes in `catalogue.Placeholders`, which the check and the doc
   both read. `make generate` renders `docs/subjects.md` from the file.

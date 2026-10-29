@@ -1,0 +1,14 @@
+{
+  "sessionId": "01JBK7Q4F7H0K3N6Q9T2W5Y8BD",
+  "sessionType": "SESSION_TYPE_LAP_RACE",
+  "track": {
+    "trackId": 100002,
+    "name": "Circuit Gilles Villeneuve",
+    "sure": true
+  },
+  "carName": "Mazda RX-VISION GT3 EVO '26",
+  "lap": 2,
+  "totalLaps": 12,
+  "position": 16,
+  "totalCars": 20
+}

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	eventsv1 "github.com/those-who-run/contracts/gen/go/twr/events/v1"
+	statev1 "github.com/those-who-run/contracts/gen/go/twr/state/v1"
 	telemetryv1 "github.com/those-who-run/contracts/gen/go/twr/telemetry/v1"
 )
 
@@ -253,6 +254,80 @@ var examples = []struct {
 		ExpiresAt: timestamppb.New(time.Date(2026, 10, 15, 19, 7, 3, 531_882_000, time.UTC)),
 		PitLane:   eventsv1.PitLane_PIT_LANE_SPEAK,
 	}},
+	// paddock#72's KV values. The status and the session are v1's
+	// /api/v1/status mid-race at Gilles Villeneuve (status_v1_test.go); the
+	// open session is the Suzuka race v1 continued, as ecu would have kept it
+	// when it stopped on lap 7 (open_session_test.go).
+	{"state/v1/ecu_status.json", &statev1.EcuStatus{
+		Source: "live", RunId: "01JBK7Q2C5E8G1J4M7P0S3V6XZ", Version: "1.0.0",
+		StartedAt: timestamppb.New(time.Date(2026, 10, 29, 13, 52, 4, 125_000_000, time.UTC)),
+		Activity:  statev1.Activity_ACTIVITY_DRIVING, Idle: false, IdleSecs: 0,
+		TelemetryConnected: true, TelemetryListening: true, LastPacketAgeSecs: proto.Float64(0),
+		Packets: 10053, RacesStarted: 1,
+		UpdatedAt: timestamppb.New(time.Date(2026, 10, 29, 13, 52, 31, 500_000_000, time.UTC)),
+	}},
+	{"state/v1/ecu_session.json", &statev1.LiveSession{
+		SessionId: "01JBK7Q4F7H0K3N6Q9T2W5Y8BD", SessionType: eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
+		Track:   &statev1.LiveTrack{TrackId: proto.Int32(100002), Name: "Circuit Gilles Villeneuve", Sure: true},
+		CarName: "Mazda RX-VISION GT3 EVO '26", Lap: proto.Int32(2), TotalLaps: proto.Int32(12),
+		Position: proto.Int32(16), TotalCars: proto.Int32(20),
+	}},
+	{"state/v1/pit_state.json", &statev1.PitState{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", InPitLane: true, Stint: 1, Stops: 0,
+	}},
+	{"state/v1/fuel_state.json", &statev1.FuelState{
+		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", LapsRemaining: proto.Float64(0.9), FuelLevel: 8.685, FuelCapacity: 100,
+	}},
+	{"state/v1/open_session.json", openSuzuka()},
+}
+
+// openSuzuka is open_session.json's values: the Suzuka timed race of
+// session_ended_suzuka_continued.json as ecu kept it when it stopped in lap 7,
+// six laps and one stop in, after a 4 min pause on lap 3.
+func openSuzuka() *statev1.OpenSession {
+	const sid = "01JB9R1C8E4Q6W2Y9T3K7M5PXB"
+	var laps []*eventsv1.LapCompleted
+	for i, ms := range []int32{144763, 150116, 157531, 146928, 150412, 148205} {
+		lap := &eventsv1.LapCompleted{
+			SessionId: sid, Lap: int32(i + 1), LapTimeMs: ms, Complete: true, FuelAtStart: 100, FuelAtEnd: 100,
+			Position: proto.Int32(3), PitRole: eventsv1.PitRole_PIT_ROLE_NONE, CountsForBest: i > 0,
+		}
+		laps = append(laps, lap)
+	}
+	laps[1].Position = proto.Int32(11)
+	laps[3].PitRole, laps[3].CountsForBest = eventsv1.PitRole_PIT_ROLE_IN_AND_OUT, false
+	return &statev1.OpenSession{
+		SessionId: sid, Source: "live", RunId: "01JB9QZ1M3P5R7T9V2X4Z6B8DF",
+		LastSeenAt: timestamppb.New(time.Date(2026, 10, 18, 13, 45, 7, 776_810_000, time.UTC)),
+		Summary: &eventsv1.SessionSummary{
+			LapsCompleted: 6, BestLap: proto.Int32(6), BestLapTimeMs: proto.Int32(148205), FinalPosition: proto.Int32(1),
+			SessionType: eventsv1.SessionType_SESSION_TYPE_TIMED_FIELD,
+			StartedAt:   timestamppb.New(time.Date(2026, 10, 18, 13, 21, 47, 935_134_000, time.UTC)),
+			DrivingMs:   1159199, PausedMs: 240643,
+			Track: &eventsv1.TrackVerdict{
+				TrackId: proto.Int32(10), Name: "Suzuka Circuit", Confidence: eventsv1.TrackConfidence_TRACK_CONFIDENCE_CONFIRMED,
+				Evidence:   "finish line crossed, a full lap fits the layout (0.99)",
+				Candidates: []*eventsv1.TrackCandidate{{TrackId: 10, Name: "Suzuka Circuit", Fit: 0.993, LineCrossed: true}},
+			},
+			Kind: &eventsv1.SessionKind{
+				SessionType: eventsv1.SessionType_SESSION_TYPE_TIMED_FIELD, Field: true, FuelUse: eventsv1.FuelUse_FUEL_USE_OFF,
+				CarsOnTrack: true, Start: eventsv1.StartType_START_TYPE_FLYING,
+				Evidence: "no lap total, 17 cars; fuel use off; joined part way, start not seen",
+			},
+			CarCode: 1689, CarName: "Honda Civic Type R (EK) Touring Car", FastestLapMs: proto.Int32(144763),
+			GameBestLapMs: proto.Int32(148205), TotalCars: proto.Int32(17), FuelStints: []float64{0, 0},
+			FuelCapacity: 100, FuelAtStart: 100, FuelAtEnd: 100, Stints: 2,
+			PitStops: []*eventsv1.PitStop{{
+				Stop: 1, InLap: 4, OutLap: proto.Int32(4), PitLaneMs: proto.Int32(239390), StationaryMs: 217020,
+				FuelBefore: 100, FuelAfter: 100, PitLaneKph: proto.Float64(0),
+				PositionBefore: proto.Int32(3), PositionAfter: proto.Int32(3),
+				Evidence: "entry loading cut at 0.0 km/h; over 100 km/h",
+			}},
+			Laps: laps,
+		},
+		Lap:    &statev1.OpenLap{Lap: 7, FuelAtStart: 100, PitRole: eventsv1.PitRole_PIT_ROLE_NONE},
+		Pauses: 1, Entries: 1, PublishedPosition: proto.Int32(1),
+	}
 }
 
 var readers = protojson.UnmarshalOptions{DiscardUnknown: true}

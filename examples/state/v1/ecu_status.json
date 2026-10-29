@@ -1,0 +1,15 @@
+{
+  "source": "live",
+  "runId": "01JBK7Q2C5E8G1J4M7P0S3V6XZ",
+  "version": "1.0.0",
+  "startedAt": "2026-10-29T13:52:04.125Z",
+  "activity": "ACTIVITY_DRIVING",
+  "idle": false,
+  "idleSecs": 0.0,
+  "telemetryConnected": true,
+  "telemetryListening": true,
+  "lastPacketAgeSecs": 0.0,
+  "packets": 10053,
+  "racesStarted": 1,
+  "updatedAt": "2026-10-29T13:52:31.500Z"
+}

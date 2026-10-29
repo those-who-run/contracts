@@ -1,0 +1,150 @@
+{
+  "sessionId": "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+  "source": "live",
+  "runId": "01JB9QZ1M3P5R7T9V2X4Z6B8DF",
+  "lastSeenAt": "2026-10-18T13:45:07.776810Z",
+  "summary": {
+    "lapsCompleted": 6,
+    "bestLap": 6,
+    "bestLapTimeMs": 148205,
+    "fuelUsed": 0.0,
+    "finalPosition": 1,
+    "sessionType": "SESSION_TYPE_TIMED_FIELD",
+    "startedAt": "2026-10-18T13:21:47.935134Z",
+    "drivingMs": 1159199,
+    "pausedMs": 240643,
+    "track": {
+      "trackId": 10,
+      "name": "Suzuka Circuit",
+      "confidence": "TRACK_CONFIDENCE_CONFIRMED",
+      "evidence": "finish line crossed, a full lap fits the layout (0.99)",
+      "candidates": [
+        {
+          "trackId": 10,
+          "name": "Suzuka Circuit",
+          "fit": 0.993,
+          "lineCrossed": true
+        }
+      ]
+    },
+    "kind": {
+      "sessionType": "SESSION_TYPE_TIMED_FIELD",
+      "field": true,
+      "fuelUse": "FUEL_USE_OFF",
+      "carsOnTrack": true,
+      "start": "START_TYPE_FLYING",
+      "evidence": "no lap total, 17 cars; fuel use off; joined part way, start not seen"
+    },
+    "carCode": 1689,
+    "carName": "Honda Civic Type R (EK) Touring Car",
+    "fastestLapMs": 144763,
+    "gameBestLapMs": 148205,
+    "totalCars": 17,
+    "fuelBurned": 0.0,
+    "fuelStints": [
+      0.0,
+      0.0
+    ],
+    "fuelCapacity": 100.0,
+    "fuelAtStart": 100.0,
+    "fuelAtEnd": 100.0,
+    "stints": 2,
+    "pitStops": [
+      {
+        "stop": 1,
+        "inLap": 4,
+        "outLap": 4,
+        "pitLaneMs": 239390,
+        "stationaryMs": 217020,
+        "fuelBefore": 100.0,
+        "fuelAfter": 100.0,
+        "fuelAdded": 0.0,
+        "tyresChanged": false,
+        "pitLaneKph": 0.0,
+        "positionBefore": 3,
+        "positionAfter": 3,
+        "evidence": "entry loading cut at 0.0 km/h; over 100 km/h"
+      }
+    ],
+    "laps": [
+      {
+        "sessionId": "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+        "lap": 1,
+        "lapTimeMs": 144763,
+        "complete": true,
+        "fuelAtStart": 100.0,
+        "fuelAtEnd": 100.0,
+        "fuelUsed": 0.0,
+        "position": 3,
+        "pitRole": "PIT_ROLE_NONE"
+      },
+      {
+        "sessionId": "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+        "lap": 2,
+        "lapTimeMs": 150116,
+        "complete": true,
+        "fuelAtStart": 100.0,
+        "fuelAtEnd": 100.0,
+        "fuelUsed": 0.0,
+        "position": 11,
+        "pitRole": "PIT_ROLE_NONE",
+        "countsForBest": true
+      },
+      {
+        "sessionId": "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+        "lap": 3,
+        "lapTimeMs": 157531,
+        "complete": true,
+        "fuelAtStart": 100.0,
+        "fuelAtEnd": 100.0,
+        "fuelUsed": 0.0,
+        "position": 3,
+        "pitRole": "PIT_ROLE_NONE",
+        "countsForBest": true
+      },
+      {
+        "sessionId": "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+        "lap": 4,
+        "lapTimeMs": 146928,
+        "complete": true,
+        "fuelAtStart": 100.0,
+        "fuelAtEnd": 100.0,
+        "fuelUsed": 0.0,
+        "position": 3,
+        "pitRole": "PIT_ROLE_IN_AND_OUT"
+      },
+      {
+        "sessionId": "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+        "lap": 5,
+        "lapTimeMs": 150412,
+        "complete": true,
+        "fuelAtStart": 100.0,
+        "fuelAtEnd": 100.0,
+        "fuelUsed": 0.0,
+        "position": 3,
+        "pitRole": "PIT_ROLE_NONE",
+        "countsForBest": true
+      },
+      {
+        "sessionId": "01JB9R1C8E4Q6W2Y9T3K7M5PXB",
+        "lap": 6,
+        "lapTimeMs": 148205,
+        "complete": true,
+        "fuelAtStart": 100.0,
+        "fuelAtEnd": 100.0,
+        "fuelUsed": 0.0,
+        "position": 3,
+        "pitRole": "PIT_ROLE_NONE",
+        "countsForBest": true
+      }
+    ]
+  },
+  "lap": {
+    "lap": 7,
+    "fuelAtStart": 100.0,
+    "pitRole": "PIT_ROLE_NONE"
+  },
+  "pauses": 1,
+  "entries": 1,
+  "publishedPosition": 1
+}

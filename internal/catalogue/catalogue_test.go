@@ -18,6 +18,7 @@ import (
 
 	// The generated messages, which register themselves in GlobalFiles.
 	_ "github.com/those-who-run/contracts/gen/go/twr/events/v1"
+	_ "github.com/those-who-run/contracts/gen/go/twr/state/v1"
 	_ "github.com/those-who-run/contracts/gen/go/twr/telemetry/v1"
 	"github.com/those-who-run/contracts/internal/catalogue"
 )
@@ -51,8 +52,8 @@ func load(t *testing.T, fsys fs.FS, name string) *catalogue.Catalogue {
 }
 
 // The catalogue lists v0.1's four subjects (paddock#25, R1), the session and
-// race events (paddock#69, R4) and the 20 Hz frame (paddock#137), and passes
-// every check.
+// race events (paddock#69, R4), the 20 Hz frame (paddock#137) and the KV
+// keys (paddock#72, R3), and passes every check.
 func TestTheCatalogueChecksOut(t *testing.T) {
 	c := load(t, repo, subjects)
 	if err := c.Check(protoregistry.GlobalFiles); err != nil {
@@ -90,10 +91,28 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		// paddock#137: the 20 Hz frame, in no stream.
 		"twr.v1.<src>.frame.gt7.lo": "twr.telemetry.v1.Frame",
 	}
-	if len(c.Subjects) != len(want) {
-		t.Errorf("%d subjects, want %d", len(c.Subjects), len(want))
+	// paddock#72: every key carries its source; the open session is in ecu's
+	// own bucket, written and read by ecu alone.
+	wantKV := map[string]struct {
+		message, consumers string
+	}{
+		"live ecu.status.<src>":   {"twr.state.v1.EcuStatus", "pitwall radio"},
+		"live ecu.session.<src>":  {"twr.state.v1.LiveSession", "pitwall"},
+		"live ecu.pit.<src>":      {"twr.state.v1.PitState", "pitwall"},
+		"live ecu.fuel.<src>":     {"twr.state.v1.FuelState", "pitwall"},
+		"ecu sessions.open.<src>": {"twr.state.v1.OpenSession", "ecu"},
+	}
+	if len(c.Subjects) != len(want)+len(wantKV) {
+		t.Errorf("%d subjects and keys, want %d", len(c.Subjects), len(want)+len(wantKV))
 	}
 	for _, s := range c.Subjects {
+		if s.IsKV() {
+			w := wantKV[s.KV+" "+s.Key]
+			if w.message != s.Message || w.consumers != strings.Join(s.Consumers, " ") || strings.Join(s.Producers, " ") != "ecu" {
+				t.Errorf("kv %s %s holds %s for %v, want %q for %q", s.KV, s.Key, s.Message, s.Consumers, w.message, w.consumers)
+			}
+			continue
+		}
 		if want[s.Pattern] != s.Message {
 			t.Errorf("%s carries %s, want %q", s.Pattern, s.Message, want[s.Pattern])
 		}
@@ -173,8 +192,27 @@ func TestAnEventMessageWithoutAnEntryFails(t *testing.T) {
 		"event message twr.events.v1.PenaltyServed has no entry in the catalogue")
 	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.events.v2", "LapCompleted"),
 		"event message twr.events.v2.LapCompleted has no entry in the catalogue")
-	// A message outside the events packages needs none.
-	assertPasses(t, load(t, repo, subjects), withMessage(t, "twr.state.v1", "EcuStatus"))
+	// A message outside the events and state packages needs none.
+	assertPasses(t, load(t, repo, subjects), withMessage(t, "twr.config.v1", "Settings"))
+}
+
+// A state message without a KV entry fails the check, in any version of the
+// state package (paddock#72): every value's key is in the catalogue.
+func TestAStateMessageWithoutAnEntryFails(t *testing.T) {
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.state.v1", "RadioStatus"),
+		"state message twr.state.v1.RadioStatus has no KV entry in the catalogue, and is not a helper")
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.state.v2", "EcuStatus"),
+		"state message twr.state.v2.EcuStatus has no KV entry in the catalogue, and is not a helper")
+	c := load(t, repo, subjects)
+	c.Subjects = slices.DeleteFunc(c.Subjects, func(s catalogue.Subject) bool { return s.Key == "sessions.open.<src>" })
+	assertFails(t, c, protoregistry.GlobalFiles,
+		"state message twr.state.v1.OpenSession has no KV entry in the catalogue")
+	// A message only some subject carries is not a KV entry.
+	c = load(t, repo, subjects)
+	c.Subjects[0].Message = "twr.state.v1.EcuStatus"
+	c.Subjects = slices.DeleteFunc(c.Subjects, func(s catalogue.Subject) bool { return s.Key == "ecu.status.<src>" })
+	assertFails(t, c, protoregistry.GlobalFiles,
+		"state message twr.state.v1.EcuStatus has no KV entry in the catalogue")
 }
 
 // helpers names the events-package messages that are not events: they need no
@@ -184,12 +222,15 @@ func TestHelpers(t *testing.T) {
 	c.Helpers = nil
 	assertFails(t, c, protoregistry.GlobalFiles,
 		"event message twr.events.v1.SessionSummary has no entry in the catalogue, and is not a helper")
+	assertFails(t, c, protoregistry.GlobalFiles,
+		"state message twr.state.v1.OpenLap has no KV entry in the catalogue, and is not a helper")
 
 	for _, tc := range []struct {
 		helper string
 		want   string
 	}{
 		{"twr.events.v1.LapCompleted", "helper twr.events.v1.LapCompleted has an entry: a helper is not an event"},
+		{"twr.state.v1.EcuStatus", "helper twr.state.v1.EcuStatus has an entry: a helper is not an event or a value"},
 		{"twr.telemetry.v1.Frame", "helper twr.telemetry.v1.Frame is not in an events package"},
 		{"twr.events.v1.Summary", "helper twr.events.v1.Summary is not in the generated code"},
 		{"twr.events.v1.PitRole", "helper twr.events.v1.PitRole is not a message"},
@@ -336,23 +377,31 @@ func TestTokensMayJoinWordsWithUnderscores(t *testing.T) {
 	assertFails(t, c, protoregistry.GlobalFiles, "is not <src>:<sid>:<area>.<what>")
 }
 
-// withKV is the real catalogue with testdata/kv.yaml's KV entry after its
-// subjects, so the entry is checked beside every event the catalogue has.
-func withKV(t *testing.T) *catalogue.Catalogue {
+// kvEntry is the index of the real catalogue's KV entry for ecu.status.<src>
+// (paddock#72), checked beside every event the catalogue has.
+func kvEntry(t *testing.T, c *catalogue.Catalogue) int {
 	t.Helper()
-	c := load(t, repo, subjects)
-	c.Subjects = append(c.Subjects, load(t, testdata, "kv.yaml").Subjects...)
-	return c
+	n := slices.IndexFunc(c.Subjects, func(s catalogue.Subject) bool { return s.KV == "live" && s.Key == "ecu.status.<src>" })
+	if n < 0 {
+		t.Fatal("the catalogue has no live ecu.status.<src>")
+	}
+	return n
 }
 
 // A KV entry has its own rules: a bucket, a key, a message, writers, readers and
 // a description, and no subject, stream, ce-type or msg_id.
 func TestKVEntries(t *testing.T) {
-	messages := withMessage(t, "twr.state.v1", "EcuStatus")
-	c := withKV(t)
+	messages := protoregistry.GlobalFiles
+	c := load(t, repo, subjects)
 	assertPasses(t, c, messages)
-	if doc := string(c.Render()); !strings.Contains(doc, "| `live` | `ecu.status.<src>` | `twr.state.v1.EcuStatus` | ecu | pitwall, dash |") {
-		t.Errorf("the KV key is not in the rendered doc:\n%s", doc)
+	doc := string(c.Render())
+	for _, row := range []string{
+		"| `live` | `ecu.status.<src>` | `twr.state.v1.EcuStatus` | ecu | pitwall, radio |",
+		"| `ecu` | `sessions.open.<src>` | `twr.state.v1.OpenSession` | ecu | ecu |",
+	} {
+		if !strings.Contains(doc, row) {
+			t.Errorf("the KV key is not in the rendered doc: %s\n%s", row, doc)
+		}
 	}
 
 	for _, tc := range []struct {
@@ -367,15 +416,29 @@ func TestKVEntries(t *testing.T) {
 		{"a bucket with capitals", func(s *catalogue.Subject) { s.KV = "Live" }, `kv bucket "Live" is not lower-case`},
 		{"a key with a space", func(s *catalogue.Subject) { s.Key = "ecu status" }, `key "ecu status" is not dot-separated`},
 		{"a placeholder not allowed in a key", func(s *catalogue.Subject) { s.Key = "ecu.frame.<seq>" }, "unknown placeholder <seq> in the key"},
+		{"a key without its source", func(s *catalogue.Subject) { s.Key = "ecu.status" }, `key "ecu.status" does not carry <src>: every key in the live bucket`},
 		{"no writers", func(s *catalogue.Subject) { s.Producers = nil }, "no producers"},
 		{"no readers", func(s *catalogue.Subject) { s.Consumers = nil }, "no consumers"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c := withKV(t)
-			tc.change(&c.Subjects[len(c.Subjects)-1])
+			c := load(t, repo, subjects)
+			tc.change(&c.Subjects[kvEntry(t, c)])
 			assertFails(t, c, messages, tc.want)
 		})
 	}
+
+	// The open session's bucket is one per source too.
+	c = load(t, repo, subjects)
+	open := slices.IndexFunc(c.Subjects, func(s catalogue.Subject) bool { return s.KV == "ecu" })
+	c.Subjects[open].Key = "sessions.open"
+	assertFails(t, c, messages, `key "sessions.open" does not carry <src>: every key in the ecu bucket`)
+
+	// A key in another bucket, such as the planned config bucket's, need not
+	// carry <src>.
+	c = load(t, repo, subjects)
+	n := kvEntry(t, c)
+	c.Subjects[n].KV, c.Subjects[n].Key = "config", "ecu.ps5.address"
+	assertPasses(t, c, messages)
 
 	c = load(t, repo, subjects)
 	c.Subjects[0].Key = "frames"
@@ -516,7 +579,7 @@ func ceTypes(c *catalogue.Catalogue) map[protoreflect.FullName]string {
 // Agrees passes over KV entries, which have no ce-type, and takes a message on
 // several subjects once.
 func TestAgreesSkipsKVAndRepeats(t *testing.T) {
-	c := withKV(t)
+	c := load(t, repo, subjects)
 	types := ceTypes(c)
 	if _, ok := types["twr.state.v1.EcuStatus"]; ok {
 		t.Fatal("the KV entry's message is in the ce-type table")

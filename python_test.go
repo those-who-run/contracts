@@ -100,6 +100,9 @@ func TestPythonRoundTrip(t *testing.T) {
 	at := time.Date(2026, 10, 29, 18, 3, 7, 588_057_000, time.UTC)
 	var req pyRequest
 	want := map[string]proto.Message{}
+	// The examples that travel as events: a KV value (paddock#72) is written
+	// with Put, with no headers, so only its JSON makes the trip.
+	var events []int
 	for i, ex := range examples {
 		data, err := ce.Marshal(ex.want)
 		if err != nil {
@@ -108,6 +111,10 @@ func TestPythonRoundTrip(t *testing.T) {
 		name := string(ex.want.ProtoReflect().Descriptor().FullName())
 		req.Examples = append(req.Examples, pyExample{File: ex.file, Message: name, Go: string(data)})
 		want[ex.file] = ex.want
+		if _, err := ce.Type(ex.want); err != nil {
+			continue
+		}
+		events = append(events, i)
 
 		e := ce.Event{ID: fmt.Sprintf("live:01JBBX7Q2M5R8T1V4W6Y9K3NZC:example:%d", i), Source: "/twr/ecu/gt7", Time: at.Add(time.Duration(i) * time.Millisecond)}
 		h, data, err := ce.Encode(ex.want, e)
@@ -125,8 +132,11 @@ func TestPythonRoundTrip(t *testing.T) {
 	}
 	resp := python(t, req)
 
-	if len(resp.Examples) != len(examples) || len(resp.Events) != len(examples) {
-		t.Fatalf("Python answered for %d examples and %d events, want %d", len(resp.Examples), len(resp.Events), len(examples))
+	if len(resp.Examples) != len(examples) || len(resp.Events) != len(events) {
+		t.Fatalf("Python answered for %d examples and %d events, want %d and %d", len(resp.Examples), len(resp.Events), len(examples), len(events))
+	}
+	if len(events) == len(examples) || len(events) < 20 {
+		t.Errorf("%d of %d examples are events: the KV values have no ce-type, and every event has one", len(events), len(examples))
 	}
 	for _, ex := range resp.Examples {
 		got := want[ex.File].ProtoReflect().New().Interface()
@@ -139,7 +149,7 @@ func TestPythonRoundTrip(t *testing.T) {
 		}
 	}
 	for i, ev := range resp.Events {
-		ex := examples[i]
+		ex := examples[events[i]]
 		h := ce.Header{}
 		for k, v := range ev.Headers {
 			h[k] = []string{v}

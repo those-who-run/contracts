@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+// State: the values ecu keeps in NATS KV (paddock#72), so a reader that joins
+// late gets the current value at once and then watches it (ADR 0001, point
+// 1). Each value is written whole with Put, in protobuf's JSON form, with no
+// headers; subjects.yaml lists each bucket and key with its message. No value
+// holds a token, a secret, a PS5 address or a Discord id: only what v1's
+// status route showed anyone (v1's status.py), as the `live` bucket is read by
+// the browser's read-only user.
+package twr.state.v1;
+
+import "google/protobuf/timestamp.proto";
+import "twr/events/v1/session.proto";
+
+// Activity is what ecu is doing, as v1's status route said it (v1's
+// status.py `Activity`).
+enum Activity {
+  // Not set.
+  ACTIVITY_UNSPECIFIED = 0;
+  // No driving frame for the telemetry timeout: exactly when EcuStatus's idle
+  // is true, as v1's `idle` was exactly when its /healthz said idle. A
+  // session left open by a feed that stopped is idle.
+  ACTIVITY_IDLE = 1;
+  // Driving frames arrive, a start ecu is still judging (paddock#74)
+  // included (v1's `driving`).
+  ACTIVITY_DRIVING = 2;
+  // The session is paused (paddock#77; v1's `paused`).
+  ACTIVITY_PAUSED = 3;
+  // GT7 is playing back a race, which ecu ignores (paddock#74; v1's `replay`).
+  // Not a recording replayed through ecu: that is the key's <src>.
+  ACTIVITY_REPLAY = 4;
+  // GT7's attract-mode demo race, which ecu ignores (paddock#74; v1's
+  // `demo`).
+  ACTIVITY_DEMO = 5;
+}
+
+// EcuStatus is what ecu is doing right now: the engineer's part of v1's
+// `GET /api/v1/status` body (v1's status.py EngineStatus) and of its
+// /healthz, in the `live` bucket under `ecu.status.<src>`, one key per
+// source, so a replay writes its own key and never the live source's
+// (paddock#88). ecu writes it on change, at most once a second; every second
+// while idle, so idle_secs stays current (paddock#125's triage); and at least
+// every 5 s while busy. So a reader such as the pit wall's chip (paddock#125)
+// can take a value whose updated_at is far older than 5 s as ecu gone.
+// v1's `voice_connected` is radio's, in its own key (paddock#62), and v1's
+// `session` is LiveSession, under `ecu.session.<src>`.
+message EcuStatus {
+  // Where the telemetry comes from, the key's <src>: `live`, `parity`, or
+  // `replay-` followed by the replay's name.
+  string source = 1;
+  // The ecu run's id, the ULID ecu mints when it starts: a new one after
+  // every restart.
+  string run_id = 2;
+  // ecu's version, such as "0.2.0" (v1's `version`).
+  string version = 3;
+  // When this ecu run started, in UTC (v1's `started_at`, in epoch seconds).
+  google.protobuf.Timestamp started_at = 4;
+  // What ecu is doing (Activity, v1's `activity`): ACTIVITY_IDLE exactly when
+  // idle is true.
+  Activity activity = 5;
+  // Whether a restart would cut into a drive: false while driving frames
+  // (racing, or paused in a race) arrive, that is while the last one is
+  // under the telemetry timeout old (ECU_TELEMETRY_TIMEOUT_SECS, 3 s by
+  // default); true otherwise, a session left open by a feed that stopped
+  // included (v1's /healthz `idle`). The deployment's idle gate waits on it
+  // (paddock#107).
+  bool idle = 6;
+  // The seconds since the last driving frame, as of updated_at, rounded to 1
+  // decimal: 0 while idle is false, and since ecu started when no driving
+  // frame came yet (v1's `idle_secs`). While idle is true, a reader adds the
+  // time since updated_at; while it is false, idle_secs is 0 whatever the
+  // time. In seconds as a double, as v1 had it: an idle ecu can wait longer
+  // than an int32 of milliseconds holds.
+  double idle_secs = 7;
+  // Whether a packet arrived within the telemetry timeout (v1's
+  // `telemetry.connected` and /healthz `telemetry_connected`). False whenever
+  // the PS5 is off, which is normal.
+  bool telemetry_connected = 8;
+  // Whether ecu's telemetry listener is bound and reading (v1's /healthz
+  // `telemetry_listening`). False only when it could not bind, which makes
+  // ecu unhealthy (paddock#88, R4).
+  bool telemetry_listening = 9;
+  // The seconds since the last packet, as of updated_at, rounded to 1
+  // decimal (v1's `telemetry.last_packet_age_s`). Absent before the first
+  // packet of this ecu run.
+  optional double last_packet_age_secs = 10;
+  // The packets ecu has read in this run (v1's /healthz `packets`).
+  uint32 packets = 11;
+  // The sessions started in this ecu run (v1's /healthz `races_started`).
+  int32 races_started = 12;
+  // When ecu wrote this value, in UTC: idle_secs and last_packet_age_secs are
+  // as of then. ecu rewrites the value every second while idle and at least
+  // every 5 s while busy.
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// LiveTrack is the track as ecu's track detector has placed it so far (v1's
+// status.py TrackSeen): the part of the session's TrackVerdict a live reader
+// shows.
+message LiveTrack {
+  // The layout's id in ecu's track table, as TrackVerdict's track_id (v1's
+  // `id`). Absent when only the circuit is known, as for Fuji's layouts.
+  optional int32 track_id = 1;
+  // The layout's name, or the circuit's when only that is known (v1's
+  // `name`).
+  string name = 2;
+  // Whether the detector is sure: its confidence is
+  // TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED (v1's `sure`).
+  bool sure = 3;
+}
+
+// LiveSession is the session ecu has open, as of its last frame (v1's
+// status.py LiveSession), in the `live` bucket under `ecu.session.<src>`. ecu
+// writes it on change, at most once a second, while a session is open, and
+// deletes the key when the session ends, so no value means no session is
+// open (v1's `session` null).
+message LiveSession {
+  // The session's id, as in its SessionStarted (v1's `id`).
+  string session_id = 1;
+  // ecu's verdict on what kind of session it is, as in its last
+  // SessionKindChanged: SESSION_TYPE_UNKNOWN until it knows (v1's `kind`).
+  twr.events.v1.SessionType session_type = 2;
+  // Where it is being driven. Absent until the track detector has placed a
+  // layout or a circuit (v1's `track` null).
+  LiveTrack track = 3;
+  // The car's name, as in SessionStarted (v1's `car`).
+  string car_name = 4;
+  // The lap of the last driving frame, from 1 (v1's `lap`). Absent before the
+  // session's first driving frame.
+  optional int32 lap = 5;
+  // The laps the race runs (v1's `laps_total`). Absent in a timed session,
+  // where GT7 reports 0.
+  optional int32 total_laps = 6;
+  // The car's position on the last driving frame, from 1 (v1's `position`).
+  // Absent where the results card hides it: absent unless the session's
+  // SessionKind has field and cars_on_track both true (v1's
+  // `position_shown`), so also while the kind is not known yet, and when the
+  // game reported none.
+  optional int32 position = 7;
+  // The cars in the field on the last driving frame (v1's `cars`). Absent
+  // unless the session's SessionKind has field and cars_on_track both true
+  // (v1's `position_shown`), as position, and when the game reported none.
+  optional int32 total_cars = 8;
+}
+
+// PitState is the car's pit lane state in the open session (paddock#78), in
+// the `live` bucket under `ecu.pit.<src>`. ecu writes it on change while a
+// session is open, and deletes the key when the session ends.
+message PitState {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // Whether the car is in the pit lane: true from its PitEntered to its
+  // PitExited, and false again at a PitTeleport, which withdraws the entry
+  // (paddock#79).
+  bool in_pit_lane = 2;
+  // The stint being driven, from 1: one more than the stops completed (v1's
+  // PitStatus.stint).
+  int32 stint = 3;
+  // The pit stops completed so far in the session, counting on across an ecu
+  // restart (paddock#76). A stop starts to count at its PitExited.
+  int32 stops = 4;
+}
+
+// FuelState is the fuel in the open session, in the `live` bucket under
+// `ecu.fuel.<src>`. ecu writes it on change, at most once a second, while a
+// session is open, and deletes the key when the session ends.
+message FuelState {
+  // The session's id, as in its SessionStarted.
+  string session_id = 1;
+  // The laps the fuel in the tank lasts, by the fuel model's estimate
+  // (paddock#92, R8). Absent until the model has one, as before a lap's use
+  // is measured, or when the session uses no fuel.
+  optional double laps_remaining = 2;
+  // The fuel in the tank, in litres, on the last frame.
+  double fuel_level = 3;
+  // The tank's capacity, in litres, as the game reports it; 0 for a car with
+  // no tank.
+  double fuel_capacity = 4;
+}
