@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "proto_check.py"
 PROTO = Path("proto/twr/events/v1/lap.proto")
-COPIED = ["go.mod", "go.sum", "buf.yaml", "buf.gen.yaml", "removed.txt", "proto", "gen", "tools"]
+COPIED = ["go.mod", "go.sum", "buf.yaml", "buf.gen.yaml", "removed.txt", "proto", "gen", "tools", "scripts"]
 # A message only the baseline has, for the removed check.
 EXTRA = """syntax = "proto3";
 
@@ -91,6 +91,15 @@ class ProtoCheck(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("gen/ is not what buf generates from proto/", out)
         self.assertIn("twr/events/v1/lap.pb.go", out)
+        self.assertIn("python/twr/events/v1/lap_pb2.py", out)
+
+    def test_a_stale_python_file_fails_fresh(self):
+        stale = self.repo / "gen" / "python" / "twr" / "extra" / "v1" / "extra_pb2.py"
+        stale.parent.mkdir(parents=True)
+        stale.write_text("# left over\n", encoding="utf-8")
+        code, out = self.check("fresh")
+        self.assertEqual(code, 1, out)
+        self.assertIn("gen/python/twr/extra", out)
 
     def test_a_message_without_a_comment_fails_lint(self):
         self.edit(

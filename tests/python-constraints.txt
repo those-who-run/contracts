@@ -1,0 +1,4 @@
+# The protobuf runtime `make python` tests the Python package with: the floor
+# gen/python/pyproject.toml allows, the version scripts/protoc.py's protoc writes
+# code for (tests/test_python_package.py keeps the three equal).
+protobuf==7.36.2

@@ -1,0 +1,129 @@
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import message as _message
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+
+DESCRIPTOR: _descriptor.FileDescriptor
+
+class Phase(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    PHASE_UNSPECIFIED: _ClassVar[Phase]
+    PHASE_MENU: _ClassVar[Phase]
+    PHASE_LOADING: _ClassVar[Phase]
+    PHASE_AT_TRACK: _ClassVar[Phase]
+    PHASE_IN_RACE: _ClassVar[Phase]
+    PHASE_PAUSED: _ClassVar[Phase]
+    PHASE_FINISHED: _ClassVar[Phase]
+PHASE_UNSPECIFIED: Phase
+PHASE_MENU: Phase
+PHASE_LOADING: Phase
+PHASE_AT_TRACK: Phase
+PHASE_IN_RACE: Phase
+PHASE_PAUSED: Phase
+PHASE_FINISHED: Phase
+
+class Frame(_message.Message):
+    __slots__ = ("seq", "t", "packet_id", "lap", "phase", "pos_x", "pos_y", "pos_z", "vel_x", "vel_y", "vel_z", "speed_kph", "engine_rpm", "gear", "suggested_gear", "throttle", "brake", "fuel_level", "tire_fl_temp", "tire_fr_temp", "tire_rl_temp", "tire_rr_temp", "tire_fl_radius", "tire_fr_radius", "tire_rl_radius", "tire_rr_radius", "sus_fl", "sus_fr", "sus_rl", "sus_rr", "wheel_fl_rps", "wheel_fr_rps", "wheel_rl_rps", "wheel_rr_rps", "water_temp", "oil_temp", "oil_pressure", "boost_pressure", "body_height", "position", "time_of_day_ms", "car_code", "track_id", "rot_x", "rot_y", "rot_z", "orientation", "ang_vel_x", "ang_vel_y", "ang_vel_z", "flags")
+    SEQ_FIELD_NUMBER: _ClassVar[int]
+    T_FIELD_NUMBER: _ClassVar[int]
+    PACKET_ID_FIELD_NUMBER: _ClassVar[int]
+    LAP_FIELD_NUMBER: _ClassVar[int]
+    PHASE_FIELD_NUMBER: _ClassVar[int]
+    POS_X_FIELD_NUMBER: _ClassVar[int]
+    POS_Y_FIELD_NUMBER: _ClassVar[int]
+    POS_Z_FIELD_NUMBER: _ClassVar[int]
+    VEL_X_FIELD_NUMBER: _ClassVar[int]
+    VEL_Y_FIELD_NUMBER: _ClassVar[int]
+    VEL_Z_FIELD_NUMBER: _ClassVar[int]
+    SPEED_KPH_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_RPM_FIELD_NUMBER: _ClassVar[int]
+    GEAR_FIELD_NUMBER: _ClassVar[int]
+    SUGGESTED_GEAR_FIELD_NUMBER: _ClassVar[int]
+    THROTTLE_FIELD_NUMBER: _ClassVar[int]
+    BRAKE_FIELD_NUMBER: _ClassVar[int]
+    FUEL_LEVEL_FIELD_NUMBER: _ClassVar[int]
+    TIRE_FL_TEMP_FIELD_NUMBER: _ClassVar[int]
+    TIRE_FR_TEMP_FIELD_NUMBER: _ClassVar[int]
+    TIRE_RL_TEMP_FIELD_NUMBER: _ClassVar[int]
+    TIRE_RR_TEMP_FIELD_NUMBER: _ClassVar[int]
+    TIRE_FL_RADIUS_FIELD_NUMBER: _ClassVar[int]
+    TIRE_FR_RADIUS_FIELD_NUMBER: _ClassVar[int]
+    TIRE_RL_RADIUS_FIELD_NUMBER: _ClassVar[int]
+    TIRE_RR_RADIUS_FIELD_NUMBER: _ClassVar[int]
+    SUS_FL_FIELD_NUMBER: _ClassVar[int]
+    SUS_FR_FIELD_NUMBER: _ClassVar[int]
+    SUS_RL_FIELD_NUMBER: _ClassVar[int]
+    SUS_RR_FIELD_NUMBER: _ClassVar[int]
+    WHEEL_FL_RPS_FIELD_NUMBER: _ClassVar[int]
+    WHEEL_FR_RPS_FIELD_NUMBER: _ClassVar[int]
+    WHEEL_RL_RPS_FIELD_NUMBER: _ClassVar[int]
+    WHEEL_RR_RPS_FIELD_NUMBER: _ClassVar[int]
+    WATER_TEMP_FIELD_NUMBER: _ClassVar[int]
+    OIL_TEMP_FIELD_NUMBER: _ClassVar[int]
+    OIL_PRESSURE_FIELD_NUMBER: _ClassVar[int]
+    BOOST_PRESSURE_FIELD_NUMBER: _ClassVar[int]
+    BODY_HEIGHT_FIELD_NUMBER: _ClassVar[int]
+    POSITION_FIELD_NUMBER: _ClassVar[int]
+    TIME_OF_DAY_MS_FIELD_NUMBER: _ClassVar[int]
+    CAR_CODE_FIELD_NUMBER: _ClassVar[int]
+    TRACK_ID_FIELD_NUMBER: _ClassVar[int]
+    ROT_X_FIELD_NUMBER: _ClassVar[int]
+    ROT_Y_FIELD_NUMBER: _ClassVar[int]
+    ROT_Z_FIELD_NUMBER: _ClassVar[int]
+    ORIENTATION_FIELD_NUMBER: _ClassVar[int]
+    ANG_VEL_X_FIELD_NUMBER: _ClassVar[int]
+    ANG_VEL_Y_FIELD_NUMBER: _ClassVar[int]
+    ANG_VEL_Z_FIELD_NUMBER: _ClassVar[int]
+    FLAGS_FIELD_NUMBER: _ClassVar[int]
+    seq: int
+    t: float
+    packet_id: int
+    lap: int
+    phase: Phase
+    pos_x: float
+    pos_y: float
+    pos_z: float
+    vel_x: float
+    vel_y: float
+    vel_z: float
+    speed_kph: float
+    engine_rpm: float
+    gear: int
+    suggested_gear: int
+    throttle: int
+    brake: int
+    fuel_level: float
+    tire_fl_temp: float
+    tire_fr_temp: float
+    tire_rl_temp: float
+    tire_rr_temp: float
+    tire_fl_radius: float
+    tire_fr_radius: float
+    tire_rl_radius: float
+    tire_rr_radius: float
+    sus_fl: float
+    sus_fr: float
+    sus_rl: float
+    sus_rr: float
+    wheel_fl_rps: float
+    wheel_fr_rps: float
+    wheel_rl_rps: float
+    wheel_rr_rps: float
+    water_temp: float
+    oil_temp: float
+    oil_pressure: float
+    boost_pressure: float
+    body_height: float
+    position: int
+    time_of_day_ms: int
+    car_code: int
+    track_id: int
+    rot_x: float
+    rot_y: float
+    rot_z: float
+    orientation: float
+    ang_vel_x: float
+    ang_vel_y: float
+    ang_vel_z: float
+    flags: int
+    def __init__(self, seq: _Optional[int] = ..., t: _Optional[float] = ..., packet_id: _Optional[int] = ..., lap: _Optional[int] = ..., phase: _Optional[_Union[Phase, str]] = ..., pos_x: _Optional[float] = ..., pos_y: _Optional[float] = ..., pos_z: _Optional[float] = ..., vel_x: _Optional[float] = ..., vel_y: _Optional[float] = ..., vel_z: _Optional[float] = ..., speed_kph: _Optional[float] = ..., engine_rpm: _Optional[float] = ..., gear: _Optional[int] = ..., suggested_gear: _Optional[int] = ..., throttle: _Optional[int] = ..., brake: _Optional[int] = ..., fuel_level: _Optional[float] = ..., tire_fl_temp: _Optional[float] = ..., tire_fr_temp: _Optional[float] = ..., tire_rl_temp: _Optional[float] = ..., tire_rr_temp: _Optional[float] = ..., tire_fl_radius: _Optional[float] = ..., tire_fr_radius: _Optional[float] = ..., tire_rl_radius: _Optional[float] = ..., tire_rr_radius: _Optional[float] = ..., sus_fl: _Optional[float] = ..., sus_fr: _Optional[float] = ..., sus_rl: _Optional[float] = ..., sus_rr: _Optional[float] = ..., wheel_fl_rps: _Optional[float] = ..., wheel_fr_rps: _Optional[float] = ..., wheel_rl_rps: _Optional[float] = ..., wheel_rr_rps: _Optional[float] = ..., water_temp: _Optional[float] = ..., oil_temp: _Optional[float] = ..., oil_pressure: _Optional[float] = ..., boost_pressure: _Optional[float] = ..., body_height: _Optional[float] = ..., position: _Optional[int] = ..., time_of_day_ms: _Optional[int] = ..., car_code: _Optional[int] = ..., track_id: _Optional[int] = ..., rot_x: _Optional[float] = ..., rot_y: _Optional[float] = ..., rot_z: _Optional[float] = ..., orientation: _Optional[float] = ..., ang_vel_x: _Optional[float] = ..., ang_vel_y: _Optional[float] = ..., ang_vel_z: _Optional[float] = ..., flags: _Optional[int] = ...) -> None: ...

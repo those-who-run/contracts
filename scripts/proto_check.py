@@ -15,11 +15,12 @@ Run from the repository's root. The checks:
               here, or is listed in removed.txt with the reason it went: buf
               breaking in WIRE_JSON mode allows a whole message to go, and a
               released one should only go on purpose
-    fresh     what `buf generate` writes from proto/ is what gen/ holds
+    fresh     what `buf generate` writes from proto/ is what gen/ holds, apart
+              from the Python package's own files, written by hand
     all       every check above, reporting each, failing if any fails
 
-buf and protoc-gen-go are the versions tools/go.mod pins, run with `go tool`
-(ADR 0008 in paddock). `--against` names another input for `breaking` and
+buf and protoc-gen-go are the versions tools/go.mod pins, run with `go tool`,
+and protoc the version scripts/protoc.py pins (ADR 0008 in paddock). `--against` names another input for `breaking` and
 `removed`, such as a directory; tests/test_proto_check.py uses it. Standard
 library only.
 """
@@ -44,6 +45,12 @@ WIDE = {"TYPE_INT64", "TYPE_UINT64", "TYPE_SINT64", "TYPE_FIXED64", "TYPE_SFIXED
 # The well-known wrappers of a 64-bit integer, whose JSON form is a string too.
 WIDE_WRAPPERS = {".google.protobuf.Int64Value", ".google.protobuf.UInt64Value"}
 REMOVED = "removed.txt"
+# The Python package around the generated code, under gen/, written by hand
+# (gen/python/pyproject.toml says what each is); `fresh` leaves them be.
+HAND_WRITTEN = {"python/pyproject.toml", "python/README.md", "python/twr_contracts"}
+# The marker that says the generated Python has type stubs (PEP 561): protoc
+# doesn't write it, so `make generate` does, and `fresh` expects it.
+PY_TYPED = "python/twr/py.typed"
 
 
 def buf(*args: str) -> bool:
@@ -263,7 +270,8 @@ def check_fresh(_: argparse.Namespace) -> bool:
         want = os.path.join(tmp, "gen")
         os.makedirs(want, exist_ok=True)
         os.makedirs("gen", exist_ok=True)
-        stale = differences(want, "gen")
+        open(os.path.join(want, PY_TYPED), "w").close()
+        stale = [path for path in differences(want, "gen") if path not in HAND_WRITTEN]
     if stale:
         print(
             "gen/ is not what buf generates from proto/: run `make generate` and "

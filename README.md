@@ -72,6 +72,46 @@ subject, err := callout.Subject("live", c) // twr.v1.live.callout.p0 for the sta
 h, data, err := ce.Encode(c, ce.Event{ID: c.GetId(), Source: "/twr/ecu/gt7", Time: c.GetCreatedAt().AsTime()})
 ```
 
+### Python
+
+`gen/python/` is a Python package, `twr-contracts`, which a component installs
+from a release tag with no package registry (paddock#265). In its
+`pyproject.toml`:
+
+```toml
+dependencies = [
+  "twr-contracts @ git+https://github.com/those-who-run/contracts@vX.Y.Z#subdirectory=gen/python",
+]
+```
+
+It holds the generated messages, one module per `.proto` file under `twr`
+(`twr.events.v1.callout_pb2`), with their type stubs, and the Python copies of
+the two helpers, which behave as the Go ones do: `twr_contracts.ce` (protobuf's
+JSON form, unknown fields and enum values ignored on read, and the same
+CloudEvents headers) and `twr_contracts.callout` (a callout's subject from its
+priority). It needs Python 3.13 or later and `protobuf`, the runtime the
+generated code is written for, at the version its `pyproject.toml` allows;
+mypy needs `types-protobuf` beside it for protobuf's own types.
+
+```python
+from twr.events.v1 import callout_pb2
+from twr_contracts import callout, ce
+
+# A consumer, on nats-py: headers are one value per name, as ce expects.
+c = callout_pb2.Callout()
+event = ce.decode(msg.headers or {}, msg.data, c)  # ce.WrongTypeError on another ce-type
+
+# A producer.
+headers, data = ce.encode(c, ce.Event(id=c.id, source="/twr/radio", time=created))
+await nc.publish(callout.subject("live", c), data, headers=headers)
+```
+
+Python's `datetime` holds microseconds, so a `ce-time` with nanoseconds
+decodes to the microsecond. `make python` installs the package into a new
+virtual environment as a consumer would, and runs the round trip between Go
+and Python (`python_test.go`): every example encoded by Go decodes in Python to
+the same values, and back, headers included.
+
 ## The messages
 
 | Message | What it is | Example |
@@ -132,10 +172,19 @@ consumer needs them (Python is those-who-run/paddock#265).
 - [`buf.yaml`](buf.yaml): buf's module, lint rules (`STANDARD` and `COMMENTS`)
   and breaking-change rules (`WIRE_JSON`).
 - [`buf.gen.yaml`](buf.gen.yaml): `protoc-gen-go` as a local plugin, writing
-  `gen/go/`.
+  `gen/go/`, and protoc's built-in `python` and `pyi` generators, writing
+  `gen/python/twr/`.
 - `gen/go/`: the generated Go code, committed and never edited by hand.
+- `gen/python/`: the Python package. `twr/` is generated, committed and never
+  edited by hand; [`pyproject.toml`](gen/python/pyproject.toml), its
+  `README.md` and the helpers in `twr_contracts/` are written by hand.
 - [`tools/go.mod`](tools/go.mod): `buf` and `protoc-gen-go`, beside
   golangci-lint and govulncheck, run with `go tool`.
+- [`scripts/protoc.py`](scripts/protoc.py): protoc, for the Python
+  generators, which are built into it: the release it pins, fetched from
+  GitHub once, checked by its digest and kept in the user's cache. A bump of
+  protoc bumps the `protobuf` floor in `gen/python/pyproject.toml` and
+  `tests/python-constraints.txt` with it.
 
 `make proto` runs buf's checks, which CI's `test` runs too:
 
@@ -149,7 +198,8 @@ consumer needs them (Python is those-who-run/paddock#265).
 - every message and enum of the same baseline is still here, or is listed in
   `removed.txt` with its reason: `buf breaking` in `WIRE_JSON` mode lets a
   whole message go, and a released one only goes on purpose;
-- `gen/` is what `buf generate` writes from `proto/`.
+- `gen/` is what `buf generate` writes from `proto/`, Go and Python, apart
+  from the Python package's own files, written by hand.
 
 ## Conventions
 

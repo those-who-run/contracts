@@ -2,6 +2,11 @@
 # the version pinned in tools/go.mod.
 version: "2"
 
+# python_test.go, the Python leg `make python` runs, is linted with the rest.
+run:
+  build-tags:
+    - python
+
 linters:
   # The standard set (errcheck, govet, ineffassign, staticcheck, unused), and:
   # gosec for the security checks, revive for the style the Go team documents
