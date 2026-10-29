@@ -7,20 +7,25 @@ import "twr/events/v1/car.proto";
 
 // PitLane is what happens to a callout between the car's pit entry and its
 // exit (v1's per-rule `pit_lane`, those-who-run#244). The work is split as
-// v1's engine split it, so neither side races the other across CALLOUTS and
-// EVENTS, which nothing orders:
+// v1's engine split it, by time rather than by arrival, since CALLOUTS and
+// EVENTS are not ordered and a callout raised just before the entry can reach
+// radio after the PitEntered (SUGO, 2026-10-18: "Dropped back to eighth",
+// about 0.7 s before the cut):
 //   - ecu applies it to the callouts it raises in the lane, from the frame of
 //     its PitEntered (the entry cut included, where a lap time can post)
 //     until its PitExited, as v1's Engine._quiet did: it never publishes a
 //     dropped one, and publishes a held one only when it is released.
-//   - radio applies it only to the callouts it still has queued, unspoken,
-//     when a PitEntered arrives (v1's queue at the entry). A callout that
-//     arrives after the PitEntered was already handled by ecu, and radio
-//     speaks it as any other.
+//   - radio applies it, while the lane is open, to every callout whose
+//     created_at is before the open entry's PitEntered.entered_at, whenever
+//     it arrives (v1's queue at the entry). A callout created at or after
+//     entered_at was handled by ecu, and radio speaks it as any other. Both
+//     times are the UTC of ecu's frames, so no run_id is needed.
 // A held callout is released at the exit, PitExited's exited_at; at a
 // PitTeleport, which withdraws the entry, as v1's _apply_pits did when the
 // lane status cleared; or, when the session finishes in the lane and there is
-// no exit, at the flag, RaceFinished. Released, its life restarts: it expires
+// no exit, at the flag, RaceFinished. A PitTeleport's or RaceFinished's
+// release time is the event's ce-time, since only the exit carries its own
+// UTC time. Released, its life restarts: it expires
 // at the release plus (expires_at less created_at), as v1's Engine._release
 // re-raised it with created_at the release and no hold, and hold_until no
 // longer applies. ecu publishes the callouts it held with created_at and
@@ -64,7 +69,19 @@ enum PitLane {
 // template_new_best_small to template_new_best, delta_slower_small and
 // delta_slower_large to delta_slower, template_gained_lead and
 // template_gained_podium to template_gained, template_lost_lead to
-// template_lost. The kinds ecu sends, by rule, with their slots:
+// template_lost, template_position_win and template_position_podium to
+// template_position. ecu names every key it chose, a pool nested in a
+// sentence included (lap_time's {delta}, race_summary's {position}).
+//
+// radio also carries each rule's built-in default, the `default` argument of
+// template() and first_template() in v1's rules/*.py: it is v1's whole
+// phrasing when the rules set `script: false`, and three kinds ecu sends have
+// no script.yaml entry, only that default: template_joined ("Back with you.
+// Lap {lap}."), template_joined_position ("P {p}.") and delta_first ("").
+// start_brief.py's _sentences, which joins the brief's parts and capitalises
+// each, moves to radio with them.
+//
+// The kinds ecu sends, by rule, with their slots:
 //   - lap_time: a lap's call is the rule's template ("Lap {lap}. {time}.
 //     {delta}."), and kind is the key of the phrase that fills its {delta}:
 //     delta_first (no delta: no best yet, or lap 2 of a lap race measured
@@ -90,11 +107,13 @@ enum PitLane {
 //     session ecu joined part way (lap, and laps when the race has a lap
 //     total), followed by template_joined_position (position and total_cars)
 //     when it has a field.
-//   - race_summary: template, at the flag (position when the race has a
-//     field, best_lap_ms when there is a best), and template_quit, leaving a
-//     solo session (laps, best_lap_ms). Within template, radio fills
-//     {position} from template_position_win, template_position_podium or
-//     template_position by the position alone, and {best} from template_best.
+//   - race_summary: at the flag, the call is the rule's template ("Chequered
+//     flag. {position} {best}"), and kind is the key of the phrase that
+//     fills its {position}: template_position_win, template_position_podium
+//     or template_position (position, best_lap_ms when there is a best), or
+//     template itself when the race has no field and no position is said
+//     (best_lap_ms). Its {best} is template_best. template_quit is leaving a
+//     solo session (laps, best_lap_ms).
 //   - temps: template_tyre_hot (corners), template_tyres_cold,
 //     template_water and template_oil.
 //   - telemetry: template_lost and template_back (no slots).
@@ -111,7 +130,9 @@ message Callout {
   // at, rule and the callout's index within its frame. A derived id repeats
   // only when run_id does: ecu mints a new run_id at each start, so a replay
   // is reproducible only if its run_id is too, such as one derived from a
-  // seed.
+  // seed. Two such replays then repeat their callout ids, so a seeded replay
+  // publishes on a fresh source (replay-<stem>-<suffix>), or waits out the
+  // duplicate window, or the second one's callouts are dropped as copies.
   string id = 2;
   // The rule that raised it: v1's rule name (lap_time, fuel, final_lap,
   // position, start_brief, race_summary, temps or telemetry), or another

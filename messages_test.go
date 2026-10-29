@@ -246,7 +246,7 @@ var examples = []struct {
 		PitLane:   eventsv1.PitLane_PIT_LANE_HOLD,
 	}},
 	{"events/v1/callout_race_summary.json", &eventsv1.Callout{
-		SessionId: "01JB5N2E8R4T6W9Y1A3C5E7G9H", Id: "01JB5N3D7F9H1K3N5Q7S9V1X3A", Rule: "race_summary", Kind: "template",
+		SessionId: "01JB5N2E8R4T6W9Y1A3C5E7G9H", Id: "01JB5N3D7F9H1K3N5Q7S9V1X3A", Rule: "race_summary", Kind: "template_position_podium",
 		Slots:    &eventsv1.CalloutSlots{Position: proto.Int32(2), BestLapMs: proto.Int32(61186)},
 		Priority: 25, At: 23585, RunId: "01JB5N1Z7Q3S5V8X0B2D4F6H8K",
 		CreatedAt: timestamppb.New(time.Date(2026, 10, 15, 19, 6, 33, 531_882_000, time.UTC)),

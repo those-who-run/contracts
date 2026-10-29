@@ -41,6 +41,19 @@ var pitLanes = map[string]eventsv1.PitLane{
 	"drop":  eventsv1.PitLane_PIT_LANE_DROP,
 }
 
+// positionKey is the {position} pool v1's race_summary chose for a finishing
+// position (RaceSummaryRule.on_finish), the key ecu names in kind.
+func positionKey(position int32) string {
+	switch {
+	case position == 1:
+		return "template_position_win"
+	case position <= 3:
+		return "template_position_podium"
+	default:
+		return "template_position"
+	}
+}
+
 // v1Callouts is testdata/v1/suzuka_no_stop_callouts.json.
 type v1Callouts struct {
 	Recording  string `json:"recording"`
@@ -117,7 +130,7 @@ func TestCalloutsFromV1(t *testing.T) {
 			Lap: proto.Int32(lap3.Frame.CurrentLap - 1), LapTimeMs: proto.Int32(lap3.Frame.LastLapMs),
 			DeltaMs: proto.Int32(lap3.Frame.LastLapMs - lap2.Frame.BestLapMs),
 		}, callout.P1},
-		{"callout_race_summary.json", "template", "Chequered flag. Finished second. Best lap one oh one point two.", 4, &eventsv1.CalloutSlots{
+		{"callout_race_summary.json", positionKey(summary.Frame.Position), "Chequered flag. Finished second. Best lap one oh one point two.", 4, &eventsv1.CalloutSlots{
 			Position: proto.Int32(summary.Frame.Position), BestLapMs: proto.Int32(summary.Frame.BestLapMs),
 		}, callout.P2},
 	} {
@@ -165,6 +178,9 @@ func TestCalloutsFromV1(t *testing.T) {
 	}
 	if d := lap3.Frame.LastLapMs - lap2.Frame.BestLapMs; d >= 0 {
 		t.Errorf("lap 3's delta is %d, want a new best", d)
+	}
+	if positionKey(summary.Frame.Position) != "template_position_podium" || positionKey(1) != "template_position_win" || positionKey(4) != "template_position" {
+		t.Error("v1's second place is not the podium pool")
 	}
 	if position.Callout.Hold != 1 || summary.Callout.MaxAge == nil || *summary.Callout.MaxAge != 30 {
 		t.Error("v1's position hold is not 1 s, or its race summary's max_age 30 s")
