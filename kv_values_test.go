@@ -10,9 +10,10 @@ import (
 	statev1 "github.com/those-who-run/contracts/gen/go/twr/state/v1"
 )
 
-// The KV values paddock#72 adds.
+// The KV values paddock#72 adds, and radio's (paddock#62).
 var kvValues = []protoreflect.ProtoMessage{
 	&statev1.EcuStatus{}, &statev1.LiveSession{}, &statev1.PitState{}, &statev1.FuelState{}, &statev1.OpenSession{},
+	&statev1.RadioStatus{},
 }
 
 // secretish is a field name that would hold a token, a secret, an address or a
@@ -74,6 +75,11 @@ func TestKVFieldShapes(t *testing.T) {
 		{&statev1.OpenSession{}, "final_lap_started", false},
 		// P1 is a place; before the first race.position, absent.
 		{&statev1.OpenSession{}, "published_position", true},
+		// false is voice down; without the discord sink, absent.
+		{&statev1.RadioStatus{}, "voice_connected", true},
+		// 0 listeners is the empty channel radio warns of; before the first
+		// voice state, absent (paddock#61, R2).
+		{&statev1.RadioStatus{}, "voice_listeners", true},
 	} {
 		f := tc.msg.ProtoReflect().Descriptor().Fields().ByName(tc.field)
 		if f == nil {
@@ -100,6 +106,8 @@ func TestKVCommentsSayHowToReadThem(t *testing.T) {
 		{"twr/state/v1/live.proto", "position", []string{"Absent where the results card hides it", "unless the session's SessionKind has field and cars_on_track both true (v1's `position_shown`)", "when the game reported none"}},
 		{"twr/state/v1/live.proto", "total_cars", []string{"unless the session's SessionKind has field and cars_on_track both true (v1's `position_shown`)", "when the game reported none"}},
 		{"twr/state/v1/live.proto", "in_pit_lane", []string{"PitTeleport"}},
+		{"twr/state/v1/live.proto", "RadioStatus", []string{"`radio.status.<src>`", "never the live source's", "at most once a second", "off the speaking path"}},
+		{"twr/state/v1/live.proto", "voice_listeners", []string{"not bots and not deafened", "0 is a channel with no one listening", "Absent before radio has seen the channel's members"}},
 		{"twr/state/v1/open_session.proto", "OpenSession", []string{
 			"`sessions.open.<src>`", "a replay never reads or clears the live source's", "a reader of `live` never sees the running summary",
 			"revision check", "<pause> count is pauses", "<entry> count is entries", "<stop> count is",

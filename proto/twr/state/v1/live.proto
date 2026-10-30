@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-// State: the values ecu keeps in NATS KV (paddock#72), so a reader that joins
-// late gets the current value at once and then watches it (ADR 0001, point
-// 1). Each value is written whole with Put, in protobuf's JSON form, with no
+// State: the values ecu keeps in NATS KV (paddock#72), and radio its own
+// status (paddock#62), so a reader that joins late gets the current value at
+// once and then watches it (ADR 0001, point 1). Each value is written whole with Put, in protobuf's JSON form, with no
 // headers; subjects.yaml lists each bucket and key with its message. No value
 // holds a token, a secret, a PS5 address or a Discord id: only what v1's
 // status route showed anyone (v1's status.py), as the `live` bucket is read by
@@ -60,7 +60,7 @@ message EcuStatus {
   Activity activity = 5;
   // Whether a restart would cut into a drive: false while driving frames
   // (racing, or paused in a race) arrive, that is while the last one is
-  // under the telemetry timeout old (ECU_TELEMETRY_TIMEOUT_SECS, 3 s by
+  // under the telemetry timeout old (TWR_ECU_TELEMETRY_TIMEOUT_SECS, 3 s by
   // default); true otherwise, a session left open by a feed that stopped
   // included (v1's /healthz `idle`). The deployment's idle gate waits on it
   // (paddock#107).
@@ -176,4 +176,49 @@ message FuelState {
   // The tank's capacity, in litres, as the game reports it; 0 for a car with
   // no tank.
   double fuel_capacity = 4;
+}
+
+// RadioSink is where radio speaks, as its settings name it (radio's
+// TWR_RADIO_SINK).
+enum RadioSink {
+  // Not set.
+  RADIO_SINK_UNSPECIFIED = 0;
+  // A line on the console for each callout, for replays (v1's
+  // ConsolePlayer).
+  RADIO_SINK_CONSOLE = 1;
+  // Each callout written to a WAV file, for the ephemeral environment (v1's
+  // WavDirPlayer).
+  RADIO_SINK_WAV = 2;
+  // Spoken in the Discord voice channel the PS5 is in (v1's DiscordPlayer).
+  RADIO_SINK_DISCORD = 3;
+}
+
+// RadioStatus is what radio is doing right now (paddock#62, R9): v1's
+// `voice_connected`, which v1's status route and /healthz showed, and who is
+// listening (paddock#61), in the `live` bucket under `radio.status.<src>`,
+// one key per source, the source whose callouts radio speaks, so a replay
+// writes its own key and never the live source's. radio writes it on change,
+// at most once a second, off the speaking path, so a callout never waits for
+// the bucket. radio's /healthz says the same, with whether it is healthy and
+// idle.
+message RadioStatus {
+  // The source whose callouts radio speaks, the key's <src>: `live`,
+  // `parity`, or `replay-` followed by the replay's name.
+  string source = 1;
+  // Where radio speaks (RadioSink).
+  RadioSink sink = 2;
+  // Whether radio is in the Discord voice channel and can speak there (v1's
+  // `voice_connected`). Absent unless sink is RADIO_SINK_DISCORD.
+  optional bool voice_connected = 3;
+  // The members in the voice channel who can hear radio: those who are not
+  // bots and not deafened, by themselves or by the server (paddock#61, R2).
+  // 0 is a channel with no one listening, which radio warns of. Absent
+  // before radio has seen the channel's members, and unless sink is
+  // RADIO_SINK_DISCORD.
+  optional int32 voice_listeners = 4;
+  // When radio last finished speaking a callout, in UTC. Absent before the
+  // first one of this radio run.
+  google.protobuf.Timestamp last_spoken_at = 5;
+  // When radio wrote this value, in UTC.
+  google.protobuf.Timestamp updated_at = 6;
 }

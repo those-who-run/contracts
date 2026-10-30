@@ -372,6 +372,15 @@ subjects:
     consumers: [pitwall]
     description: The fuel level, the tank and the laps it lasts; no key while no session is open.
 
+  # paddock#62: radio's own status, keyed by the source it speaks, as ecu's.
+  - kv: live
+    key: radio.status.<src>
+    message: twr.state.v1.RadioStatus
+    content_type: application/json
+    producers: [radio]
+    consumers: [pitwall]
+    description: What radio is doing (the sink, the voice connection, who is listening, when it last spoke), written on change, at most once a second.
+
   - kv: ecu
     key: sessions.open.<src>
     message: twr.state.v1.OpenSession

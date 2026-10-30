@@ -232,7 +232,7 @@ const (
 	// The driver left the session before its end straight back to a menu or
 	// the track screen (v1's race_ended on a menu or track-screen frame).
 	EndReason_END_REASON_MENU EndReason = 10
-	// The session stayed paused for the pause limit (ECU_PAUSE_LIMIT_SECS, off
+	// The session stayed paused for the pause limit (TWR_ECU_PAUSE_LIMIT_SECS, off
 	// by default), so it ended paused, as of the pause's start (v1's
 	// Engine._end_paused "paused for N min"), with ended_paused.
 	EndReason_END_REASON_PAUSE_LIMIT EndReason = 11

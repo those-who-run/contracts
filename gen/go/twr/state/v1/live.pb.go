@@ -4,9 +4,9 @@
 // 	protoc        (unknown)
 // source: twr/state/v1/live.proto
 
-// State: the values ecu keeps in NATS KV (paddock#72), so a reader that joins
-// late gets the current value at once and then watches it (ADR 0001, point
-// 1). Each value is written whole with Put, in protobuf's JSON form, with no
+// State: the values ecu keeps in NATS KV (paddock#72), and radio its own
+// status (paddock#62), so a reader that joins late gets the current value at
+// once and then watches it (ADR 0001, point 1). Each value is written whole with Put, in protobuf's JSON form, with no
 // headers; subjects.yaml lists each bucket and key with its message. No value
 // holds a token, a secret, a PS5 address or a Discord id: only what v1's
 // status route showed anyone (v1's status.py), as the `live` bucket is read by
@@ -102,6 +102,66 @@ func (Activity) EnumDescriptor() ([]byte, []int) {
 	return file_twr_state_v1_live_proto_rawDescGZIP(), []int{0}
 }
 
+// RadioSink is where radio speaks, as its settings name it (radio's
+// TWR_RADIO_SINK).
+type RadioSink int32
+
+const (
+	// Not set.
+	RadioSink_RADIO_SINK_UNSPECIFIED RadioSink = 0
+	// A line on the console for each callout, for replays (v1's
+	// ConsolePlayer).
+	RadioSink_RADIO_SINK_CONSOLE RadioSink = 1
+	// Each callout written to a WAV file, for the ephemeral environment (v1's
+	// WavDirPlayer).
+	RadioSink_RADIO_SINK_WAV RadioSink = 2
+	// Spoken in the Discord voice channel the PS5 is in (v1's DiscordPlayer).
+	RadioSink_RADIO_SINK_DISCORD RadioSink = 3
+)
+
+// Enum value maps for RadioSink.
+var (
+	RadioSink_name = map[int32]string{
+		0: "RADIO_SINK_UNSPECIFIED",
+		1: "RADIO_SINK_CONSOLE",
+		2: "RADIO_SINK_WAV",
+		3: "RADIO_SINK_DISCORD",
+	}
+	RadioSink_value = map[string]int32{
+		"RADIO_SINK_UNSPECIFIED": 0,
+		"RADIO_SINK_CONSOLE":     1,
+		"RADIO_SINK_WAV":         2,
+		"RADIO_SINK_DISCORD":     3,
+	}
+)
+
+func (x RadioSink) Enum() *RadioSink {
+	p := new(RadioSink)
+	*p = x
+	return p
+}
+
+func (x RadioSink) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RadioSink) Descriptor() protoreflect.EnumDescriptor {
+	return file_twr_state_v1_live_proto_enumTypes[1].Descriptor()
+}
+
+func (RadioSink) Type() protoreflect.EnumType {
+	return &file_twr_state_v1_live_proto_enumTypes[1]
+}
+
+func (x RadioSink) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RadioSink.Descriptor instead.
+func (RadioSink) EnumDescriptor() ([]byte, []int) {
+	return file_twr_state_v1_live_proto_rawDescGZIP(), []int{1}
+}
+
 // EcuStatus is what ecu is doing right now: the engineer's part of v1's
 // `GET /api/v1/status` body (v1's status.py EngineStatus) and of its
 // /healthz, in the `live` bucket under `ecu.status.<src>`, one key per
@@ -129,7 +189,7 @@ type EcuStatus struct {
 	Activity Activity `protobuf:"varint,5,opt,name=activity,proto3,enum=twr.state.v1.Activity" json:"activity,omitempty"`
 	// Whether a restart would cut into a drive: false while driving frames
 	// (racing, or paused in a race) arrive, that is while the last one is
-	// under the telemetry timeout old (ECU_TELEMETRY_TIMEOUT_SECS, 3 s by
+	// under the telemetry timeout old (TWR_ECU_TELEMETRY_TIMEOUT_SECS, 3 s by
 	// default); true otherwise, a session left open by a feed that stopped
 	// included (v1's /healthz `idle`). The deployment's idle gate waits on it
 	// (paddock#107).
@@ -635,6 +695,111 @@ func (x *FuelState) GetFuelCapacity() float64 {
 	return 0
 }
 
+// RadioStatus is what radio is doing right now (paddock#62, R9): v1's
+// `voice_connected`, which v1's status route and /healthz showed, and who is
+// listening (paddock#61), in the `live` bucket under `radio.status.<src>`,
+// one key per source, the source whose callouts radio speaks, so a replay
+// writes its own key and never the live source's. radio writes it on change,
+// at most once a second, off the speaking path, so a callout never waits for
+// the bucket. radio's /healthz says the same, with whether it is healthy and
+// idle.
+type RadioStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The source whose callouts radio speaks, the key's <src>: `live`,
+	// `parity`, or `replay-` followed by the replay's name.
+	Source string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	// Where radio speaks (RadioSink).
+	Sink RadioSink `protobuf:"varint,2,opt,name=sink,proto3,enum=twr.state.v1.RadioSink" json:"sink,omitempty"`
+	// Whether radio is in the Discord voice channel and can speak there (v1's
+	// `voice_connected`). Absent unless sink is RADIO_SINK_DISCORD.
+	VoiceConnected *bool `protobuf:"varint,3,opt,name=voice_connected,json=voiceConnected,proto3,oneof" json:"voice_connected,omitempty"`
+	// The members in the voice channel who can hear radio: those who are not
+	// bots and not deafened, by themselves or by the server (paddock#61, R2).
+	// 0 is a channel with no one listening, which radio warns of. Absent
+	// before radio has seen the channel's members, and unless sink is
+	// RADIO_SINK_DISCORD.
+	VoiceListeners *int32 `protobuf:"varint,4,opt,name=voice_listeners,json=voiceListeners,proto3,oneof" json:"voice_listeners,omitempty"`
+	// When radio last finished speaking a callout, in UTC. Absent before the
+	// first one of this radio run.
+	LastSpokenAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_spoken_at,json=lastSpokenAt,proto3" json:"last_spoken_at,omitempty"`
+	// When radio wrote this value, in UTC.
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RadioStatus) Reset() {
+	*x = RadioStatus{}
+	mi := &file_twr_state_v1_live_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RadioStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RadioStatus) ProtoMessage() {}
+
+func (x *RadioStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_state_v1_live_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RadioStatus.ProtoReflect.Descriptor instead.
+func (*RadioStatus) Descriptor() ([]byte, []int) {
+	return file_twr_state_v1_live_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RadioStatus) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *RadioStatus) GetSink() RadioSink {
+	if x != nil {
+		return x.Sink
+	}
+	return RadioSink_RADIO_SINK_UNSPECIFIED
+}
+
+func (x *RadioStatus) GetVoiceConnected() bool {
+	if x != nil && x.VoiceConnected != nil {
+		return *x.VoiceConnected
+	}
+	return false
+}
+
+func (x *RadioStatus) GetVoiceListeners() int32 {
+	if x != nil && x.VoiceListeners != nil {
+		return *x.VoiceListeners
+	}
+	return 0
+}
+
+func (x *RadioStatus) GetLastSpokenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastSpokenAt
+	}
+	return nil
+}
+
+func (x *RadioStatus) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
 var File_twr_state_v1_live_proto protoreflect.FileDescriptor
 
 const file_twr_state_v1_live_proto_rawDesc = "" +
@@ -692,14 +857,29 @@ const file_twr_state_v1_live_proto_rawDesc = "" +
 	"\n" +
 	"fuel_level\x18\x03 \x01(\x01R\tfuelLevel\x12#\n" +
 	"\rfuel_capacity\x18\x04 \x01(\x01R\ffuelCapacityB\x11\n" +
-	"\x0f_laps_remaining*\x8a\x01\n" +
+	"\x0f_laps_remaining\"\xd3\x02\n" +
+	"\vRadioStatus\x12\x16\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x12+\n" +
+	"\x04sink\x18\x02 \x01(\x0e2\x17.twr.state.v1.RadioSinkR\x04sink\x12,\n" +
+	"\x0fvoice_connected\x18\x03 \x01(\bH\x00R\x0evoiceConnected\x88\x01\x01\x12,\n" +
+	"\x0fvoice_listeners\x18\x04 \x01(\x05H\x01R\x0evoiceListeners\x88\x01\x01\x12@\n" +
+	"\x0elast_spoken_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\flastSpokenAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x12\n" +
+	"\x10_voice_connectedB\x12\n" +
+	"\x10_voice_listeners*\x8a\x01\n" +
 	"\bActivity\x12\x18\n" +
 	"\x14ACTIVITY_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rACTIVITY_IDLE\x10\x01\x12\x14\n" +
 	"\x10ACTIVITY_DRIVING\x10\x02\x12\x13\n" +
 	"\x0fACTIVITY_PAUSED\x10\x03\x12\x13\n" +
 	"\x0fACTIVITY_REPLAY\x10\x04\x12\x11\n" +
-	"\rACTIVITY_DEMO\x10\x05B\xaf\x01\n" +
+	"\rACTIVITY_DEMO\x10\x05*k\n" +
+	"\tRadioSink\x12\x1a\n" +
+	"\x16RADIO_SINK_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12RADIO_SINK_CONSOLE\x10\x01\x12\x12\n" +
+	"\x0eRADIO_SINK_WAV\x10\x02\x12\x16\n" +
+	"\x12RADIO_SINK_DISCORD\x10\x03B\xaf\x01\n" +
 	"\x10com.twr.state.v1B\tLiveProtoP\x01Z>github.com/those-who-run/contracts/gen/go/twr/state/v1;statev1\xa2\x02\x03TSX\xaa\x02\fTwr.State.V1\xca\x02\fTwr\\State\\V1\xe2\x02\x18Twr\\State\\V1\\GPBMetadata\xea\x02\x0eTwr::State::V1b\x06proto3"
 
 var (
@@ -714,29 +894,34 @@ func file_twr_state_v1_live_proto_rawDescGZIP() []byte {
 	return file_twr_state_v1_live_proto_rawDescData
 }
 
-var file_twr_state_v1_live_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_twr_state_v1_live_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_twr_state_v1_live_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_twr_state_v1_live_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_twr_state_v1_live_proto_goTypes = []any{
 	(Activity)(0),                 // 0: twr.state.v1.Activity
-	(*EcuStatus)(nil),             // 1: twr.state.v1.EcuStatus
-	(*LiveTrack)(nil),             // 2: twr.state.v1.LiveTrack
-	(*LiveSession)(nil),           // 3: twr.state.v1.LiveSession
-	(*PitState)(nil),              // 4: twr.state.v1.PitState
-	(*FuelState)(nil),             // 5: twr.state.v1.FuelState
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
-	(v1.SessionType)(0),           // 7: twr.events.v1.SessionType
+	(RadioSink)(0),                // 1: twr.state.v1.RadioSink
+	(*EcuStatus)(nil),             // 2: twr.state.v1.EcuStatus
+	(*LiveTrack)(nil),             // 3: twr.state.v1.LiveTrack
+	(*LiveSession)(nil),           // 4: twr.state.v1.LiveSession
+	(*PitState)(nil),              // 5: twr.state.v1.PitState
+	(*FuelState)(nil),             // 6: twr.state.v1.FuelState
+	(*RadioStatus)(nil),           // 7: twr.state.v1.RadioStatus
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(v1.SessionType)(0),           // 9: twr.events.v1.SessionType
 }
 var file_twr_state_v1_live_proto_depIdxs = []int32{
-	6, // 0: twr.state.v1.EcuStatus.started_at:type_name -> google.protobuf.Timestamp
+	8, // 0: twr.state.v1.EcuStatus.started_at:type_name -> google.protobuf.Timestamp
 	0, // 1: twr.state.v1.EcuStatus.activity:type_name -> twr.state.v1.Activity
-	6, // 2: twr.state.v1.EcuStatus.updated_at:type_name -> google.protobuf.Timestamp
-	7, // 3: twr.state.v1.LiveSession.session_type:type_name -> twr.events.v1.SessionType
-	2, // 4: twr.state.v1.LiveSession.track:type_name -> twr.state.v1.LiveTrack
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	8, // 2: twr.state.v1.EcuStatus.updated_at:type_name -> google.protobuf.Timestamp
+	9, // 3: twr.state.v1.LiveSession.session_type:type_name -> twr.events.v1.SessionType
+	3, // 4: twr.state.v1.LiveSession.track:type_name -> twr.state.v1.LiveTrack
+	1, // 5: twr.state.v1.RadioStatus.sink:type_name -> twr.state.v1.RadioSink
+	8, // 6: twr.state.v1.RadioStatus.last_spoken_at:type_name -> google.protobuf.Timestamp
+	8, // 7: twr.state.v1.RadioStatus.updated_at:type_name -> google.protobuf.Timestamp
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_twr_state_v1_live_proto_init() }
@@ -748,13 +933,14 @@ func file_twr_state_v1_live_proto_init() {
 	file_twr_state_v1_live_proto_msgTypes[1].OneofWrappers = []any{}
 	file_twr_state_v1_live_proto_msgTypes[2].OneofWrappers = []any{}
 	file_twr_state_v1_live_proto_msgTypes[4].OneofWrappers = []any{}
+	file_twr_state_v1_live_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_twr_state_v1_live_proto_rawDesc), len(file_twr_state_v1_live_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   5,
+			NumEnums:      2,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

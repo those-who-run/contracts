@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -251,5 +252,34 @@ func TestCalloutFieldShapes(t *testing.T) {
 	var equal eventsv1.Callout
 	if err := ce.Unmarshal([]byte(`{"slots":{"deltaMs":0}}`), &equal); err != nil || equal.GetSlots().DeltaMs == nil {
 		t.Errorf("a delta of 0 read as absent: %v", err)
+	}
+}
+
+// The comments are not stale against what ecu 0.1.9 sends: an expires_at on
+// every callout, replays included; telemetry spoken in the pit lane (ecu#48);
+// and the pause limit under its TWR_ECU_ name.
+func TestCommentsAreNotStale(t *testing.T) {
+	for _, tc := range []struct {
+		file, name string
+		says, not  []string
+	}{
+		{"twr/events/v1/callout.proto", "expires_at", []string{"ecu always sets it, on a replay's source too"}, []string{"as for a replay"}},
+		{"twr/events/v1/callout.proto", "PIT_LANE_HOLD", []string{"ecu sends telemetry as PIT_LANE_SPEAK"}, []string{"temps, telemetry"}},
+		{"twr/events/v1/callout.proto", "PIT_LANE_SPEAK", []string{"telemetry"}, nil},
+		{"twr/events/v1/session.proto", "END_REASON_PAUSE_LIMIT", []string{"TWR_ECU_PAUSE_LIMIT_SECS"}, []string{"(ECU_PAUSE_LIMIT_SECS"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			comment := leadingComment(t, tc.file, tc.name)
+			for _, want := range tc.says {
+				if !strings.Contains(comment, want) {
+					t.Errorf("%s's comment does not say %q:\n%s", tc.name, want, comment)
+				}
+			}
+			for _, stale := range tc.not {
+				if strings.Contains(comment, stale) {
+					t.Errorf("%s's comment still says %q:\n%s", tc.name, stale, comment)
+				}
+			}
+		})
 	}
 }
