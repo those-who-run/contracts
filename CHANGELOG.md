@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/those-who-run/contracts/compare/v0.2.4...v0.2.5) (2026-10-30)
+
+
+### Features
+
+* **format:** the formatter, and the cases the pit wall and the card share ([#36](https://github.com/those-who-run/contracts/issues/36)) ([73d6477](https://github.com/those-who-run/contracts/commit/73d64779879cad861418a8ce1908e70d69ca78ca))
+
 ## [0.2.4](https://github.com/those-who-run/contracts/compare/v0.2.3...v0.2.4) (2026-10-30)
 
 
