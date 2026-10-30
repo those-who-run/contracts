@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/those-who-run/contracts/compare/v0.2.3...v0.2.4) (2026-10-30)
+
+
+### Features
+
+* radio's status in the live bucket, and three stale comments ([#34](https://github.com/those-who-run/contracts/issues/34)) ([daa5c1f](https://github.com/those-who-run/contracts/commit/daa5c1fac63977a5d8f5b469318c488237ac82ed))
+
 ## [0.2.3](https://github.com/those-who-run/contracts/compare/v0.2.2...v0.2.3) (2026-10-29)
 
 
