@@ -85,9 +85,11 @@ A number becomes text in package [`format`](format/format.go), v1's
 `format.ts` in Go, so the results card and the pit wall never show the same
 lap differently (paddock#128). Its cases are
 [`format/format-cases.json`](format/format-cases.json), v1 1.0.0's file byte
-for byte, which its tests check in full; `format.Cases()` hands the file to a
-formatter in another language, such as the pit wall's `format.ts`, to check
-against the same release. An unknown value is `format.Missing` ("—").
+for byte, which its tests check in full. A formatter in another language
+checks the same release's file: the pit wall's `format.ts` test reads
+`format/format-cases.json` from the contracts module its `go.mod` pins (`go
+list -m -f '{{.Dir}}' github.com/those-who-run/contracts`), and a Go consumer
+has it from `format.Cases()`. An unknown value is `format.Missing` ("—").
 
 ```go
 best := format.RaceTime(int(s.GetBestLapTimeMs())) // "1:36.595", or "—" when absent

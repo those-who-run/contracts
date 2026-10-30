@@ -47,8 +47,13 @@ const Missing = "—"
 // figures.
 const minus = "−"
 
-// fuelOff is every fuel figure with fuel use off, when none means anything.
-const fuelOff = "Fuel off"
+// fuelOffText is every fuel figure with fuel use off, when none means
+// anything.
+const fuelOffText = "Fuel off"
+
+// maxTraceSecs bounds TraceTime, far beyond any lap, so its tenths stay whole
+// numbers a float64 and an int hold exactly.
+const maxTraceSecs = 1 << 49
 
 // LapTime is a lap time from whole milliseconds, truncated: "1:27.764",
 // "49.677". No time (0 or less) is Missing.
@@ -92,39 +97,45 @@ func Position(p, cars int) (position, of string) {
 }
 
 // FuelPct is fuel left, in per cent of the tank, rounded half to even as v1's
-// card rounds: "43%". Below 0 is Missing, and "Fuel off" when fuelUse is
-// false.
-func FuelPct(pct float64, fuelUse bool) string {
+// card rounds: "43%". Below 0 is Missing.
+//
+// fuelOff is true only when the session has fuel use off, and every fuel
+// figure is then "Fuel off". Its zero value shows the figure, as v1 does
+// unless fuel use is false, so a caller passes
+// s.GetFuelUse() == eventsv1.FuelUse_FUEL_USE_OFF, and a session whose fuel
+// use is unspecified or unknown shows its fuel.
+func FuelPct(pct float64, fuelOff bool) string {
 	switch {
-	case !fuelUse:
-		return fuelOff
+	case fuelOff:
+		return fuelOffText
 	case !(pct >= 0) || math.IsInf(pct, 1):
 		return Missing
 	}
-	return strconv.FormatFloat(roundHalfEven(pct, 0), 'f', -1, 64) + "%"
+	return strconv.FormatFloat(unsigned(roundHalfEven(pct, 0)), 'f', -1, 64) + "%"
 }
 
 // FuelPerLap is fuel used in a lap, in per cent of the tank: "3.2%". A
-// refuelled lap (below 0) is Missing, and "Fuel off" when fuelUse is false.
-func FuelPerLap(pct float64, fuelUse bool) string {
-	return tenths(pct, fuelUse, "%")
+// refuelled lap (below 0) is Missing, and "Fuel off" when fuelOff is set, as
+// for FuelPct.
+func FuelPerLap(pct float64, fuelOff bool) string {
+	return tenths(pct, fuelOff, "%")
 }
 
 // FuelAmount is an amount of fuel in GT7's own units, for when the tank's
 // size is unknown: "18.7 units". Below 0 (a refuel) is Missing, and "Fuel
-// off" when fuelUse is false.
-func FuelAmount(units float64, fuelUse bool) string {
-	return tenths(units, fuelUse, " units")
+// off" when fuelOff is set, as for FuelPct.
+func FuelAmount(units float64, fuelOff bool) string {
+	return tenths(units, fuelOff, " units")
 }
 
-func tenths(v float64, fuelUse bool, unit string) string {
+func tenths(v float64, fuelOff bool, unit string) string {
 	switch {
-	case !fuelUse:
-		return fuelOff
+	case fuelOff:
+		return fuelOffText
 	case !(v >= 0) || math.IsInf(v, 1):
 		return Missing
 	}
-	return strconv.FormatFloat(roundHalfEven(v, 1), 'f', 1, 64) + unit
+	return strconv.FormatFloat(unsigned(roundHalfEven(v, 1)), 'f', 1, 64) + unit
 }
 
 // SpeedKph is a speed: "287 km/h". Below 0 is Missing.
@@ -170,9 +181,9 @@ func Gear(g int) string {
 }
 
 // TraceTime is a moment in a lap, in seconds from its start, to the tenth of
-// a second: "48.3", "1:02.0". Below 0 is Missing.
+// a second: "48.3", "1:02.0". Below 0, and beyond 2^49 s, is Missing.
 func TraceTime(s float64) string {
-	if !(s >= 0) || math.IsInf(s, 1) {
+	if !(s >= 0) || s > maxTraceSecs {
 		return Missing
 	}
 	t := int(jsRound(s * 10))
@@ -281,9 +292,23 @@ func roundHalfEven(v float64, digits int) float64 {
 	return math.RoundToEven(v*scale) / scale
 }
 
-// jsRound is JavaScript's Math.round: halves up, towards +∞.
+// jsRound is JavaScript's Math.round: halves up, towards +∞. Not
+// math.Floor(v+0.5), which rounds 0.49999999999999994 up and loses odd
+// values above 2^52 to the addition.
 func jsRound(v float64) float64 {
-	return math.Floor(v + 0.5)
+	f := math.Floor(v)
+	if v-f >= 0.5 {
+		return f + 1
+	}
+	return f
+}
+
+// unsigned is v with negative zero made zero, so no figure is written "-0".
+func unsigned(v float64) float64 {
+	if v == 0 {
+		return 0
+	}
+	return v
 }
 
 // group puts a comma between each three digits of a whole number, as en-GB
