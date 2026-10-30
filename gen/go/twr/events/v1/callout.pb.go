@@ -56,12 +56,13 @@ const (
 	PitLane_PIT_LANE_UNSPECIFIED PitLane = 0
 	// Spoken in the lane as anywhere else (v1's fuel and race_summary: their
 	// calls are about the stop, or the flag can fall in a lane that crosses the
-	// line).
+	// line; and telemetry, whose watchdog v1 ran outside the lane's quiet).
 	PitLane_PIT_LANE_SPEAK PitLane = 1
 	// Kept until it is released (PitLane's comment says when: the exit,
 	// PitExited's exited_at; a PitTeleport; or the flag, RaceFinished), then
 	// spoken as if raised there: the time in the lane does not age it (v1's
-	// default: lap_time, final_lap, start_brief, temps, telemetry).
+	// default: lap_time, final_lap, start_brief, temps). ecu sends telemetry
+	// as PIT_LANE_SPEAK, as v1's watchdog skipped the lane's quiet.
 	PitLane_PIT_LANE_HOLD PitLane = 2
 	// Dropped, by ecu if raised in the lane and by radio if still queued at the
 	// entry (v1's position: the order before the stop; the net change follows
@@ -235,8 +236,9 @@ type Callout struct {
 	// When it goes stale, in UTC: radio drops it unspoken after this (paddock#56).
 	// created_at plus the rule's own max_age where it sets one (v1's
 	// race_summary, 30 s, so it waits behind the final lap time), or the
-	// queue's otherwise (v1's queue.max_age_seconds, 8 s). Absent: it never
-	// goes stale, as for a replay, whose queue v1 ran without a limit. A
+	// queue's otherwise (v1's queue.max_age_seconds, 8 s). ecu always sets
+	// it, on a replay's source too. Absent, from another publisher: it never
+	// goes stale. A
 	// callout radio holds in the pit lane (PIT_LANE_HOLD) restarts its life
 	// when it is released: it then expires at the release plus (expires_at less
 	// created_at). One ecu held is published with expires_at from its release.

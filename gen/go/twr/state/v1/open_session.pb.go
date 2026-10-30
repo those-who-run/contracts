@@ -131,7 +131,7 @@ type OpenSession struct {
 	RunId string `protobuf:"bytes,3,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	// When ecu last received a frame of the session, in UTC (v1's `ended_at`
 	// after a shutdown): a new run continues the session only within the
-	// continue window after it (ECU_CONTINUE_WINDOW_SECS, 600 s by default).
+	// continue window after it (TWR_ECU_CONTINUE_WINDOW_SECS, 600 s by default).
 	LastSeenAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
 	// The running summary, as of last_seen_at: each field as SessionEnded's
 	// summary carries it, so ending the session from this value and ending it

@@ -279,6 +279,13 @@ var examples = []struct {
 		SessionId: "01JBBX7Q2M5R8T1V4W6Y9K3NZC", LapsRemaining: proto.Float64(0.9), FuelLevel: 8.685, FuelCapacity: 100,
 	}},
 	{"state/v1/open_session.json", openSuzuka()},
+	// paddock#62: radio's status in the same race, a second after it spoke
+	// with the driver listening.
+	{"state/v1/radio_status.json", &statev1.RadioStatus{
+		Source: "live", Sink: statev1.RadioSink_RADIO_SINK_DISCORD, VoiceConnected: proto.Bool(true), VoiceListeners: proto.Int32(1),
+		LastSpokenAt: timestamppb.New(time.Date(2026, 10, 29, 13, 52, 30, 875_000_000, time.UTC)),
+		UpdatedAt:    timestamppb.New(time.Date(2026, 10, 29, 13, 52, 31, 0, time.UTC)),
+	}},
 }
 
 // openSuzuka is open_session.json's values: the Suzuka timed race of

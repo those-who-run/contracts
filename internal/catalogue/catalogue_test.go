@@ -92,15 +92,17 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"twr.v1.<src>.frame.gt7.lo": "twr.telemetry.v1.Frame",
 	}
 	// paddock#72: every key carries its source; the open session is in ecu's
-	// own bucket, written and read by ecu alone.
+	// own bucket, written and read by ecu alone. paddock#62: radio writes its
+	// own status.
 	wantKV := map[string]struct {
-		message, consumers string
+		message, producers, consumers string
 	}{
-		"live ecu.status.<src>":   {"twr.state.v1.EcuStatus", "pitwall radio"},
-		"live ecu.session.<src>":  {"twr.state.v1.LiveSession", "pitwall"},
-		"live ecu.pit.<src>":      {"twr.state.v1.PitState", "pitwall"},
-		"live ecu.fuel.<src>":     {"twr.state.v1.FuelState", "pitwall"},
-		"ecu sessions.open.<src>": {"twr.state.v1.OpenSession", "ecu"},
+		"live ecu.status.<src>":   {"twr.state.v1.EcuStatus", "ecu", "pitwall radio"},
+		"live ecu.session.<src>":  {"twr.state.v1.LiveSession", "ecu", "pitwall"},
+		"live ecu.pit.<src>":      {"twr.state.v1.PitState", "ecu", "pitwall"},
+		"live ecu.fuel.<src>":     {"twr.state.v1.FuelState", "ecu", "pitwall"},
+		"live radio.status.<src>": {"twr.state.v1.RadioStatus", "radio", "pitwall"},
+		"ecu sessions.open.<src>": {"twr.state.v1.OpenSession", "ecu", "ecu"},
 	}
 	if len(c.Subjects) != len(want)+len(wantKV) {
 		t.Errorf("%d subjects and keys, want %d", len(c.Subjects), len(want)+len(wantKV))
@@ -108,8 +110,8 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 	for _, s := range c.Subjects {
 		if s.IsKV() {
 			w := wantKV[s.KV+" "+s.Key]
-			if w.message != s.Message || w.consumers != strings.Join(s.Consumers, " ") || strings.Join(s.Producers, " ") != "ecu" {
-				t.Errorf("kv %s %s holds %s for %v, want %q for %q", s.KV, s.Key, s.Message, s.Consumers, w.message, w.consumers)
+			if w.message != s.Message || w.consumers != strings.Join(s.Consumers, " ") || w.producers != strings.Join(s.Producers, " ") {
+				t.Errorf("kv %s %s holds %s from %v for %v, want %q from %q for %q", s.KV, s.Key, s.Message, s.Producers, s.Consumers, w.message, w.producers, w.consumers)
 			}
 			continue
 		}
@@ -199,8 +201,8 @@ func TestAnEventMessageWithoutAnEntryFails(t *testing.T) {
 // A state message without a KV entry fails the check, in any version of the
 // state package (paddock#72): every value's key is in the catalogue.
 func TestAStateMessageWithoutAnEntryFails(t *testing.T) {
-	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.state.v1", "RadioStatus"),
-		"state message twr.state.v1.RadioStatus has no KV entry in the catalogue, and is not a helper")
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.state.v1", "LogbookStatus"),
+		"state message twr.state.v1.LogbookStatus has no KV entry in the catalogue, and is not a helper")
 	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.state.v2", "EcuStatus"),
 		"state message twr.state.v2.EcuStatus has no KV entry in the catalogue, and is not a helper")
 	c := load(t, repo, subjects)

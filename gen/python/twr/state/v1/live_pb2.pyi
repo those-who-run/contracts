@@ -18,12 +18,23 @@ class Activity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ACTIVITY_PAUSED: _ClassVar[Activity]
     ACTIVITY_REPLAY: _ClassVar[Activity]
     ACTIVITY_DEMO: _ClassVar[Activity]
+
+class RadioSink(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RADIO_SINK_UNSPECIFIED: _ClassVar[RadioSink]
+    RADIO_SINK_CONSOLE: _ClassVar[RadioSink]
+    RADIO_SINK_WAV: _ClassVar[RadioSink]
+    RADIO_SINK_DISCORD: _ClassVar[RadioSink]
 ACTIVITY_UNSPECIFIED: Activity
 ACTIVITY_IDLE: Activity
 ACTIVITY_DRIVING: Activity
 ACTIVITY_PAUSED: Activity
 ACTIVITY_REPLAY: Activity
 ACTIVITY_DEMO: Activity
+RADIO_SINK_UNSPECIFIED: RadioSink
+RADIO_SINK_CONSOLE: RadioSink
+RADIO_SINK_WAV: RadioSink
+RADIO_SINK_DISCORD: RadioSink
 
 class EcuStatus(_message.Message):
     __slots__ = ("source", "run_id", "version", "started_at", "activity", "idle", "idle_secs", "telemetry_connected", "telemetry_listening", "last_packet_age_secs", "packets", "races_started", "updated_at")
@@ -108,3 +119,19 @@ class FuelState(_message.Message):
     fuel_level: float
     fuel_capacity: float
     def __init__(self, session_id: _Optional[str] = ..., laps_remaining: _Optional[float] = ..., fuel_level: _Optional[float] = ..., fuel_capacity: _Optional[float] = ...) -> None: ...
+
+class RadioStatus(_message.Message):
+    __slots__ = ("source", "sink", "voice_connected", "voice_listeners", "last_spoken_at", "updated_at")
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    SINK_FIELD_NUMBER: _ClassVar[int]
+    VOICE_CONNECTED_FIELD_NUMBER: _ClassVar[int]
+    VOICE_LISTENERS_FIELD_NUMBER: _ClassVar[int]
+    LAST_SPOKEN_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    source: str
+    sink: RadioSink
+    voice_connected: bool
+    voice_listeners: int
+    last_spoken_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(self, source: _Optional[str] = ..., sink: _Optional[_Union[RadioSink, str]] = ..., voice_connected: _Optional[bool] = ..., voice_listeners: _Optional[int] = ..., last_spoken_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
