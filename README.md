@@ -81,6 +81,21 @@ subject, err := callout.Subject("live", c) // twr.v1.live.callout.p0 for the sta
 h, data, err := ce.Encode(c, ce.Event{ID: c.GetId(), Source: "/twr/ecu/gt7", Time: c.GetCreatedAt().AsTime()})
 ```
 
+A number becomes text in package [`format`](format/format.go), v1's
+`format.ts` in Go, so the results card and the pit wall never show the same
+lap differently (paddock#128). Its cases are
+[`format/format-cases.json`](format/format-cases.json), v1 1.0.0's file byte
+for byte, which its tests check in full. A formatter in another language
+checks the same release's file: the pit wall's `format.ts` test reads
+`format/format-cases.json` from the contracts module its `go.mod` pins (`go
+list -m -f '{{.Dir}}' github.com/those-who-run/contracts`), and a Go consumer
+has it from `format.Cases()`. An unknown value is `format.Missing` ("—").
+
+```go
+best := format.RaceTime(int(s.GetBestLapTimeMs())) // "1:36.595", or "—" when absent
+p, of := format.Position(3, 16)                     // "P3", "/16"
+```
+
 ### Python
 
 `gen/python/` is a Python package, `twr-contracts`, which a component installs
@@ -199,6 +214,8 @@ it). TypeScript comes with its first consumer, the pit wall.
 - `proto/twr/<area>/v1/*.proto`: the contracts, one protobuf package per area
   and version.
 - `examples/`: one JSON example of each message, in protobuf's JSON form.
+- [`format/`](format/format.go): how numbers become text, and
+  `format-cases.json`, the cases every formatter of the project checks.
 - [`subjects.yaml`](subjects.yaml): the catalogue of NATS subjects (ADR 0002,
   point 5), checked by [`internal/catalogue`](internal/catalogue/catalogue_test.go)
   and rendered to [`docs/subjects.md`](docs/subjects.md) by `make generate`.
