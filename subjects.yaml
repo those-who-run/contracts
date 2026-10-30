@@ -379,7 +379,7 @@ subjects:
     content_type: application/json
     producers: [radio]
     consumers: [pitwall]
-    description: What radio is doing (the sink, the voice connection, who is listening, when it last spoke), written on change, at most once a second.
+    description: What radio is doing (the sink, the voice connection, who is listening, when it last spoke), written on change, at most once a second, and at least every 5 s while radio runs.
 
   - kv: ecu
     key: sessions.open.<src>

@@ -700,9 +700,11 @@ func (x *FuelState) GetFuelCapacity() float64 {
 // listening (paddock#61), in the `live` bucket under `radio.status.<src>`,
 // one key per source, the source whose callouts radio speaks, so a replay
 // writes its own key and never the live source's. radio writes it on change,
-// at most once a second, off the speaking path, so a callout never waits for
-// the bucket. radio's /healthz says the same, with whether it is healthy and
-// idle.
+// at most once a second, and at least every 5 s while it runs, off the
+// speaking path, so a callout never waits for the bucket. The bucket has no
+// TTL, so a reader such as the pit wall's chip (paddock#125) can take a value
+// whose updated_at is far older than 5 s as radio gone. radio's /healthz says
+// the same, with whether it is healthy and idle.
 type RadioStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The source whose callouts radio speaks, the key's <src>: `live`,
@@ -722,7 +724,8 @@ type RadioStatus struct {
 	// When radio last finished speaking a callout, in UTC. Absent before the
 	// first one of this radio run.
 	LastSpokenAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_spoken_at,json=lastSpokenAt,proto3" json:"last_spoken_at,omitempty"`
-	// When radio wrote this value, in UTC.
+	// When radio wrote this value, in UTC. radio rewrites the value at least
+	// every 5 s while it runs.
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

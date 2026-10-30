@@ -198,9 +198,11 @@ enum RadioSink {
 // listening (paddock#61), in the `live` bucket under `radio.status.<src>`,
 // one key per source, the source whose callouts radio speaks, so a replay
 // writes its own key and never the live source's. radio writes it on change,
-// at most once a second, off the speaking path, so a callout never waits for
-// the bucket. radio's /healthz says the same, with whether it is healthy and
-// idle.
+// at most once a second, and at least every 5 s while it runs, off the
+// speaking path, so a callout never waits for the bucket. The bucket has no
+// TTL, so a reader such as the pit wall's chip (paddock#125) can take a value
+// whose updated_at is far older than 5 s as radio gone. radio's /healthz says
+// the same, with whether it is healthy and idle.
 message RadioStatus {
   // The source whose callouts radio speaks, the key's <src>: `live`,
   // `parity`, or `replay-` followed by the replay's name.
@@ -219,6 +221,7 @@ message RadioStatus {
   // When radio last finished speaking a callout, in UTC. Absent before the
   // first one of this radio run.
   google.protobuf.Timestamp last_spoken_at = 5;
-  // When radio wrote this value, in UTC.
+  // When radio wrote this value, in UTC. radio rewrites the value at least
+  // every 5 s while it runs.
   google.protobuf.Timestamp updated_at = 6;
 }

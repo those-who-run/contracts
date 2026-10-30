@@ -92,7 +92,7 @@ headers.
 - `live` `ecu.session.<src>`: The open session as of its last frame (kind, track, car, lap, position); no key while none is open.
 - `live` `ecu.pit.<src>`: Whether the car is in the pit lane, its stint and its stops; no key while no session is open.
 - `live` `ecu.fuel.<src>`: The fuel level, the tank and the laps it lasts; no key while no session is open.
-- `live` `radio.status.<src>`: What radio is doing (the sink, the voice connection, who is listening, when it last spoke), written on change, at most once a second.
+- `live` `radio.status.<src>`: What radio is doing (the sink, the voice connection, who is listening, when it last spoke), written on change, at most once a second, and at least every 5 s while radio runs.
 - `ecu` `sessions.open.<src>`: The open session and its running summary, which a restarted ecu continues or ends from (paddock#76); ecu's own bucket, which no reader of live sees.
 
 Parts of an event or a value, not events or values themselves, so they have no subject or key: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`, `twr.state.v1.LiveTrack`, `twr.state.v1.OpenLap`.

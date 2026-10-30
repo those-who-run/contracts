@@ -106,7 +106,7 @@ func TestKVCommentsSayHowToReadThem(t *testing.T) {
 		{"twr/state/v1/live.proto", "position", []string{"Absent where the results card hides it", "unless the session's SessionKind has field and cars_on_track both true (v1's `position_shown`)", "when the game reported none"}},
 		{"twr/state/v1/live.proto", "total_cars", []string{"unless the session's SessionKind has field and cars_on_track both true (v1's `position_shown`)", "when the game reported none"}},
 		{"twr/state/v1/live.proto", "in_pit_lane", []string{"PitTeleport"}},
-		{"twr/state/v1/live.proto", "RadioStatus", []string{"`radio.status.<src>`", "never the live source's", "at most once a second", "off the speaking path"}},
+		{"twr/state/v1/live.proto", "RadioStatus", []string{"`radio.status.<src>`", "never the live source's", "at most once a second", "at least every 5 s while it runs", "off the speaking path", "updated_at is far older than 5 s as radio gone"}},
 		{"twr/state/v1/live.proto", "voice_listeners", []string{"not bots and not deafened", "0 is a channel with no one listening", "Absent before radio has seen the channel's members"}},
 		{"twr/state/v1/open_session.proto", "OpenSession", []string{
 			"`sessions.open.<src>`", "a replay never reads or clears the live source's", "a reader of `live` never sees the running summary",
