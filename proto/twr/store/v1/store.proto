@@ -142,8 +142,10 @@ message KindCount {
 // FilterCounts is the values each filter can take, from every session of the
 // sources asked for, each with its count.
 message FilterCounts {
-  // The track names, as ListSessionsRequest's track takes them: the empty
-  // name for the sessions whose track the detector was not sure of.
+  // The tracks as the card shows them, as ListSessionsRequest's track takes
+  // them: format.TrackLabel's value, the layout's name when the detector was
+  // sure of it, else the circuit's (the family), and the empty name where
+  // TrackLabel says "Unknown track".
   repeated ValueCount track = 1;
   // The car names, as SessionSummary's car_name has them; a session with no
   // car name has no value here.
@@ -159,9 +161,13 @@ message ListSessionsRequest {
   // The sources to look in, such as `live` and `v1-import` (the pit wall's
   // TWR_PITWALL_SRC). At least one: none is a bad request (400).
   repeated string sources = 1;
-  // Only sessions at this track: the summary's track name when the detector
-  // was sure of it (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED),
-  // and the empty name for every other session. Absent matches every track.
+  // Only sessions at this track, by the track the card shows:
+  // format.TrackLabel of the summary's track, the layout's name when the
+  // detector was sure of it (TRACK_CONFIDENCE_PROBABLE or
+  // TRACK_CONFIDENCE_CONFIRMED), else the circuit's (TrackVerdict's family,
+  // such as "Fuji"), else the empty name, where TrackLabel says "Unknown
+  // track". So the filter and the page agree, as v1's filter keyed on the
+  // shown label. Absent matches every track.
   optional string track = 2;
   // Only sessions in this car, by SessionSummary's car_name. Absent matches
   // every car.
@@ -224,8 +230,9 @@ message GetSessionRequest {
 message GetSessionResponse {
   // The session.
   SessionRow session = 1;
-  // A stamp that changes only when the session's data changes: the pit
-  // wall's ETag.
+  // A stamp of the whole store: it changes when anything in the store
+  // changes, not only this session (the maintainer's accepted departure,
+  // 2026-10-31). The pit wall's ETag.
   string data_version = 2;
   // The caller's known_data_version is still current: every other field
   // but data_version is absent.
@@ -249,8 +256,8 @@ message ListLapsResponse {
   SessionRow session = 1;
   // Its laps, complete and partial, in the order they ended.
   repeated LapRow laps = 2;
-  // A stamp that changes only when the session's laps or summary change: the
-  // pit wall's ETag.
+  // A stamp of the whole store, as GetSessionResponse's: it changes when
+  // anything in the store changes. The pit wall's ETag.
   string data_version = 3;
   // The caller's known_data_version is still current: every other field
   // but data_version is absent.
