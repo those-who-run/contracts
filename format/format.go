@@ -5,9 +5,13 @@
 // never show the same lap differently.
 //
 // Its cases are format-cases.json, v1 1.0.0's tests/fixtures/format-cases.json
-// byte for byte. This package's tests check every case, and Cases hands the
-// file to a consumer that checks its own formatter against the same version,
-// such as the pit wall's format.ts.
+// byte for byte, with the results card's cases after them in its "cards"
+// member. This package's tests check every case, and Cases hands the file to a
+// consumer that checks its own formatter against the same version, such as the
+// pit wall's format.ts.
+//
+// The results card's words for a session are here too: Title, Result and
+// KindLabel, which podium's card and the pit wall's API both write (card.go).
 //
 // A value that is unknown is written as Missing ("—"), never 0, blank or
 // "None". A function that has a no-value form of its own (LapTime and RaceTime
@@ -34,8 +38,9 @@ var cases []byte
 
 // Cases is format-cases.json, the cases every formatter of the project
 // checks: an object with "about" and "cases", each case calling "fn" (v1's
-// name, such as raceTime) with "args" and expecting "out". It is a copy, so a
-// caller may change it.
+// name, such as raceTime) with "args" and expecting "out", and "cards", the
+// cases of Title, Result and KindLabel in the same shape (its own "about" says
+// their args). It is a copy, so a caller may change it.
 func Cases() []byte {
 	return append([]byte(nil), cases...)
 }
