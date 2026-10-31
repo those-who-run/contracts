@@ -40,6 +40,11 @@ from twr.events.v1 import callout_pb2
 # The KV values (paddock#72, paddock#67), imported so their types are in the
 # pool: no helper imports them, as they have no ce-type.
 from twr.state.v1 import cards_pb2, live_pb2, open_session_pb2  # noqa: F401
+
+# The services' requests and responses (paddock#121): logbook's and the pit
+# wall's, imported so their types are in the pool; they have no ce-type either.
+from twr.pitwall.v1 import pitwall_pb2  # noqa: F401
+from twr.store.v1 import store_pb2  # noqa: F401
 from twr_contracts import callout, ce
 
 EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")

@@ -19,6 +19,7 @@ import (
 	// The generated messages, which register themselves in GlobalFiles.
 	_ "github.com/those-who-run/contracts/gen/go/twr/events/v1"
 	_ "github.com/those-who-run/contracts/gen/go/twr/state/v1"
+	_ "github.com/those-who-run/contracts/gen/go/twr/store/v1"
 	_ "github.com/those-who-run/contracts/gen/go/twr/telemetry/v1"
 	"github.com/those-who-run/contracts/internal/catalogue"
 )
@@ -236,10 +237,11 @@ func TestHelpers(t *testing.T) {
 		want   string
 	}{
 		{"twr.events.v1.LapCompleted", "helper twr.events.v1.LapCompleted has an entry: a helper is not an event"},
-		{"twr.state.v1.EcuStatus", "helper twr.state.v1.EcuStatus has an entry: a helper is not an event or a value"},
-		{"twr.telemetry.v1.Frame", "helper twr.telemetry.v1.Frame is not in an events package"},
+		{"twr.state.v1.EcuStatus", "helper twr.state.v1.EcuStatus has an entry: a helper is not an event, a value"},
+		{"twr.telemetry.v1.Frame", "helper twr.telemetry.v1.Frame is not in an events, state or store package"},
 		{"twr.events.v1.Summary", "helper twr.events.v1.Summary is not in the generated code"},
 		{"twr.events.v1.PitRole", "helper twr.events.v1.PitRole is not a message"},
+		{"twr.store.v1.GetSessionRequest", "helper twr.store.v1.GetSessionRequest has an entry: a helper is not an event, a value, a request or a response"},
 	} {
 		t.Run(tc.helper, func(t *testing.T) {
 			c := load(t, repo, subjects)
@@ -605,5 +607,62 @@ func TestAgreesSkipsKVAndRepeats(t *testing.T) {
 	err := c.Agrees(types)
 	if err == nil || strings.Count(err.Error(), "twr.events.v1.LapCompleted") != 1 {
 		t.Errorf("got %v, want LapCompleted reported once", err)
+	}
+}
+
+// The services (paddock#121): logbook's five queries, each a NATS micro
+// endpoint with its request and response, pass every check, and every
+// store-package message is a request, a response or a helper.
+func TestServices(t *testing.T) {
+	c := load(t, repo, subjects)
+	var got []string
+	for _, s := range c.Services {
+		got = append(got, s.Subject)
+	}
+	want := []string{
+		"svc.logbook.sessions.list", "svc.logbook.sessions.get", "svc.logbook.laps.list",
+		"svc.logbook.laps.trace", "svc.logbook.sessions.same_track",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("services are %v, want %v", got, want)
+	}
+	assertPasses(t, c, protoregistry.GlobalFiles)
+
+	c.Helpers = slices.DeleteFunc(c.Helpers, func(h string) bool { return h == "twr.store.v1.SessionRow" })
+	assertFails(t, c, protoregistry.GlobalFiles,
+		"store message twr.store.v1.SessionRow is no service's request or response, and is not a helper")
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.store.v1", "Unserved"),
+		"store message twr.store.v1.Unserved is no service's request or response")
+	assertFails(t, load(t, repo, subjects), withMessage(t, "twr.store.v2", "ListSessionsRequest"),
+		"store message twr.store.v2.ListSessionsRequest is no service's request or response")
+}
+
+// Each check on a service, on the real catalogue with its first service
+// broken.
+func TestEachServiceCheck(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*catalogue.Catalogue)
+		want   string
+	}{
+		{"a subject outside svc.", func(c *catalogue.Catalogue) { c.Services[0].Subject = "twr.v1.logbook.sessions.list" }, "is not svc.<service>.<verb>"},
+		{"no verb", func(c *catalogue.Catalogue) { c.Services[0].Subject = "svc.logbook" }, "is not svc.<service>.<verb>"},
+		{"a placeholder", func(c *catalogue.Catalogue) { c.Services[0].Subject = "svc.logbook.<sid>.get" }, "is not svc.<service>.<verb>"},
+		{"another component's subject", func(c *catalogue.Catalogue) { c.Services[0].Service = "ecu" }, `the subject's service is logbook, but its service is "ecu"`},
+		{"the same subject twice", func(c *catalogue.Catalogue) { c.Services[1].Subject = c.Services[0].Subject }, "services[0] is the same subject"},
+		{"no request", func(c *catalogue.Catalogue) { c.Services[0].Request = "" }, "no request"},
+		{"a response not generated", func(c *catalogue.Catalogue) { c.Services[0].Response = "twr.store.v1.Nothing" }, "response twr.store.v1.Nothing is not in the generated code"},
+		{"an enum as the request", func(c *catalogue.Catalogue) { c.Services[0].Request = "twr.events.v1.PitRole" }, "request twr.events.v1.PitRole is not a message"},
+		{"one message on two endpoints", func(c *catalogue.Catalogue) { c.Services[1].Request = c.Services[0].Request },
+			"request twr.store.v1.ListSessionsRequest is svc.logbook.sessions.list's too"},
+		{"another content type", func(c *catalogue.Catalogue) { c.Services[0].ContentType = "application/protobuf" }, `content_type "application/protobuf" is not application/json`},
+		{"no callers", func(c *catalogue.Catalogue) { c.Services[0].Callers = nil }, "no callers"},
+		{"no description", func(c *catalogue.Catalogue) { c.Services[0].Description = "" }, "no description"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := load(t, repo, subjects)
+			tc.change(c)
+			assertFails(t, c, protoregistry.GlobalFiles, tc.want)
+		})
 	}
 }

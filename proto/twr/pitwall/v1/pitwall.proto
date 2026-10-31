@@ -1,0 +1,472 @@
+syntax = "proto3";
+
+// The pit wall's HTTP API (paddock#121): a Connect service the pit wall's
+// server serves its web app from one origin (ADR 0002, point 8). It replaces
+// v1's data routes and its engineer's status route, and carries every value
+// v1's response bodies carried (v1's pitwall/api_models.py at v1.0.0), as
+// values, not card strings (ADR 0004, point 6): times in milliseconds,
+// positions and counts as numbers, flags as booleans, and the names a server
+// owns (kind_label, the track's name, position_shown) as strings and booleans
+// beside them. pitwall_v1_test.go maps every field of v1's schema to its
+// field here, and lists the deliberate differences with their reasons.
+//
+// These are the API's own messages, not logbook's (twr.store.v1): the store
+// and the API change apart (paddock#121's triage, 2026-10-26). The pit wall
+// maps logbook's replies to them. A session's id is its bare id, the one
+// logbook keeps it under, with no source: v1's imported sessions keep v1's
+// id, so the old results cards' links still open them.
+package twr.pitwall.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// PitwallService is the pit wall's read-only API. Every method has no side
+// effects, so Connect serves it as GET, with the request in the query string,
+// and the pit wall answers an ETag and a 304 as v1 did (every method but
+// GetEngineStatus, which is never cached). A session or lap that does not
+// exist answers Connect's not_found, a bad argument invalid_argument, and
+// logbook not answering unavailable.
+service PitwallService {
+  // ListSessions is the session list: every session, newest first, filtered,
+  // with the values each filter can take and their counts (v1's
+  // `GET /api/v1/sessions`).
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetSession is one session (v1's `GET /api/v1/sessions/{id}`).
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // ListLaps is a session's lap table (v1's
+  // `GET /api/v1/sessions/{id}/laps`).
+  rpc ListLaps(ListLapsRequest) returns (ListLapsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetTrace is a lap's speed, throttle, brake, gear, RPM and position
+  // against time, for lap compare and its track map (v1's
+  // `GET /api/v1/sessions/{id}/laps/{lap}/trace`).
+  rpc GetTrace(GetTraceRequest) returns (GetTraceResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // ListSameTrack is the other sessions at this session's track, for lap
+  // compare (v1's `GET /api/v1/sessions/{id}/same-track`).
+  rpc ListSameTrack(ListSameTrackRequest) returns (ListSameTrackResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetEngineStatus is what the engineer is doing right now, for the shell's
+  // live chip (v1's `GET /api/engine/status`, which v1 forwarded to the
+  // engineer's `/api/v1/status`), read from ecu's and radio's values in the
+  // `live` bucket (paddock#125). It never fails for the engineer being gone:
+  // that is ACTIVITY_OFFLINE. Never cached.
+  rpc GetEngineStatus(GetEngineStatusRequest) returns (GetEngineStatusResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// Track is the track as the detector placed it (v1's `Track`).
+message Track {
+  // GT7's track id, when the detector named one, sure or not (v1's `id`).
+  optional int32 track_id = 1;
+  // The name to show: "Unknown track" when the detector is not sure (v1's
+  // `name`).
+  string name = 2;
+  // The detector is sure (probable or confirmed): same-track compare uses it
+  // (v1's `sure`).
+  bool sure = 3;
+  // Why the detector placed it there, in a sentence (v1's `evidence`). Its
+  // wording is not part of the contract.
+  optional string evidence = 4;
+}
+
+// Session is one session: what its results card is built from, as values
+// (v1's `Session`).
+message Session {
+  // The session id: a ULID ecu minted, or for a session imported from v1,
+  // v1's own id, such as "20261017-162118" (v1's `session_id`).
+  string session_id = 1;
+  // The results card title, "Circuit Gilles Villeneuve · 12-lap race" (v1's
+  // `title`), written with contracts' format package, as the card is.
+  string title = 2;
+  // The results card line, "🚩 Finished P3 of 20 in 21:06.182" (v1's
+  // `result`), written with contracts' format package, as the card is.
+  string result = 3;
+  // When the session started (v1's `started_at`, in Unix seconds).
+  google.protobuf.Timestamp started_at = 4;
+  // When it ended; absent while it is still open (v1's `ended_at`, in Unix
+  // seconds).
+  google.protobuf.Timestamp ended_at = 5;
+  // The session has ended (v1's `closed`: summary.json is written).
+  bool closed = 6;
+  // The session kind's key, as the kind filter takes it: "lap_race",
+  // "solo_laps", "timed_field", "solo_timed", or "unknown" when not recorded
+  // (v1's `kind`, sessionkind.Kind). A later kind adds a key.
+  string kind = 7;
+  // The kind as the card names it: "12-lap race", "time trial" (v1's
+  // `kind_label`).
+  string kind_label = 8;
+  // Where it was driven (v1's `track`).
+  Track track = 9;
+  // The car's name; absent when GT7 sent an unknown code (v1's `car`).
+  optional string car = 10;
+  // GT7's car code (v1's `car_code`).
+  optional int32 car_code = 11;
+  // The race was finished: GT7 showed the result (v1's `finished`).
+  bool finished = 12;
+  // The position at the end, from 1; show it only if position_shown (v1's
+  // `final_position`).
+  optional int32 final_position = 13;
+  // The cars in the field (v1's `total_cars`).
+  optional int32 total_cars = 14;
+  // A position means something here: a field GT7 flags (v1's
+  // `position_shown`).
+  bool position_shown = 15;
+  // The race time of a finished race, in milliseconds (v1's
+  // `total_time_ms`).
+  optional int32 total_time_ms = 16;
+  // The best lap's time as the card picks it (GT7's own best first), in
+  // milliseconds (v1's `best_lap_ms`).
+  optional int32 best_lap_ms = 17;
+  // Which lap that was, from 1 (v1's `best_lap_no`).
+  optional int32 best_lap = 18;
+  // The laps completed (v1's `laps_completed`).
+  int32 laps_completed = 19;
+  // The laps in the race; absent for a timed or open session (v1's
+  // `total_laps`, 0 there).
+  optional int32 total_laps = 20;
+  // Fuel use is on; false means the fuel figures mean nothing; absent when
+  // not known (v1's `fuel_use`).
+  optional bool fuel_use = 21;
+  // The fuel burnt over the session, in litres, GT7's units, refuels left
+  // out (v1's `fuel_used`).
+  optional double fuel_burned = 22;
+  // The tank, in litres, GT7's units: fuel as a share of it (v1's
+  // `fuel_capacity`).
+  optional double fuel_capacity = 23;
+  // The fuel burnt in each stint, in litres, as the card's fuel line has it
+  // (v1's `fuel_by_stint`).
+  repeated double fuel_by_stint = 24;
+  // The pit stops made (v1's `pit_stops`).
+  int32 pit_stops = 25;
+  // The time not paused, in milliseconds; absent for an open session (v1's
+  // `driving_ms`).
+  optional int32 driving_ms = 26;
+  // The time paused, in milliseconds (v1's `paused_ms`).
+  optional int32 paused_ms = 27;
+  // The engineer joined part way, on this lap (v1's `joined_on_lap`).
+  optional int32 joined_on_lap = 28;
+  // Continued across an engineer restart (v1's `continued`).
+  bool continued = 29;
+  // The laps an engineer restart fell in (v1's `restart_laps`).
+  repeated int32 restart_laps = 30;
+  // When podium posted the session's results card (paddock#122's triage,
+  // from card.posted). Absent when no card was posted, or not yet. v1 had no
+  // such value.
+  google.protobuf.Timestamp card_posted_at = 31;
+}
+
+// LapRow is one lap in the lap table (v1's `LapRow`).
+message LapRow {
+  // The lap's number, from 1 (v1's `lap`).
+  int32 lap = 1;
+  // The lap's time, in milliseconds; absent for a partial lap or an untimed
+  // crossing (v1's `time_ms`).
+  optional int32 time_ms = 2;
+  // The lap was driven to the line (v1's `complete`).
+  bool complete = 3;
+  // The fuel at the lap's start, in litres, GT7's units (v1's
+  // `fuel_start`).
+  optional double fuel_start = 4;
+  // The fuel at its end, in litres (v1's `fuel_end`).
+  optional double fuel_end = 5;
+  // The fuel used over the lap, in litres; negative when refuelled (v1's
+  // `fuel_used`).
+  optional double fuel_used = 6;
+  // The position at the line, from 1; absent where a position means nothing
+  // (v1's `position`).
+  optional int32 position = 7;
+  // The telemetry frames stored for the lap (v1's `frames`).
+  int32 frames = 8;
+  // The top speed, in km/h; absent when the lap's frames are missing (v1's
+  // `top_speed_kph`).
+  optional double top_speed_kph = 9;
+  // The in-lap of a pit stop (v1's `pit`).
+  bool pit = 10;
+  // The lap after a pit stop (v1's `out_lap`).
+  bool out_lap = 11;
+  // No lap time to compare: a partial lap or an untimed crossing (v1's
+  // `invalid`).
+  bool invalid = 12;
+  // The session's best lap, as the card picks it (v1's `best`).
+  bool best = 13;
+  // False when the session's fuel use is off: its fuel means nothing (v1's
+  // `fuel_use`, true by default there: the pit wall sets it for every lap
+  // of a session with fuel use on or not known).
+  bool fuel_use = 14;
+  // An engineer restart fell in this lap: partly seen (v1's `restart`).
+  bool restart = 15;
+  // Counts towards an average: not pit, out, partial or restart (v1's
+  // `clean`).
+  bool clean = 16;
+}
+
+// Trace is one lap's channels against time from the lap's start, for lap
+// compare and its track map (v1's `Trace`). Thinned to the points asked for,
+// keeping each stretch's slowest and fastest frame, so braking points and top
+// speeds survive, and both frames either side of a position jump (the pit
+// cut-scene). Each channel is an array with one value per kept frame, in
+// time order, all of the same length, so a 1500-point trace stays the size
+// v1's JSON was.
+message Trace {
+  // The session (v1's `session_id`).
+  string session_id = 1;
+  // The lap, from 1 (v1's `lap`).
+  int32 lap = 2;
+  // Seconds from the lap's first frame, gaps capped at 0.1 s, to 1 ms (v1's
+  // `t`).
+  repeated double t = 3;
+  // The speed, in km/h (v1's `speed_kph`).
+  repeated double speed_kph = 4;
+  // The throttle, 0 to 100, to 0.1 (v1's `throttle_pct`).
+  repeated double throttle_pct = 5;
+  // The brake, 0 to 100, to 0.1 (v1's `brake_pct`).
+  repeated double brake_pct = 6;
+  // The gear; 0 is neutral or reverse (v1's `gear`).
+  repeated int32 gear = 7;
+  // The engine speed, in revolutions a minute (v1's `rpm`).
+  repeated double rpm = 8;
+  // The car's position on GT7's x axis, in metres, to 0.1 m (v1's `x`).
+  repeated double x = 9;
+  // The car's position on GT7's z axis, in metres, to 0.1 m; with x, the lap
+  // in plan (v1's `z`).
+  repeated double z = 10;
+}
+
+// FilterOption is one value a filter can take, with its count (v1's
+// `FilterOption`).
+message FilterOption {
+  // The value, as its request field takes it (v1's `value`).
+  string value = 1;
+  // The sessions this value would leave, with the other filters applied (not
+  // its own) (v1's `count`).
+  int32 count = 2;
+}
+
+// KindOption is one session kind the kind filter can take, with its name and
+// count (v1's `KindOption`).
+message KindOption {
+  // The kind's key, as ListSessionsRequest's kind takes it (v1's `value`).
+  string value = 1;
+  // The kind's name (v1's `label`).
+  string label = 2;
+  // The sessions this value would leave, with the other filters applied (not
+  // its own) (v1's `count`).
+  int32 count = 3;
+}
+
+// FilterOptions is the values each filter can take, from every session, each
+// with a count (v1's `FilterOptions`).
+message FilterOptions {
+  // The track names, as Session's track.name has them (v1's `track`).
+  repeated FilterOption track = 1;
+  // The car names (v1's `car`).
+  repeated FilterOption car = 2;
+  // The session kinds (v1's `kind`).
+  repeated KindOption kind = 3;
+}
+
+// ListSessionsRequest is the session list's filters (v1's query parameters
+// on `GET /api/v1/sessions`). An empty filter matches every session.
+message ListSessionsRequest {
+  // Only sessions with this track name, as Session's track.name has it
+  // (v1's `track`).
+  string track = 1;
+  // Only sessions with this car name (v1's `car`).
+  string car = 2;
+  // Only sessions of this kind, by its key (v1's `kind`).
+  string kind = 3;
+  // Only sessions started on or after this day, in time_zone: "2026-10-17"
+  // (v1's `from`).
+  string from_day = 4;
+  // Only sessions started on or before this day, in time_zone: "2026-10-17"
+  // (v1's `to`).
+  string to_day = 5;
+  // The time zone from_day and to_day are days in, an IANA name such as
+  // "Europe/Dublin": the browser's own. Empty is the pit wall's zone, UTC in
+  // its container (v1's `tz`).
+  string time_zone = 6;
+}
+
+// ListSessionsResponse is the sessions, newest first, filtered, and what the
+// filters can take (v1's `SessionList`). Sessions with no full lap are in it:
+// the web app tucks them away and counts them.
+message ListSessionsResponse {
+  // The sessions that match, newest first (v1's `sessions`).
+  repeated Session sessions = 1;
+  // The filter values from every session, not just these (v1's `options`).
+  FilterOptions options = 2;
+  // The sessions in the store (v1's `total`).
+  int32 total = 3;
+  // The sessions that match the filters: the length of sessions (v1's
+  // `matched`).
+  int32 matched = 4;
+}
+
+// GetSessionRequest names one session.
+message GetSessionRequest {
+  // The session id, such as "20261017-162118" (v1's `id` path parameter).
+  string session_id = 1;
+}
+
+// GetSessionResponse is one session.
+message GetSessionResponse {
+  // The session (v1's body was the Session itself).
+  Session session = 1;
+}
+
+// ListLapsRequest names the session whose laps to list.
+message ListLapsRequest {
+  // The session id (v1's `id` path parameter).
+  string session_id = 1;
+}
+
+// ListLapsResponse is a session's lap table (v1's `LapList`).
+message ListLapsResponse {
+  // The session (v1's `session_id`).
+  string session_id = 1;
+  // Its laps in order (v1's `laps`).
+  repeated LapRow laps = 2;
+}
+
+// GetTraceRequest names a lap and how many points of it to send.
+message GetTraceRequest {
+  // The session id (v1's `id` path parameter).
+  string session_id = 1;
+  // The lap's number (v1's `lap` path parameter).
+  int32 lap = 2;
+  // The most points to send, from 1 to 10000; 0 is the default, 1500 (v1's
+  // `points`). Both frames either side of a position jump are kept on top of
+  // these.
+  int32 points = 3;
+}
+
+// GetTraceResponse is one lap's trace.
+message GetTraceResponse {
+  // The trace (v1's body was the Trace itself).
+  Trace trace = 1;
+}
+
+// ListSameTrackRequest names the session whose track to match.
+message ListSameTrackRequest {
+  // The session id (v1's `id` path parameter).
+  string session_id = 1;
+}
+
+// ListSameTrackResponse is the other sessions at the same track (v1's
+// `SameTrack`). Two sessions are at the same track only when the detector
+// was sure of both.
+message ListSameTrackResponse {
+  // The other sessions at the same track, newest first (v1's `sessions`).
+  repeated Session sessions = 1;
+}
+
+// Activity is what the engineer is doing (v1's EngineStatus `activity`), or
+// that it cannot be reached.
+enum Activity {
+  // Not set.
+  ACTIVITY_UNSPECIFIED = 0;
+  // No driving frame for the telemetry timeout (v1's `idle`).
+  ACTIVITY_IDLE = 1;
+  // Driving frames arrive (v1's `driving`).
+  ACTIVITY_DRIVING = 2;
+  // The session is paused (v1's `paused`).
+  ACTIVITY_PAUSED = 3;
+  // GT7 is playing back a race, which ecu ignores (v1's `replay`).
+  ACTIVITY_REPLAY = 4;
+  // GT7's attract-mode demo race, which ecu ignores (v1's `demo`).
+  ACTIVITY_DEMO = 5;
+  // ecu's status is not there to read: none yet, NATS not answering, or one
+  // older than the pit wall's stale limit, which means ecu is gone (the
+  // chip's "Engineer offline"; v1's proxy answered a 502). Every other field
+  // of EngineStatus is absent.
+  ACTIVITY_OFFLINE = 6;
+}
+
+// TelemetryLink is the telemetry feed (v1's `TelemetryLink`).
+message TelemetryLink {
+  // Packets arrived within the telemetry timeout (v1's `connected`).
+  bool connected = 1;
+  // The seconds since the last packet; absent before the first (v1's
+  // `last_packet_age_s`).
+  optional double last_packet_age_secs = 2;
+}
+
+// LiveTrack is the open session's track as the detector has placed it so far
+// (v1's `TrackSeen`).
+message LiveTrack {
+  // GT7's track id; absent when only the circuit is known, as for Fuji's
+  // layouts (v1's `id`).
+  optional int32 track_id = 1;
+  // The track's name, or the circuit's (v1's `name`).
+  optional string name = 2;
+  // The detector is sure (probable or confirmed), as Track's sure (v1's
+  // `sure`).
+  bool sure = 3;
+}
+
+// LiveSession is the session the engineer has open (v1's `LiveSession`).
+message LiveSession {
+  // The session id, as the pit wall lists it (v1's `id`).
+  string session_id = 1;
+  // The session kind's key, as Session's kind: "unknown" until it is known
+  // (v1's `kind`).
+  string kind = 2;
+  // Where it is being driven; absent until the detector has a match (v1's
+  // `track`).
+  LiveTrack track = 3;
+  // The car's name; absent when GT7 sent no car code (v1's `car`).
+  optional string car = 4;
+  // The lap of the last driving frame, from 1 (v1's `lap`).
+  optional int32 lap = 5;
+  // The laps in the race; absent for a timed session (v1's `laps_total`).
+  optional int32 total_laps = 6;
+  // The position now, from 1; absent where the results card hides it (v1's
+  // `position`).
+  optional int32 position = 7;
+  // The cars in the field; absent where the results card hides the position
+  // (v1's `cars`).
+  optional int32 total_cars = 8;
+}
+
+// EngineStatus is what the engineer is doing right now (v1's
+// `EngineStatus`): ecu's status and open session, and radio's voice, from
+// their values in the `live` bucket for the live source only, so a replay
+// never shows. No secret, PS5 address or Discord id is in it.
+message EngineStatus {
+  // ecu's version (v1's `version`: the engineer's).
+  string version = 1;
+  // When ecu started (v1's `started_at`, in Unix seconds).
+  google.protobuf.Timestamp started_at = 2;
+  // What it is doing (Activity): ACTIVITY_IDLE exactly when ecu's /healthz
+  // says idle, and ACTIVITY_OFFLINE when ecu cannot be reached (v1's
+  // `activity`).
+  Activity activity = 3;
+  // The seconds since the last driving frame; 0 while driving (v1's
+  // `idle_secs`).
+  double idle_secs = 4;
+  // The telemetry feed (v1's `telemetry`).
+  TelemetryLink telemetry = 5;
+  // radio is in the Discord voice channel. Absent when radio says nothing
+  // of it, as when it speaks elsewhere or is gone: the chip's "Voice:
+  // unknown" (v1's `voice_connected`).
+  optional bool voice_connected = 6;
+  // The open session; absent when none is open (v1's `session`).
+  LiveSession session = 7;
+}
+
+// GetEngineStatusRequest asks for the engineer's status. It has no fields.
+message GetEngineStatusRequest {}
+
+// GetEngineStatusResponse is the engineer's status.
+message GetEngineStatusResponse {
+  // The status (v1's body was the EngineStatus itself).
+  EngineStatus status = 1;
+}

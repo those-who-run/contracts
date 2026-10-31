@@ -198,9 +198,46 @@ against what v1.0.0 wrote for its recordings, kept under
 [`callout_test.go`](callout_test.go) does the same for four of v1's callouts, and
 [`status_v1_test.go`](status_v1_test.go) for v1's status route.
 
+logbook's queries (paddock#122, #123) are NATS micro services, `svc.logbook.*`,
+which take and answer `twr.store.v1`'s messages: a session's row with ecu's own
+`SessionSummary`, and its laps as ecu published them, with what logbook counted
+from their frames. logbook decides nothing; a reader maps them to its own
+messages. Each answer carries a `data_version` stamp for an `ETag`:
+
+| Subject | Request and response | What it answers | Example |
+| --- | --- | --- | --- |
+| `svc.logbook.sessions.list` | `twr.store.v1.ListSessionsRequest`, `ListSessionsResponse` | The sessions of the sources asked for, newest first, filtered, with each filter's values and counts, in pages. | [`list_sessions_request.json`](examples/store/v1/list_sessions_request.json) |
+| `svc.logbook.sessions.get` | `twr.store.v1.GetSessionRequest`, `GetSessionResponse` | One session's row. | [`get_session_response.json`](examples/store/v1/get_session_response.json) |
+| `svc.logbook.laps.list` | `twr.store.v1.ListLapsRequest`, `ListLapsResponse` | A session's laps, with the session. | [`list_laps_response.json`](examples/store/v1/list_laps_response.json) |
+| `svc.logbook.laps.trace` | `twr.store.v1.GetTraceRequest`, `GetTraceResponse` | One lap's trace, thinned keeping peaks and position jumps. | [`get_trace_response.json`](examples/store/v1/get_trace_response.json) |
+| `svc.logbook.sessions.same_track` | `twr.store.v1.ListSameTrackRequest`, `ListSameTrackResponse` | The other sessions at a session's sure track. | |
+
+`SessionRow`, `LapRow`, `LapTrace`, `FilterCounts`, `ValueCount` and
+`KindCount` are parts of these answers.
+
+The pit wall's HTTP API is `twr.pitwall.v1.PitwallService`, a
+[Connect](https://connectrpc.com/) service (ADR 0002, point 8; paddock#121),
+with its own messages, so the store and the API change apart. Every method is
+`NO_SIDE_EFFECTS`, so Connect serves it as GET. Its Go server code is generated
+with `protoc-gen-connect-go`, in `gen/go/twr/pitwall/v1/pitwallv1connect`; the
+pit wall generates its TypeScript client itself, from a released tag.
+[`pitwall_v1_test.go`](pitwall_v1_test.go) maps every field of v1's API
+(`web/openapi.json` at v1.0.0, kept in
+[`testdata/v1/pitwall_openapi.json`](testdata/v1/pitwall_openapi.json)) to one
+here, and lists each deliberate difference with its reason.
+
+| Method | v1's route | Response | Example |
+| --- | --- | --- | --- |
+| `ListSessions` | `GET /api/v1/sessions` | The sessions, newest first, filtered, with the filters' values and counts. | [`list_sessions_response.json`](examples/pitwall/v1/list_sessions_response.json) |
+| `GetSession` | `GET /api/v1/sessions/{id}` | One session, as values. | [`get_session_response.json`](examples/pitwall/v1/get_session_response.json) |
+| `ListLaps` | `GET /api/v1/sessions/{id}/laps` | The lap table, with each lap's flags. | [`list_laps_response.json`](examples/pitwall/v1/list_laps_response.json) |
+| `GetTrace` | `GET /api/v1/sessions/{id}/laps/{lap}/trace` | One lap's channels against time, each an array. | [`get_trace_response.json`](examples/pitwall/v1/get_trace_response.json) |
+| `ListSameTrack` | `GET /api/v1/sessions/{id}/same-track` | The other sessions at the same track. | |
+| `GetEngineStatus` | `GET /api/engine/status` | What the engineer is doing, or `ACTIVITY_OFFLINE`. | [`get_engine_status_response.json`](examples/pitwall/v1/get_engine_status_response.json), [`get_engine_status_offline.json`](examples/pitwall/v1/get_engine_status_offline.json) |
+
 Which subject each message travels on, with its `ce-type`, stream,
-producers, consumers and `Nats-Msg-Id` scheme, and which KV key holds which
-value, is in
+producers, consumers and `Nats-Msg-Id` scheme, which KV key holds which
+value, and which service takes which request, is in
 [`subjects.yaml`](subjects.yaml), rendered as
 [`docs/subjects.md`](docs/subjects.md).
 
@@ -225,14 +262,15 @@ it). TypeScript comes with its first consumer, the pit wall.
   purpose, each with the reason.
 - [`buf.yaml`](buf.yaml): buf's module, lint rules (`STANDARD` and `COMMENTS`)
   and breaking-change rules (`WIRE_JSON`).
-- [`buf.gen.yaml`](buf.gen.yaml): `protoc-gen-go` as a local plugin, writing
-  `gen/go/`, and protoc's built-in `python` and `pyi` generators, writing
+- [`buf.gen.yaml`](buf.gen.yaml): `protoc-gen-go` and `protoc-gen-connect-go`
+  as local plugins, writing `gen/go/`, and protoc's built-in `python` and `pyi` generators, writing
   `gen/python/twr/`.
 - `gen/go/`: the generated Go code, committed and never edited by hand.
 - `gen/python/`: the Python package. `twr/` is generated, committed and never
   edited by hand; [`pyproject.toml`](gen/python/pyproject.toml), its
   `README.md` and the helpers in `twr_contracts/` are written by hand.
-- [`tools/go.mod`](tools/go.mod): `buf` and `protoc-gen-go`, beside
+- [`tools/go.mod`](tools/go.mod): `buf`, `protoc-gen-go` and
+  `protoc-gen-connect-go`, beside
   golangci-lint and govulncheck, run with `go tool`.
 - [`scripts/protoc.py`](scripts/protoc.py): protoc, for the Python
   generators, which are built into it: the release it pins, fetched from

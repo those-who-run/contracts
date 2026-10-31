@@ -1,7 +1,10 @@
 # How `make generate` writes the code under gen/ (ADR 0008 in paddock), with no
 # network call to buf.build, so a laptop and CI write the same code:
 # - Go, in gen/go: protoc-gen-go is a local plugin, the version tools/go.mod
-#   pins, run with `go tool`.
+#   pins, run with `go tool`; and protoc-gen-connect-go beside it, for the
+#   services (paddock#121's PitwallService), in a <package>connect directory
+#   beside each package that has one. It writes nothing for a file with no
+#   service.
 # - Python, in gen/python/twr: protobuf's own generators, `python` and `pyi`
 #   (the type stubs), which are built into protoc. scripts/protoc.py runs the
 #   protoc release it pins, fetched once and checked by its digest
@@ -17,6 +20,9 @@ managed:
       value: github.com/those-who-run/contracts/gen/go
 plugins:
   - local: ["go", "tool", "-modfile=tools/go.mod", "google.golang.org/protobuf/cmd/protoc-gen-go"]
+    out: gen/go
+    opt: paths=source_relative
+  - local: ["go", "tool", "-modfile=tools/go.mod", "connectrpc.com/connect/cmd/protoc-gen-connect-go"]
     out: gen/go
     opt: paths=source_relative
   - protoc_builtin: python

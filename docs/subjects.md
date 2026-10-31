@@ -62,6 +62,20 @@ headers.
 | `ecu` | `sessions.open.<src>` | `twr.state.v1.OpenSession` | ecu | ecu |
 | `cards` | `<src>.<sid>` | `twr.state.v1.CardRecord` | podium | podium |
 
+## Services
+
+NATS micro endpoints: a caller sends the request and gets the response, each as
+protobuf's JSON form with no CloudEvents headers. An error is NATS micro's error
+headers, `Nats-Service-Error-Code` and `Nats-Service-Error`.
+
+| Subject | Service | Request | Response | Callers |
+| --- | --- | --- | --- | --- |
+| `svc.logbook.sessions.list` | logbook | `twr.store.v1.ListSessionsRequest` | `twr.store.v1.ListSessionsResponse` | pitwall |
+| `svc.logbook.sessions.get` | logbook | `twr.store.v1.GetSessionRequest` | `twr.store.v1.GetSessionResponse` | pitwall |
+| `svc.logbook.laps.list` | logbook | `twr.store.v1.ListLapsRequest` | `twr.store.v1.ListLapsResponse` | pitwall |
+| `svc.logbook.laps.trace` | logbook | `twr.store.v1.GetTraceRequest` | `twr.store.v1.GetTraceResponse` | pitwall |
+| `svc.logbook.sessions.same_track` | logbook | `twr.store.v1.ListSameTrackRequest` | `twr.store.v1.ListSameTrackResponse` | pitwall |
+
 ## What each one is
 
 - `twr.v1.<src>.frame.gt7`: Every decoded GT7 packet, about 60 a second.
@@ -98,8 +112,13 @@ headers.
 - `live` `radio.status.<src>`: What radio is doing (the sink, the voice connection, who is listening, when it last spoke), written on change, at most once a second, and at least every 5 s while radio runs.
 - `ecu` `sessions.open.<src>`: The open session and its running summary, which a restarted ecu continues or ends from (paddock#76); ecu's own bucket, which no reader of live sees.
 - `cards` `<src>.<sid>`: Whether the session's results card is being posted or is posted, and its Discord message id; no key for a session that gets no card.
+- `svc.logbook.sessions.list`: The sessions of the sources asked for, newest first, filtered by track, car, kind and days in a time zone, with each filter's values and counts.
+- `svc.logbook.sessions.get`: One session, its row with ecu's summary; 404 when no source asked for has it.
+- `svc.logbook.laps.list`: A session's laps in order, each with its frame count and top speed, and the session they belong to.
+- `svc.logbook.laps.trace`: One lap's trace, thinned keeping peaks and both frames either side of a jump in position; 404 for a lap or lap file that does not exist.
+- `svc.logbook.sessions.same_track`: The other sessions at a session's track, newest first, where the detector was sure of both.
 
-Parts of an event or a value, not events or values themselves, so they have no subject or key: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`, `twr.state.v1.LiveTrack`, `twr.state.v1.OpenLap`.
+Parts of an event, a value, a request or a response, not one themselves, so they have no subject, key or service: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`, `twr.state.v1.LiveTrack`, `twr.state.v1.OpenLap`, `twr.store.v1.FilterCounts`, `twr.store.v1.KindCount`, `twr.store.v1.LapRow`, `twr.store.v1.LapTrace`, `twr.store.v1.SessionRow`, `twr.store.v1.ValueCount`.
 
 ## Placeholders
 

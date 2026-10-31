@@ -73,8 +73,30 @@
 # is not per source, such as the planned config, need not. Every message in a
 # state package (twr.state.*, any version) is a KV entry's value or a helper.
 #
-# helpers lists the messages in an events or state package that are parts of
-# an event or a value, not one of their own, so they need no entry.
+# services lists the NATS micro endpoints (ADR 0001, point 2:
+# svc.<service>.<verb>, paddock#121), apart from the subjects above: a request
+# and its reply are not published messages, so they have no stream, ce_type or
+# msg_id, and travel as protobuf's JSON form with no CloudEvents headers. An
+# error is NATS micro's error headers, Nats-Service-Error-Code (400, 404 or
+# 500) and Nats-Service-Error. Each endpoint carries its request's and
+# response's full names in its micro metadata, as `request` and `response`.
+# An entry's keys:
+#   subject       the endpoint's subject, svc.<service>.<verb>, where the verb
+#                 is one or more lower-case words, such as sessions.list; no
+#                 placeholders
+#   service       the component that serves it, the subject's second token
+#   request       the message it takes, fully qualified
+#   response      the message it answers, fully qualified. A message is the
+#                 request or response of one endpoint only
+#   content_type  application/json, as for a subject
+#   callers       the components that call it
+#   description   what it answers, for the rendered table
+# Every message in a store package (twr.store.*, any version) is a request or
+# a response, or a helper.
+#
+# helpers lists the messages in an events, state or store package that are
+# parts of an event, a value, a request or a response, not one of their own,
+# so they need no entry.
 
 subjects:
   - pattern: twr.v1.<src>.frame.gt7
@@ -411,6 +433,46 @@ subjects:
     consumers: [podium]
     description: Whether the session's results card is being posted or is posted, and its Discord message id; no key for a session that gets no card.
 
+# paddock#122 and #123: logbook's queries, which the pit wall's API maps to
+# twr.pitwall.v1 (paddock#124). Each request names the sources to look in;
+# a session's id is its bare id.
+services:
+  - subject: svc.logbook.sessions.list
+    service: logbook
+    request: twr.store.v1.ListSessionsRequest
+    response: twr.store.v1.ListSessionsResponse
+    content_type: application/json
+    callers: [pitwall]
+    description: The sessions of the sources asked for, newest first, filtered by track, car, kind and days in a time zone, with each filter's values and counts.
+  - subject: svc.logbook.sessions.get
+    service: logbook
+    request: twr.store.v1.GetSessionRequest
+    response: twr.store.v1.GetSessionResponse
+    content_type: application/json
+    callers: [pitwall]
+    description: One session, its row with ecu's summary; 404 when no source asked for has it.
+  - subject: svc.logbook.laps.list
+    service: logbook
+    request: twr.store.v1.ListLapsRequest
+    response: twr.store.v1.ListLapsResponse
+    content_type: application/json
+    callers: [pitwall]
+    description: A session's laps in order, each with its frame count and top speed, and the session they belong to.
+  - subject: svc.logbook.laps.trace
+    service: logbook
+    request: twr.store.v1.GetTraceRequest
+    response: twr.store.v1.GetTraceResponse
+    content_type: application/json
+    callers: [pitwall]
+    description: One lap's trace, thinned keeping peaks and both frames either side of a jump in position; 404 for a lap or lap file that does not exist.
+  - subject: svc.logbook.sessions.same_track
+    service: logbook
+    request: twr.store.v1.ListSameTrackRequest
+    response: twr.store.v1.ListSameTrackResponse
+    content_type: application/json
+    callers: [pitwall]
+    description: The other sessions at a session's track, newest first, where the detector was sure of both.
+
 helpers:
   - twr.events.v1.CalloutSlots
   - twr.events.v1.PitStop
@@ -422,3 +484,9 @@ helpers:
   - twr.events.v1.TyreTemp
   - twr.state.v1.LiveTrack
   - twr.state.v1.OpenLap
+  - twr.store.v1.FilterCounts
+  - twr.store.v1.KindCount
+  - twr.store.v1.LapRow
+  - twr.store.v1.LapTrace
+  - twr.store.v1.SessionRow
+  - twr.store.v1.ValueCount

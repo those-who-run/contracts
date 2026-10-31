@@ -6,6 +6,7 @@ module github.com/those-who-run/contracts/tools
 go 1.27.0
 
 tool (
+	connectrpc.com/connect/cmd/protoc-gen-connect-go
 	github.com/bufbuild/buf/cmd/buf
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	golang.org/x/vuln/cmd/govulncheck
@@ -34,6 +35,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6 // indirect
 	codeberg.org/chavacava/garif v0.2.1 // indirect
 	codeberg.org/polyfloyd/go-errorlint v1.9.0 // indirect
+	connectrpc.com/connect v1.21.1 // indirect
 	connectrpc.com/connect/v2 v2.0.1 // indirect
 	connectrpc.com/otelconnect v0.11.0 // indirect
 	dev.gaijin.team/go/exhaustruct/v4 v4.0.0 // indirect
