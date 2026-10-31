@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package twr.state.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// CardState is how far podium has got with a session's results card.
+enum CardState {
+  // Not set.
+  CARD_STATE_UNSPECIFIED = 0;
+  // podium is about to send the card, or sent it and stopped before it could
+  // record CARD_STATE_POSTED (paddock#67, R3).
+  CARD_STATE_POSTING = 1;
+  // The card is in the results channel.
+  CARD_STATE_POSTED = 2;
+}
+
+// CardRecord is podium's record of a session's results card, in the `cards`
+// bucket under `<src>.<sid>` (paddock#67), so a session.ended delivered again
+// posts nothing. podium writes CARD_STATE_POSTING with a create-only write
+// before it sends, so two podiums racing cannot both send, and
+// CARD_STATE_POSTED, with a revision check, once Discord has the card. A
+// session that gets no card (no full lap) has no key. The key carries its
+// source because two sources can carry the same session id (paddock#279).
+message CardRecord {
+  // The source whose session it is, the key's <src>: `live`, `parity`, or
+  // `replay-` followed by the replay's name.
+  string source = 1;
+  // The session's id, the key's <sid>.
+  string session_id = 2;
+  // How far the post got (CardState).
+  CardState state = 3;
+  // When this value was written, in UTC: when the send began for
+  // CARD_STATE_POSTING, when Discord took the card for CARD_STATE_POSTED.
+  google.protobuf.Timestamp at = 4;
+  // The Discord message's id. Empty for CARD_STATE_POSTING, for the console
+  // sink, and when Discord's answer carried no id.
+  string message_id = 5;
+}

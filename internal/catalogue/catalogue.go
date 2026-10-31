@@ -368,9 +368,10 @@ func checkIDField(s Subject, messages Messages, fail func(string, ...any)) {
 
 // SourceBuckets are the KV buckets whose every key carries its <src>, one key
 // per source, so a replay writes its own keys and never the live source's
-// (paddock#72's triage): `live` and ecu's open sessions. Another bucket, such
-// as the planned `config`, holds keys that are not per source.
-var SourceBuckets = []string{"live", "ecu"}
+// (paddock#72's triage): `live`, ecu's open sessions and podium's cards
+// (paddock#67). Another bucket, such as the planned `config`, holds keys that
+// are not per source.
+var SourceBuckets = []string{"live", "ecu", "cards"}
 
 // checkKV checks a KV entry: a bucket and a key, the key carrying its source
 // in SourceBuckets, and no subject, stream, ce_type or msg_id, since a value

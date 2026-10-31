@@ -68,8 +68,8 @@
 # A KV key's: kv (the bucket), key (with placeholders), message, content_type,
 # producers (its writers), consumers (its readers) and description. It has no
 # pattern, stream, ce_type or msg_id: a value written with Put carries no
-# headers. Every key in the live and ecu buckets carries its <src>, so a replay
-# writes its own keys and never the live source's (paddock#72); a bucket that
+# headers. Every key in the live, ecu and cards buckets carries its <src>, so a
+# replay writes its own keys and never the live source's (paddock#72); a bucket that
 # is not per source, such as the planned config, need not. Every message in a
 # state package (twr.state.*, any version) is a KV entry's value or a helper.
 #
@@ -297,6 +297,17 @@ subjects:
     msg_id: <src>:<run>:telemetry.restored:<seq>
     description: The frames came back after a loss, with no session open.
 
+  # paddock#67: podium's, once per session after the card is posted.
+  - pattern: twr.v1.<src>.evt.<sid>.card.posted
+    ce_type: run.thosewho.card.posted.v1
+    message: twr.events.v1.CardPosted
+    content_type: application/json
+    stream: EVENTS
+    producers: [podium]
+    consumers: [logbook]
+    msg_id: <src>:<sid>:card.posted:1
+    description: podium posted the session's results card to the results channel.
+
   - pattern: twr.v1.<src>.callout.p0
     ce_type: run.thosewho.callout.raised.v1
     message: twr.events.v1.Callout
@@ -388,6 +399,17 @@ subjects:
     producers: [ecu]
     consumers: [ecu]
     description: The open session and its running summary, which a restarted ecu continues or ends from (paddock#76); ecu's own bucket, which no reader of live sees.
+
+  # paddock#67: podium's record of each session's card, so a session.ended
+  # delivered again posts nothing. Keyed by source too, as two sources can carry
+  # the same session id (paddock#279).
+  - kv: cards
+    key: <src>.<sid>
+    message: twr.state.v1.CardRecord
+    content_type: application/json
+    producers: [podium]
+    consumers: [podium]
+    description: Whether the session's results card is being posted or is posted, and its Discord message id; no key for a session that gets no card.
 
 helpers:
   - twr.events.v1.CalloutSlots

@@ -101,6 +101,7 @@ var types = map[protoreflect.FullName]string{
 	(&eventsv1.TelemetryLost{}).ProtoReflect().Descriptor().FullName():       "run.thosewho.telemetry.lost.v1",
 	(&eventsv1.TelemetryRestored{}).ProtoReflect().Descriptor().FullName():   "run.thosewho.telemetry.restored.v1",
 	(&eventsv1.Callout{}).ProtoReflect().Descriptor().FullName():             "run.thosewho.callout.raised.v1",
+	(&eventsv1.CardPosted{}).ProtoReflect().Descriptor().FullName():          "run.thosewho.card.posted.v1",
 }
 
 // Types is every message's ce-type, by the message's full name.

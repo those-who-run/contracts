@@ -37,9 +37,9 @@ from google.protobuf import descriptor_pool, json_format, message_factory
 from google.protobuf.message import Message
 from twr.events.v1 import callout_pb2
 
-# The KV values (paddock#72), imported so their types are in the pool: no
-# helper imports them, as they have no ce-type.
-from twr.state.v1 import live_pb2, open_session_pb2  # noqa: F401
+# The KV values (paddock#72, paddock#67), imported so their types are in the
+# pool: no helper imports them, as they have no ce-type.
+from twr.state.v1 import cards_pb2, live_pb2, open_session_pb2  # noqa: F401
 from twr_contracts import callout, ce
 
 EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
