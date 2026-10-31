@@ -723,8 +723,8 @@ type ListSessionsResponse struct {
 	Total int32 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
 	// The sessions that match the filters, whatever offset and limit.
 	Matched int32 `protobuf:"varint,4,opt,name=matched,proto3" json:"matched,omitempty"`
-	// A stamp that changes only when the data behind this reply changes (v1's
-	// index_stamp): the pit wall's ETag.
+	// A stamp of the whole store: it changes when anything in the store
+	// changes, not only the sessions in this reply. The pit wall's ETag.
 	DataVersion string `protobuf:"bytes,5,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
 	// The caller's known_data_version is still current: every other field
 	// but data_version is absent.
@@ -875,9 +875,9 @@ type GetSessionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session.
 	Session *SessionRow `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
-	// A stamp of the whole store: it changes when anything in the store
-	// changes, not only this session (the maintainer's accepted departure,
-	// 2026-10-31). The pit wall's ETag.
+	// A stamp of the whole store, as ListSessionsResponse's: it changes when
+	// anything in the store changes, not only this session. The pit wall's
+	// ETag.
 	DataVersion string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
 	// The caller's known_data_version is still current: every other field
 	// but data_version is absent.
@@ -1009,7 +1009,7 @@ type ListLapsResponse struct {
 	Session *SessionRow `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
 	// Its laps, complete and partial, in the order they ended.
 	Laps []*LapRow `protobuf:"bytes,2,rep,name=laps,proto3" json:"laps,omitempty"`
-	// A stamp of the whole store, as GetSessionResponse's: it changes when
+	// A stamp of the whole store, as ListSessionsResponse's: it changes when
 	// anything in the store changes. The pit wall's ETag.
 	DataVersion string `protobuf:"bytes,3,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
 	// The caller's known_data_version is still current: every other field
@@ -1320,8 +1320,8 @@ type ListSameTrackResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The other sessions, newest first, from offset, at most limit of them.
 	Sessions []*SessionRow `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
-	// A stamp that changes only when the data behind this reply changes: the
-	// pit wall's ETag.
+	// A stamp of the whole store, as ListSessionsResponse's: it changes when
+	// anything in the store changes. The pit wall's ETag.
 	DataVersion string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
 	// The other sessions at the same track, whatever offset and limit.
 	Matched int32 `protobuf:"varint,3,opt,name=matched,proto3" json:"matched,omitempty"`
