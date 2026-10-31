@@ -446,8 +446,8 @@ type LiveSession struct {
 	// known yet, and when the game reported none.
 	Position *int32 `protobuf:"varint,7,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	// The cars in the field on the last driving frame (v1's `cars`). Absent
-	// where position is for the kind (v1's `position_shown`), and when the game
-	// reported none.
+	// where position is absent for the kind (v1's `position_shown`), and when
+	// the game reported none.
 	TotalCars     *int32 `protobuf:"varint,8,opt,name=total_cars,json=totalCars,proto3,oneof" json:"total_cars,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -139,8 +139,8 @@ message LiveSession {
   // known yet, and when the game reported none.
   optional int32 position = 7;
   // The cars in the field on the last driving frame (v1's `cars`). Absent
-  // where position is for the kind (v1's `position_shown`), and when the game
-  // reported none.
+  // where position is absent for the kind (v1's `position_shown`), and when
+  // the game reported none.
   optional int32 total_cars = 8;
 }
 
