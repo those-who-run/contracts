@@ -28,6 +28,7 @@ class SessionType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SESSION_TYPE_SOLO_LAPS: _ClassVar[SessionType]
     SESSION_TYPE_TIMED_FIELD: _ClassVar[SessionType]
     SESSION_TYPE_SOLO_TIMED: _ClassVar[SessionType]
+    SESSION_TYPE_RANKED: _ClassVar[SessionType]
 
 class EndReason(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -94,6 +95,7 @@ SESSION_TYPE_LAP_RACE: SessionType
 SESSION_TYPE_SOLO_LAPS: SessionType
 SESSION_TYPE_TIMED_FIELD: SessionType
 SESSION_TYPE_SOLO_TIMED: SessionType
+SESSION_TYPE_RANKED: SessionType
 END_REASON_UNSPECIFIED: EndReason
 END_REASON_FINISHED: EndReason
 END_REASON_QUIT: EndReason
