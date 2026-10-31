@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.9](https://github.com/those-who-run/contracts/compare/v0.2.8...v0.2.9) (2026-10-31)
+
+
+### Bug Fixes
+
+* the track filter keys on the card's track label, and the examples' result ([#45](https://github.com/those-who-run/contracts/issues/45)) ([d6d1fbe](https://github.com/those-who-run/contracts/commit/d6d1fbe83a3ac854c40db1b4d11250d002450524))
+
 ## [0.2.8](https://github.com/those-who-run/contracts/compare/v0.2.7...v0.2.8) (2026-10-31)
 
 
