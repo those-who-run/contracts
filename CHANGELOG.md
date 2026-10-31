@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/those-who-run/contracts/compare/v0.2.5...v0.2.6) (2026-10-31)
+
+
+### Features
+
+* card.posted and the cards bucket, for podium's exactly-once cards ([#38](https://github.com/those-who-run/contracts/issues/38)) ([f308c8d](https://github.com/those-who-run/contracts/commit/f308c8d68737ae4f7086ca610927d5853b1dc1b3))
+
 ## [0.2.5](https://github.com/those-who-run/contracts/compare/v0.2.4...v0.2.5) (2026-10-30)
 
 
