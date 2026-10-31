@@ -144,7 +144,7 @@ in paddock mean for a change here:
   `protoc-gen-go` in `tools/go.mod`, never behind it, and the two change in the
   same PR. So do protoc in `scripts/protoc.py` and the `protobuf` floor in
   `gen/python/pyproject.toml` and `tests/python-constraints.txt`
-  (`tests/test_python_package.py` checks them), and `connectrpc.com/connect`
+  (`tests/test_python_package.py` checks them), and `connectrpc.com/connect/v2`
   in `go.mod` and `protoc-gen-connect-go` in `tools/go.mod`, at one version.
 - **Go and Python are generated** (Python for `radio`, paddock#265); another
   language waits until a consumer needs it.

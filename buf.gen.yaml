@@ -22,7 +22,7 @@ plugins:
   - local: ["go", "tool", "-modfile=tools/go.mod", "google.golang.org/protobuf/cmd/protoc-gen-go"]
     out: gen/go
     opt: paths=source_relative
-  - local: ["go", "tool", "-modfile=tools/go.mod", "connectrpc.com/connect/cmd/protoc-gen-connect-go"]
+  - local: ["go", "tool", "-modfile=tools/go.mod", "connectrpc.com/connect/v2/cmd/protoc-gen-connect-go"]
     out: gen/go
     opt: paths=source_relative
   - protoc_builtin: python

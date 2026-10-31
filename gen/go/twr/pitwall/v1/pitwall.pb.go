@@ -195,10 +195,11 @@ type Session struct {
 	// v1's own id, such as "20261017-162118" (v1's `session_id`).
 	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// The results card title, "Circuit Gilles Villeneuve · 12-lap race" (v1's
-	// `title`), written with contracts' format package, as the card is.
+	// `title`): the same words podium's results card has for the session.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	// The results card line, "🚩 Finished P3 of 20 in 21:06.182" (v1's
-	// `result`), written with contracts' format package, as the card is.
+	// `result`): the same words podium's results card has, but "Running, N
+	// laps" for a session still open, as v1 said.
 	Result string `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
 	// When the session started (v1's `started_at`, in Unix seconds).
 	StartedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
@@ -240,8 +241,8 @@ type Session struct {
 	BestLap *int32 `protobuf:"varint,18,opt,name=best_lap,json=bestLap,proto3,oneof" json:"best_lap,omitempty"`
 	// The laps completed (v1's `laps_completed`).
 	LapsCompleted int32 `protobuf:"varint,19,opt,name=laps_completed,json=lapsCompleted,proto3" json:"laps_completed,omitempty"`
-	// The laps in the race; absent for a timed or open session (v1's
-	// `total_laps`, 0 there).
+	// The laps in the race; absent for a timed session, or until the lap total
+	// is known (v1's `total_laps`, 0 there). An open lap race has it, as in v1.
 	TotalLaps *int32 `protobuf:"varint,20,opt,name=total_laps,json=totalLaps,proto3,oneof" json:"total_laps,omitempty"`
 	// Fuel use is on; false means the fuel figures mean nothing; absent when
 	// not known (v1's `fuel_use`).
@@ -271,7 +272,12 @@ type Session struct {
 	// When podium posted the session's results card (paddock#122's triage,
 	// from card.posted). Absent when no card was posted, or not yet. v1 had no
 	// such value.
-	CardPostedAt  *timestamppb.Timestamp `protobuf:"bytes,31,opt,name=card_posted_at,json=cardPostedAt,proto3" json:"card_posted_at,omitempty"`
+	CardPostedAt *timestamppb.Timestamp `protobuf:"bytes,31,opt,name=card_posted_at,json=cardPostedAt,proto3" json:"card_posted_at,omitempty"`
+	// Whether a session imported from v1 (ADR 0009) was taken from v1's stored
+	// rows, its summary.json and index, rather than re-derived by replaying its
+	// frames through ecu's packages: true from the rows, false re-derived.
+	// Absent for a session v2 saw itself. v1 had no such value.
+	FromV1Rows    *bool `protobuf:"varint,32,opt,name=from_v1_rows,json=fromV1Rows,proto3,oneof" json:"from_v1_rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -521,6 +527,13 @@ func (x *Session) GetCardPostedAt() *timestamppb.Timestamp {
 		return x.CardPostedAt
 	}
 	return nil
+}
+
+func (x *Session) GetFromV1Rows() bool {
+	if x != nil && x.FromV1Rows != nil {
+		return *x.FromV1Rows
+	}
+	return false
 }
 
 // LapRow is one lap in the lap table (v1's `LapRow`).
@@ -2046,7 +2059,7 @@ const file_twr_pitwall_v1_pitwall_proto_rawDesc = "" +
 	"\x04sure\x18\x03 \x01(\bR\x04sure\x12\x1f\n" +
 	"\bevidence\x18\x04 \x01(\tH\x01R\bevidence\x88\x01\x01B\v\n" +
 	"\t_track_idB\v\n" +
-	"\t_evidence\"\xb9\n" +
+	"\t_evidence\"\xf1\n" +
 	"\n" +
 	"\aSession\x12\x1d\n" +
 	"\n" +
@@ -2088,7 +2101,9 @@ const file_twr_pitwall_v1_pitwall_proto_rawDesc = "" +
 	"\rjoined_on_lap\x18\x1c \x01(\x05H\rR\vjoinedOnLap\x88\x01\x01\x12\x1c\n" +
 	"\tcontinued\x18\x1d \x01(\bR\tcontinued\x12!\n" +
 	"\frestart_laps\x18\x1e \x03(\x05R\vrestartLaps\x12@\n" +
-	"\x0ecard_posted_at\x18\x1f \x01(\v2\x1a.google.protobuf.TimestampR\fcardPostedAtB\x06\n" +
+	"\x0ecard_posted_at\x18\x1f \x01(\v2\x1a.google.protobuf.TimestampR\fcardPostedAt\x12%\n" +
+	"\ffrom_v1_rows\x18  \x01(\bH\x0eR\n" +
+	"fromV1Rows\x88\x01\x01B\x06\n" +
 	"\x04_carB\v\n" +
 	"\t_car_codeB\x11\n" +
 	"\x0f_final_positionB\r\n" +
@@ -2103,7 +2118,8 @@ const file_twr_pitwall_v1_pitwall_proto_rawDesc = "" +
 	"\v_driving_msB\f\n" +
 	"\n" +
 	"_paused_msB\x10\n" +
-	"\x0e_joined_on_lap\"\x95\x04\n" +
+	"\x0e_joined_on_lapB\x0f\n" +
+	"\r_from_v1_rows\"\x95\x04\n" +
 	"\x06LapRow\x12\x10\n" +
 	"\x03lap\x18\x01 \x01(\x05R\x03lap\x12\x1c\n" +
 	"\atime_ms\x18\x02 \x01(\x05H\x00R\x06timeMs\x88\x01\x01\x12\x1a\n" +

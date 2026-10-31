@@ -20,50 +20,91 @@
 package pitwallv1connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v1 "github.com/those-who-run/contracts/gen/go/twr/pitwall/v1"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// PitwallServiceName is the fully-qualified name of the PitwallService service.
 	PitwallServiceName = "twr.pitwall.v1.PitwallService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// PitwallServiceListSessionsProcedure is the fully-qualified name of the PitwallService's
-	// ListSessions RPC.
-	PitwallServiceListSessionsProcedure = "/twr.pitwall.v1.PitwallService/ListSessions"
-	// PitwallServiceGetSessionProcedure is the fully-qualified name of the PitwallService's GetSession
+	// PitwallServiceListSessionsProcedure is the procedure name of the PitwallService's ListSessions
 	// RPC.
+	PitwallServiceListSessionsProcedure = "/twr.pitwall.v1.PitwallService/ListSessions"
+	// PitwallServiceGetSessionProcedure is the procedure name of the PitwallService's GetSession RPC.
 	PitwallServiceGetSessionProcedure = "/twr.pitwall.v1.PitwallService/GetSession"
-	// PitwallServiceListLapsProcedure is the fully-qualified name of the PitwallService's ListLaps RPC.
+	// PitwallServiceListLapsProcedure is the procedure name of the PitwallService's ListLaps RPC.
 	PitwallServiceListLapsProcedure = "/twr.pitwall.v1.PitwallService/ListLaps"
-	// PitwallServiceGetTraceProcedure is the fully-qualified name of the PitwallService's GetTrace RPC.
+	// PitwallServiceGetTraceProcedure is the procedure name of the PitwallService's GetTrace RPC.
 	PitwallServiceGetTraceProcedure = "/twr.pitwall.v1.PitwallService/GetTrace"
-	// PitwallServiceListSameTrackProcedure is the fully-qualified name of the PitwallService's
-	// ListSameTrack RPC.
+	// PitwallServiceListSameTrackProcedure is the procedure name of the PitwallService's ListSameTrack
+	// RPC.
 	PitwallServiceListSameTrackProcedure = "/twr.pitwall.v1.PitwallService/ListSameTrack"
-	// PitwallServiceGetEngineStatusProcedure is the fully-qualified name of the PitwallService's
+	// PitwallServiceGetEngineStatusProcedure is the procedure name of the PitwallService's
 	// GetEngineStatus RPC.
 	PitwallServiceGetEngineStatusProcedure = "/twr.pitwall.v1.PitwallService/GetEngineStatus"
+)
+
+var (
+	pitwallServiceListSessionsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("ListSessions"),
+			Procedure:        PitwallServiceListSessionsProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	pitwallServiceGetSessionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("GetSession"),
+			Procedure:        PitwallServiceGetSessionProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	pitwallServiceListLapsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("ListLaps"),
+			Procedure:        PitwallServiceListLapsProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	pitwallServiceGetTraceSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("GetTrace"),
+			Procedure:        PitwallServiceGetTraceProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	pitwallServiceListSameTrackSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("ListSameTrack"),
+			Procedure:        PitwallServiceListSameTrackProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	pitwallServiceGetEngineStatusSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("GetEngineStatus"),
+			Procedure:        PitwallServiceGetEngineStatusProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
 )
 
 // PitwallServiceClient is a client for the twr.pitwall.v1.PitwallService service.
@@ -71,121 +112,31 @@ type PitwallServiceClient interface {
 	// ListSessions is the session list: every session, newest first, filtered,
 	// with the values each filter can take and their counts (v1's
 	// `GET /api/v1/sessions`).
-	ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
+	ListSessions(context.Context, *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error)
 	// GetSession is one session (v1's `GET /api/v1/sessions/{id}`).
-	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
+	GetSession(context.Context, *v1.GetSessionRequest) (*v1.GetSessionResponse, error)
 	// ListLaps is a session's lap table (v1's
 	// `GET /api/v1/sessions/{id}/laps`).
-	ListLaps(context.Context, *connect.Request[v1.ListLapsRequest]) (*connect.Response[v1.ListLapsResponse], error)
+	ListLaps(context.Context, *v1.ListLapsRequest) (*v1.ListLapsResponse, error)
 	// GetTrace is a lap's speed, throttle, brake, gear, RPM and position
 	// against time, for lap compare and its track map (v1's
 	// `GET /api/v1/sessions/{id}/laps/{lap}/trace`).
-	GetTrace(context.Context, *connect.Request[v1.GetTraceRequest]) (*connect.Response[v1.GetTraceResponse], error)
+	GetTrace(context.Context, *v1.GetTraceRequest) (*v1.GetTraceResponse, error)
 	// ListSameTrack is the other sessions at this session's track, for lap
 	// compare (v1's `GET /api/v1/sessions/{id}/same-track`).
-	ListSameTrack(context.Context, *connect.Request[v1.ListSameTrackRequest]) (*connect.Response[v1.ListSameTrackResponse], error)
+	ListSameTrack(context.Context, *v1.ListSameTrackRequest) (*v1.ListSameTrackResponse, error)
 	// GetEngineStatus is what the engineer is doing right now, for the shell's
 	// live chip (v1's `GET /api/engine/status`, which v1 forwarded to the
 	// engineer's `/api/v1/status`), read from ecu's and radio's values in the
 	// `live` bucket (paddock#125). It never fails for the engineer being gone:
 	// that is ACTIVITY_OFFLINE. Never cached.
-	GetEngineStatus(context.Context, *connect.Request[v1.GetEngineStatusRequest]) (*connect.Response[v1.GetEngineStatusResponse], error)
+	GetEngineStatus(context.Context, *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error)
 }
 
-// NewPitwallServiceClient constructs a client for the twr.pitwall.v1.PitwallService service. By
-// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
-// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
-// connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewPitwallServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PitwallServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	pitwallServiceMethods := v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods()
-	return &pitwallServiceClient{
-		listSessions: connect.NewClient[v1.ListSessionsRequest, v1.ListSessionsResponse](
-			httpClient,
-			baseURL+PitwallServiceListSessionsProcedure,
-			connect.WithSchema(pitwallServiceMethods.ByName("ListSessions")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-		getSession: connect.NewClient[v1.GetSessionRequest, v1.GetSessionResponse](
-			httpClient,
-			baseURL+PitwallServiceGetSessionProcedure,
-			connect.WithSchema(pitwallServiceMethods.ByName("GetSession")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-		listLaps: connect.NewClient[v1.ListLapsRequest, v1.ListLapsResponse](
-			httpClient,
-			baseURL+PitwallServiceListLapsProcedure,
-			connect.WithSchema(pitwallServiceMethods.ByName("ListLaps")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-		getTrace: connect.NewClient[v1.GetTraceRequest, v1.GetTraceResponse](
-			httpClient,
-			baseURL+PitwallServiceGetTraceProcedure,
-			connect.WithSchema(pitwallServiceMethods.ByName("GetTrace")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-		listSameTrack: connect.NewClient[v1.ListSameTrackRequest, v1.ListSameTrackResponse](
-			httpClient,
-			baseURL+PitwallServiceListSameTrackProcedure,
-			connect.WithSchema(pitwallServiceMethods.ByName("ListSameTrack")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-		getEngineStatus: connect.NewClient[v1.GetEngineStatusRequest, v1.GetEngineStatusResponse](
-			httpClient,
-			baseURL+PitwallServiceGetEngineStatusProcedure,
-			connect.WithSchema(pitwallServiceMethods.ByName("GetEngineStatus")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// pitwallServiceClient implements PitwallServiceClient.
-type pitwallServiceClient struct {
-	listSessions    *connect.Client[v1.ListSessionsRequest, v1.ListSessionsResponse]
-	getSession      *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
-	listLaps        *connect.Client[v1.ListLapsRequest, v1.ListLapsResponse]
-	getTrace        *connect.Client[v1.GetTraceRequest, v1.GetTraceResponse]
-	listSameTrack   *connect.Client[v1.ListSameTrackRequest, v1.ListSameTrackResponse]
-	getEngineStatus *connect.Client[v1.GetEngineStatusRequest, v1.GetEngineStatusResponse]
-}
-
-// ListSessions calls twr.pitwall.v1.PitwallService.ListSessions.
-func (c *pitwallServiceClient) ListSessions(ctx context.Context, req *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
-	return c.listSessions.CallUnary(ctx, req)
-}
-
-// GetSession calls twr.pitwall.v1.PitwallService.GetSession.
-func (c *pitwallServiceClient) GetSession(ctx context.Context, req *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error) {
-	return c.getSession.CallUnary(ctx, req)
-}
-
-// ListLaps calls twr.pitwall.v1.PitwallService.ListLaps.
-func (c *pitwallServiceClient) ListLaps(ctx context.Context, req *connect.Request[v1.ListLapsRequest]) (*connect.Response[v1.ListLapsResponse], error) {
-	return c.listLaps.CallUnary(ctx, req)
-}
-
-// GetTrace calls twr.pitwall.v1.PitwallService.GetTrace.
-func (c *pitwallServiceClient) GetTrace(ctx context.Context, req *connect.Request[v1.GetTraceRequest]) (*connect.Response[v1.GetTraceResponse], error) {
-	return c.getTrace.CallUnary(ctx, req)
-}
-
-// ListSameTrack calls twr.pitwall.v1.PitwallService.ListSameTrack.
-func (c *pitwallServiceClient) ListSameTrack(ctx context.Context, req *connect.Request[v1.ListSameTrackRequest]) (*connect.Response[v1.ListSameTrackResponse], error) {
-	return c.listSameTrack.CallUnary(ctx, req)
-}
-
-// GetEngineStatus calls twr.pitwall.v1.PitwallService.GetEngineStatus.
-func (c *pitwallServiceClient) GetEngineStatus(ctx context.Context, req *connect.Request[v1.GetEngineStatusRequest]) (*connect.Response[v1.GetEngineStatusResponse], error) {
-	return c.getEngineStatus.CallUnary(ctx, req)
+// NewPitwallServiceClient constructs a client for the twr.pitwall.v1.PitwallService service.
+// Multiple service clients may share a single connect.Client.
+func NewPitwallServiceClient(client *connect.Client) PitwallServiceClient {
+	return &pitwallServiceClient{client: client}
 }
 
 // PitwallServiceHandler is an implementation of the twr.pitwall.v1.PitwallService service.
@@ -193,119 +144,190 @@ type PitwallServiceHandler interface {
 	// ListSessions is the session list: every session, newest first, filtered,
 	// with the values each filter can take and their counts (v1's
 	// `GET /api/v1/sessions`).
-	ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
+	ListSessions(context.Context, *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error)
 	// GetSession is one session (v1's `GET /api/v1/sessions/{id}`).
-	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
+	GetSession(context.Context, *v1.GetSessionRequest) (*v1.GetSessionResponse, error)
 	// ListLaps is a session's lap table (v1's
 	// `GET /api/v1/sessions/{id}/laps`).
-	ListLaps(context.Context, *connect.Request[v1.ListLapsRequest]) (*connect.Response[v1.ListLapsResponse], error)
+	ListLaps(context.Context, *v1.ListLapsRequest) (*v1.ListLapsResponse, error)
 	// GetTrace is a lap's speed, throttle, brake, gear, RPM and position
 	// against time, for lap compare and its track map (v1's
 	// `GET /api/v1/sessions/{id}/laps/{lap}/trace`).
-	GetTrace(context.Context, *connect.Request[v1.GetTraceRequest]) (*connect.Response[v1.GetTraceResponse], error)
+	GetTrace(context.Context, *v1.GetTraceRequest) (*v1.GetTraceResponse, error)
 	// ListSameTrack is the other sessions at this session's track, for lap
 	// compare (v1's `GET /api/v1/sessions/{id}/same-track`).
-	ListSameTrack(context.Context, *connect.Request[v1.ListSameTrackRequest]) (*connect.Response[v1.ListSameTrackResponse], error)
+	ListSameTrack(context.Context, *v1.ListSameTrackRequest) (*v1.ListSameTrackResponse, error)
 	// GetEngineStatus is what the engineer is doing right now, for the shell's
 	// live chip (v1's `GET /api/engine/status`, which v1 forwarded to the
 	// engineer's `/api/v1/status`), read from ecu's and radio's values in the
 	// `live` bucket (paddock#125). It never fails for the engineer being gone:
 	// that is ACTIVITY_OFFLINE. Never cached.
-	GetEngineStatus(context.Context, *connect.Request[v1.GetEngineStatusRequest]) (*connect.Response[v1.GetEngineStatusResponse], error)
+	GetEngineStatus(context.Context, *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error)
 }
 
-// NewPitwallServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewPitwallServiceHandler(svc PitwallServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	pitwallServiceMethods := v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods()
-	pitwallServiceListSessionsHandler := connect.NewUnaryHandler(
-		PitwallServiceListSessionsProcedure,
-		svc.ListSessions,
-		connect.WithSchema(pitwallServiceMethods.ByName("ListSessions")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
+// RegisterPitwallServiceHandler registers svc as the twr.pitwall.v1.PitwallService implementation
+// on server.
+func RegisterPitwallServiceHandler(server *connect.Server, svc PitwallServiceHandler) {
+	adapter := pitwallServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: pitwallServiceListSessionsSpec(), Handler: adapter.listSessions},
+		connect.Method{Spec: pitwallServiceGetSessionSpec(), Handler: adapter.getSession},
+		connect.Method{Spec: pitwallServiceListLapsSpec(), Handler: adapter.listLaps},
+		connect.Method{Spec: pitwallServiceGetTraceSpec(), Handler: adapter.getTrace},
+		connect.Method{Spec: pitwallServiceListSameTrackSpec(), Handler: adapter.listSameTrack},
+		connect.Method{Spec: pitwallServiceGetEngineStatusSpec(), Handler: adapter.getEngineStatus},
 	)
-	pitwallServiceGetSessionHandler := connect.NewUnaryHandler(
-		PitwallServiceGetSessionProcedure,
-		svc.GetSession,
-		connect.WithSchema(pitwallServiceMethods.ByName("GetSession")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
-	pitwallServiceListLapsHandler := connect.NewUnaryHandler(
-		PitwallServiceListLapsProcedure,
-		svc.ListLaps,
-		connect.WithSchema(pitwallServiceMethods.ByName("ListLaps")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
-	pitwallServiceGetTraceHandler := connect.NewUnaryHandler(
-		PitwallServiceGetTraceProcedure,
-		svc.GetTrace,
-		connect.WithSchema(pitwallServiceMethods.ByName("GetTrace")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
-	pitwallServiceListSameTrackHandler := connect.NewUnaryHandler(
-		PitwallServiceListSameTrackProcedure,
-		svc.ListSameTrack,
-		connect.WithSchema(pitwallServiceMethods.ByName("ListSameTrack")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
-	pitwallServiceGetEngineStatusHandler := connect.NewUnaryHandler(
-		PitwallServiceGetEngineStatusProcedure,
-		svc.GetEngineStatus,
-		connect.WithSchema(pitwallServiceMethods.ByName("GetEngineStatus")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/twr.pitwall.v1.PitwallService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case PitwallServiceListSessionsProcedure:
-			pitwallServiceListSessionsHandler.ServeHTTP(w, r)
-		case PitwallServiceGetSessionProcedure:
-			pitwallServiceGetSessionHandler.ServeHTTP(w, r)
-		case PitwallServiceListLapsProcedure:
-			pitwallServiceListLapsHandler.ServeHTTP(w, r)
-		case PitwallServiceGetTraceProcedure:
-			pitwallServiceGetTraceHandler.ServeHTTP(w, r)
-		case PitwallServiceListSameTrackProcedure:
-			pitwallServiceListSameTrackHandler.ServeHTTP(w, r)
-		case PitwallServiceGetEngineStatusProcedure:
-			pitwallServiceGetEngineStatusHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedPitwallServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedPitwallServiceHandler struct{}
 
-func (UnimplementedPitwallServiceHandler) ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("twr.pitwall.v1.PitwallService.ListSessions is not implemented"))
+func (UnimplementedPitwallServiceHandler) ListSessions(context.Context, *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.ListSessions is not implemented")
 }
 
-func (UnimplementedPitwallServiceHandler) GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("twr.pitwall.v1.PitwallService.GetSession is not implemented"))
+func (UnimplementedPitwallServiceHandler) GetSession(context.Context, *v1.GetSessionRequest) (*v1.GetSessionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.GetSession is not implemented")
 }
 
-func (UnimplementedPitwallServiceHandler) ListLaps(context.Context, *connect.Request[v1.ListLapsRequest]) (*connect.Response[v1.ListLapsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("twr.pitwall.v1.PitwallService.ListLaps is not implemented"))
+func (UnimplementedPitwallServiceHandler) ListLaps(context.Context, *v1.ListLapsRequest) (*v1.ListLapsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.ListLaps is not implemented")
 }
 
-func (UnimplementedPitwallServiceHandler) GetTrace(context.Context, *connect.Request[v1.GetTraceRequest]) (*connect.Response[v1.GetTraceResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("twr.pitwall.v1.PitwallService.GetTrace is not implemented"))
+func (UnimplementedPitwallServiceHandler) GetTrace(context.Context, *v1.GetTraceRequest) (*v1.GetTraceResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.GetTrace is not implemented")
 }
 
-func (UnimplementedPitwallServiceHandler) ListSameTrack(context.Context, *connect.Request[v1.ListSameTrackRequest]) (*connect.Response[v1.ListSameTrackResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("twr.pitwall.v1.PitwallService.ListSameTrack is not implemented"))
+func (UnimplementedPitwallServiceHandler) ListSameTrack(context.Context, *v1.ListSameTrackRequest) (*v1.ListSameTrackResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.ListSameTrack is not implemented")
 }
 
-func (UnimplementedPitwallServiceHandler) GetEngineStatus(context.Context, *connect.Request[v1.GetEngineStatusRequest]) (*connect.Response[v1.GetEngineStatusResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("twr.pitwall.v1.PitwallService.GetEngineStatus is not implemented"))
+func (UnimplementedPitwallServiceHandler) GetEngineStatus(context.Context, *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.GetEngineStatus is not implemented")
+}
+
+type pitwallServiceClient struct {
+	client *connect.Client
+}
+
+func (c *pitwallServiceClient) ListSessions(ctx context.Context, req *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error) {
+	var res v1.ListSessionsResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceListSessionsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *pitwallServiceClient) GetSession(ctx context.Context, req *v1.GetSessionRequest) (*v1.GetSessionResponse, error) {
+	var res v1.GetSessionResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceGetSessionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *pitwallServiceClient) ListLaps(ctx context.Context, req *v1.ListLapsRequest) (*v1.ListLapsResponse, error) {
+	var res v1.ListLapsResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceListLapsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *pitwallServiceClient) GetTrace(ctx context.Context, req *v1.GetTraceRequest) (*v1.GetTraceResponse, error) {
+	var res v1.GetTraceResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceGetTraceSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *pitwallServiceClient) ListSameTrack(ctx context.Context, req *v1.ListSameTrackRequest) (*v1.ListSameTrackResponse, error) {
+	var res v1.ListSameTrackResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceListSameTrackSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *pitwallServiceClient) GetEngineStatus(ctx context.Context, req *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error) {
+	var res v1.GetEngineStatusResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceGetEngineStatusSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type pitwallServiceHandler struct{ svc PitwallServiceHandler }
+
+func (h pitwallServiceHandler) listSessions(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ListSessionsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ListSessions(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h pitwallServiceHandler) getSession(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.GetSessionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetSession(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h pitwallServiceHandler) listLaps(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ListLapsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ListLaps(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h pitwallServiceHandler) getTrace(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.GetTraceRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetTrace(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h pitwallServiceHandler) listSameTrack(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ListSameTrackRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ListSameTrack(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h pitwallServiceHandler) getEngineStatus(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.GetEngineStatusRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetEngineStatus(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

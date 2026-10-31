@@ -40,7 +40,7 @@ class Track(_message.Message):
     def __init__(self, track_id: _Optional[int] = ..., name: _Optional[str] = ..., sure: _Optional[bool] = ..., evidence: _Optional[str] = ...) -> None: ...
 
 class Session(_message.Message):
-    __slots__ = ("session_id", "title", "result", "started_at", "ended_at", "closed", "kind", "kind_label", "track", "car", "car_code", "finished", "final_position", "total_cars", "position_shown", "total_time_ms", "best_lap_ms", "best_lap", "laps_completed", "total_laps", "fuel_use", "fuel_burned", "fuel_capacity", "fuel_by_stint", "pit_stops", "driving_ms", "paused_ms", "joined_on_lap", "continued", "restart_laps", "card_posted_at")
+    __slots__ = ("session_id", "title", "result", "started_at", "ended_at", "closed", "kind", "kind_label", "track", "car", "car_code", "finished", "final_position", "total_cars", "position_shown", "total_time_ms", "best_lap_ms", "best_lap", "laps_completed", "total_laps", "fuel_use", "fuel_burned", "fuel_capacity", "fuel_by_stint", "pit_stops", "driving_ms", "paused_ms", "joined_on_lap", "continued", "restart_laps", "card_posted_at", "from_v1_rows")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     TITLE_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
@@ -72,6 +72,7 @@ class Session(_message.Message):
     CONTINUED_FIELD_NUMBER: _ClassVar[int]
     RESTART_LAPS_FIELD_NUMBER: _ClassVar[int]
     CARD_POSTED_AT_FIELD_NUMBER: _ClassVar[int]
+    FROM_V1_ROWS_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     title: str
     result: str
@@ -103,7 +104,8 @@ class Session(_message.Message):
     continued: bool
     restart_laps: _containers.RepeatedScalarFieldContainer[int]
     card_posted_at: _timestamp_pb2.Timestamp
-    def __init__(self, session_id: _Optional[str] = ..., title: _Optional[str] = ..., result: _Optional[str] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., ended_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., closed: _Optional[bool] = ..., kind: _Optional[str] = ..., kind_label: _Optional[str] = ..., track: _Optional[_Union[Track, _Mapping]] = ..., car: _Optional[str] = ..., car_code: _Optional[int] = ..., finished: _Optional[bool] = ..., final_position: _Optional[int] = ..., total_cars: _Optional[int] = ..., position_shown: _Optional[bool] = ..., total_time_ms: _Optional[int] = ..., best_lap_ms: _Optional[int] = ..., best_lap: _Optional[int] = ..., laps_completed: _Optional[int] = ..., total_laps: _Optional[int] = ..., fuel_use: _Optional[bool] = ..., fuel_burned: _Optional[float] = ..., fuel_capacity: _Optional[float] = ..., fuel_by_stint: _Optional[_Iterable[float]] = ..., pit_stops: _Optional[int] = ..., driving_ms: _Optional[int] = ..., paused_ms: _Optional[int] = ..., joined_on_lap: _Optional[int] = ..., continued: _Optional[bool] = ..., restart_laps: _Optional[_Iterable[int]] = ..., card_posted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    from_v1_rows: bool
+    def __init__(self, session_id: _Optional[str] = ..., title: _Optional[str] = ..., result: _Optional[str] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., ended_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., closed: _Optional[bool] = ..., kind: _Optional[str] = ..., kind_label: _Optional[str] = ..., track: _Optional[_Union[Track, _Mapping]] = ..., car: _Optional[str] = ..., car_code: _Optional[int] = ..., finished: _Optional[bool] = ..., final_position: _Optional[int] = ..., total_cars: _Optional[int] = ..., position_shown: _Optional[bool] = ..., total_time_ms: _Optional[int] = ..., best_lap_ms: _Optional[int] = ..., best_lap: _Optional[int] = ..., laps_completed: _Optional[int] = ..., total_laps: _Optional[int] = ..., fuel_use: _Optional[bool] = ..., fuel_burned: _Optional[float] = ..., fuel_capacity: _Optional[float] = ..., fuel_by_stint: _Optional[_Iterable[float]] = ..., pit_stops: _Optional[int] = ..., driving_ms: _Optional[int] = ..., paused_ms: _Optional[int] = ..., joined_on_lap: _Optional[int] = ..., continued: _Optional[bool] = ..., restart_laps: _Optional[_Iterable[int]] = ..., card_posted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., from_v1_rows: _Optional[bool] = ...) -> None: ...
 
 class LapRow(_message.Message):
     __slots__ = ("lap", "time_ms", "complete", "fuel_start", "fuel_end", "fuel_used", "position", "frames", "top_speed_kph", "pit", "out_lap", "invalid", "best", "fuel_use", "restart", "clean")

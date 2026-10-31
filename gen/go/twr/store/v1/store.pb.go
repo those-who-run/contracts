@@ -18,6 +18,16 @@
 // and Nats-Service-Error: 400 for a bad request, 404 for a session or lap that
 // does not exist, 500 for logbook's own failure. A read on an empty store
 // answers an empty list, not an error.
+//
+// Every request names the sources to look in; none is a bad request (400).
+// Every response carries a data_version, and a request may carry the one its
+// caller already has, known_data_version: when it is still current, logbook
+// answers unchanged with no other field, so a poll every 5 s costs next to
+// nothing. A list comes in pages logbook caps, so no reply nears NATS's
+// payload limit: limit 0 is 200, and at most 500 (more is a 400). The caller
+// asks again from offset plus what it got until that reaches matched; a page
+// whose data_version is not the first page's means the data changed between
+// them, and the caller starts again.
 
 package storev1
 
@@ -38,7 +48,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SessionRow is one session as logbook keeps it.
+// SessionRow is one session as logbook keeps it. A session ecu discarded
+// (SessionDiscarded: a GT7 replay or demo) is never a row.
 type SessionRow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session's id, as in its SessionStarted: a ULID ecu minted, or for a
@@ -53,15 +64,39 @@ type SessionRow struct {
 	// Why it ended (EndReason), as in its SessionEnded. Unspecified while it is
 	// open.
 	EndReason v1.EndReason `protobuf:"varint,4,opt,name=end_reason,json=endReason,proto3,enum=twr.events.v1.EndReason" json:"end_reason,omitempty"`
-	// What it came to: SessionEnded's summary once it has ended, and while it
-	// is open, as far as the events logbook has stored go (started_at, the car,
-	// the last kind and track, the laps counted so far), with no ended_at. Its
-	// laps are left out: ListLapsResponse has them, and a list of sessions
-	// stays small.
+	// What it came to: SessionEnded's summary once it has ended. While it is
+	// open, logbook copies into it what its stored events say so far, and
+	// nothing else; it works nothing out:
+	//
+	// - started_at, car_code, car_name, fuel_at_start, fuel_capacity,
+	//   total_laps and joined_on_lap from SessionStarted, total_laps then from
+	//   the last SessionKindChanged's kind;
+	// - session_type and kind from the last SessionKindChanged;
+	// - track from the last SessionTrackChanged, or SessionContinued's carried
+	//   track before one;
+	// - laps_completed, the count of complete LapCompleted;
+	// - best_lap and best_lap_time_ms from the last LapBestChanged;
+	// - gaps from each SessionContinued's gap;
+	// - paused_ms from the last SessionResumed, or the last SessionPaused's
+	//   while a pause is open;
+	// - pit_stops from each PitExited's stop.
+	//
+	// Every other field is absent or zero, ended_at among them. Its laps are
+	// left out, open or closed: ListLapsResponse has them, and a list of
+	// sessions stays small; last_lap says how far it got.
 	Summary *v1.SessionSummary `protobuf:"bytes,5,opt,name=summary,proto3" json:"summary,omitempty"`
 	// When podium posted the session's results card (CardPosted's posted_at).
 	// Absent when no card was posted, or not yet.
-	CardPostedAt  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=card_posted_at,json=cardPostedAt,proto3" json:"card_posted_at,omitempty"`
+	CardPostedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=card_posted_at,json=cardPostedAt,proto3" json:"card_posted_at,omitempty"`
+	// The highest lap number logbook stored a LapCompleted for, complete or
+	// partial, so a reader can tell the lap a session stopped in without its
+	// laps (podium's StoppedResult). Absent before the first.
+	LastLap *int32 `protobuf:"varint,7,opt,name=last_lap,json=lastLap,proto3,oneof" json:"last_lap,omitempty"`
+	// Whether a session imported from v1 (ADR 0009) was taken from v1's stored
+	// rows, its summary.json and index, rather than re-derived by replaying its
+	// frames through ecu's packages: true from the rows, false re-derived.
+	// Absent for a session v2 saw itself.
+	FromV1Rows    *bool `protobuf:"varint,8,opt,name=from_v1_rows,json=fromV1Rows,proto3,oneof" json:"from_v1_rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -136,6 +171,20 @@ func (x *SessionRow) GetCardPostedAt() *timestamppb.Timestamp {
 		return x.CardPostedAt
 	}
 	return nil
+}
+
+func (x *SessionRow) GetLastLap() int32 {
+	if x != nil && x.LastLap != nil {
+		return *x.LastLap
+	}
+	return 0
+}
+
+func (x *SessionRow) GetFromV1Rows() bool {
+	if x != nil && x.FromV1Rows != nil {
+		return *x.FromV1Rows
+	}
+	return false
 }
 
 // LapRow is one lap as logbook keeps it.
@@ -521,7 +570,7 @@ func (x *FilterCounts) GetKind() []*KindCount {
 type ListSessionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The sources to look in, such as `live` and `v1-import` (the pit wall's
-	// TWR_PITWALL_SRC). Empty is every source.
+	// TWR_PITWALL_SRC). At least one: none is a bad request (400).
 	Sources []string `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
 	// Only sessions at this track: the summary's track name when the detector
 	// was sure of it (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED),
@@ -542,13 +591,17 @@ type ListSessionsRequest struct {
 	// The time zone from_day and to_day are days in, an IANA name such as
 	// "Europe/Dublin". Empty is UTC.
 	TimeZone string `protobuf:"bytes,7,opt,name=time_zone,json=timeZone,proto3" json:"time_zone,omitempty"`
-	// The matching sessions to skip, newest first, for a reader that asks in
-	// pages so no reply nears NATS's payload limit.
+	// The matching sessions to skip, newest first: the sessions the pages
+	// before this one answered.
 	Offset int32 `protobuf:"varint,8,opt,name=offset,proto3" json:"offset,omitempty"`
-	// The most sessions to answer; 0 is every one after offset.
-	Limit         int32 `protobuf:"varint,9,opt,name=limit,proto3" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// The most sessions to answer: 0 is logbook's default, 200, and more than
+	// 500 is a bad request (400).
+	Limit int32 `protobuf:"varint,9,opt,name=limit,proto3" json:"limit,omitempty"`
+	// The data_version the caller already has. When it is still current,
+	// logbook answers unchanged with no other field.
+	KnownDataVersion *string `protobuf:"bytes,10,opt,name=known_data_version,json=knownDataVersion,proto3,oneof" json:"known_data_version,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListSessionsRequest) Reset() {
@@ -644,11 +697,19 @@ func (x *ListSessionsRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ListSessionsRequest) GetKnownDataVersion() string {
+	if x != nil && x.KnownDataVersion != nil {
+		return *x.KnownDataVersion
+	}
+	return ""
+}
+
 // ListSessionsResponse is the sessions that match, newest first, and what the
 // filters can take.
 type ListSessionsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The matching sessions, newest first, from offset, at most limit of them.
+	// The matching sessions, newest first, from offset, at most limit of them
+	// (200 by default).
 	Sessions []*SessionRow `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
 	// The values each filter can take, from every session of the sources.
 	Options *FilterCounts `protobuf:"bytes,2,opt,name=options,proto3" json:"options,omitempty"`
@@ -658,7 +719,10 @@ type ListSessionsResponse struct {
 	Matched int32 `protobuf:"varint,4,opt,name=matched,proto3" json:"matched,omitempty"`
 	// A stamp that changes only when the data behind this reply changes (v1's
 	// index_stamp): the pit wall's ETag.
-	DataVersion   string `protobuf:"bytes,5,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	DataVersion string `protobuf:"bytes,5,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	// The caller's known_data_version is still current: every other field
+	// but data_version is absent.
+	Unchanged     bool `protobuf:"varint,6,opt,name=unchanged,proto3" json:"unchanged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -728,16 +792,25 @@ func (x *ListSessionsResponse) GetDataVersion() string {
 	return ""
 }
 
+func (x *ListSessionsResponse) GetUnchanged() bool {
+	if x != nil {
+		return x.Unchanged
+	}
+	return false
+}
+
 // GetSessionRequest asks for one session (svc.logbook.sessions.get).
 type GetSessionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The sources to look in, as ListSessionsRequest's. Empty is every source.
+	// The sources to look in, as ListSessionsRequest's: at least one.
 	Sources []string `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
 	// The session's id. The first of sources, in their order, that has it
 	// answers; none answers 404.
-	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SessionId string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The data_version the caller already has, as ListSessionsRequest's.
+	KnownDataVersion *string `protobuf:"bytes,3,opt,name=known_data_version,json=knownDataVersion,proto3,oneof" json:"known_data_version,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetSessionRequest) Reset() {
@@ -784,6 +857,13 @@ func (x *GetSessionRequest) GetSessionId() string {
 	return ""
 }
 
+func (x *GetSessionRequest) GetKnownDataVersion() string {
+	if x != nil && x.KnownDataVersion != nil {
+		return *x.KnownDataVersion
+	}
+	return ""
+}
+
 // GetSessionResponse is one session.
 type GetSessionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -791,7 +871,10 @@ type GetSessionResponse struct {
 	Session *SessionRow `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
 	// A stamp that changes only when the session's data changes: the pit
 	// wall's ETag.
-	DataVersion   string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	DataVersion string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	// The caller's known_data_version is still current: every other field
+	// but data_version is absent.
+	Unchanged     bool `protobuf:"varint,3,opt,name=unchanged,proto3" json:"unchanged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -840,15 +923,24 @@ func (x *GetSessionResponse) GetDataVersion() string {
 	return ""
 }
 
+func (x *GetSessionResponse) GetUnchanged() bool {
+	if x != nil {
+		return x.Unchanged
+	}
+	return false
+}
+
 // ListLapsRequest asks for a session's laps (svc.logbook.laps.list).
 type ListLapsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The sources to look in, as GetSessionRequest's.
 	Sources []string `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
 	// The session's id; one that no source has answers 404.
-	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SessionId string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// The data_version the caller already has, as ListSessionsRequest's.
+	KnownDataVersion *string `protobuf:"bytes,3,opt,name=known_data_version,json=knownDataVersion,proto3,oneof" json:"known_data_version,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListLapsRequest) Reset() {
@@ -895,6 +987,13 @@ func (x *ListLapsRequest) GetSessionId() string {
 	return ""
 }
 
+func (x *ListLapsRequest) GetKnownDataVersion() string {
+	if x != nil && x.KnownDataVersion != nil {
+		return *x.KnownDataVersion
+	}
+	return ""
+}
+
 // ListLapsResponse is a session's laps, with the session, which the laps'
 // flags are read from (its best lap, its restarts, its fuel use).
 type ListLapsResponse struct {
@@ -905,7 +1004,10 @@ type ListLapsResponse struct {
 	Laps []*LapRow `protobuf:"bytes,2,rep,name=laps,proto3" json:"laps,omitempty"`
 	// A stamp that changes only when the session's laps or summary change: the
 	// pit wall's ETag.
-	DataVersion   string `protobuf:"bytes,3,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	DataVersion string `protobuf:"bytes,3,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	// The caller's known_data_version is still current: every other field
+	// but data_version is absent.
+	Unchanged     bool `protobuf:"varint,4,opt,name=unchanged,proto3" json:"unchanged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -961,6 +1063,13 @@ func (x *ListLapsResponse) GetDataVersion() string {
 	return ""
 }
 
+func (x *ListLapsResponse) GetUnchanged() bool {
+	if x != nil {
+		return x.Unchanged
+	}
+	return false
+}
+
 // GetTraceRequest asks for one lap's trace (svc.logbook.laps.trace).
 type GetTraceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -974,9 +1083,11 @@ type GetTraceRequest struct {
 	// The most points to keep, from 1 to 10000, both frames either side of
 	// each jump in position kept on top of them; 0 is 1500. Under four points,
 	// every n-th frame instead.
-	Points        int32 `protobuf:"varint,4,opt,name=points,proto3" json:"points,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Points int32 `protobuf:"varint,4,opt,name=points,proto3" json:"points,omitempty"`
+	// The data_version the caller already has, as ListSessionsRequest's.
+	KnownDataVersion *string `protobuf:"bytes,5,opt,name=known_data_version,json=knownDataVersion,proto3,oneof" json:"known_data_version,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetTraceRequest) Reset() {
@@ -1037,6 +1148,13 @@ func (x *GetTraceRequest) GetPoints() int32 {
 	return 0
 }
 
+func (x *GetTraceRequest) GetKnownDataVersion() string {
+	if x != nil && x.KnownDataVersion != nil {
+		return *x.KnownDataVersion
+	}
+	return ""
+}
+
 // GetTraceResponse is one lap's trace.
 type GetTraceResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1044,7 +1162,10 @@ type GetTraceResponse struct {
 	Trace *LapTrace `protobuf:"bytes,1,opt,name=trace,proto3" json:"trace,omitempty"`
 	// A stamp that changes only when the lap's frames change: the pit wall's
 	// ETag.
-	DataVersion   string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	DataVersion string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	// The caller's known_data_version is still current: every other field
+	// but data_version is absent.
+	Unchanged     bool `protobuf:"varint,3,opt,name=unchanged,proto3" json:"unchanged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1093,6 +1214,13 @@ func (x *GetTraceResponse) GetDataVersion() string {
 	return ""
 }
 
+func (x *GetTraceResponse) GetUnchanged() bool {
+	if x != nil {
+		return x.Unchanged
+	}
+	return false
+}
+
 // ListSameTrackRequest asks for the other sessions at a session's track
 // (svc.logbook.sessions.same_track).
 type ListSameTrackRequest struct {
@@ -1103,10 +1231,13 @@ type ListSameTrackRequest struct {
 	SessionId string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	// The matching sessions to skip, newest first, as ListSessionsRequest's.
 	Offset int32 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	// The most sessions to answer; 0 is every one after offset.
-	Limit         int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// The most sessions to answer, as ListSessionsRequest's: 0 is 200, and
+	// more than 500 is a bad request.
+	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	// The data_version the caller already has, as ListSessionsRequest's.
+	KnownDataVersion *string `protobuf:"bytes,5,opt,name=known_data_version,json=knownDataVersion,proto3,oneof" json:"known_data_version,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListSameTrackRequest) Reset() {
@@ -1167,6 +1298,13 @@ func (x *ListSameTrackRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ListSameTrackRequest) GetKnownDataVersion() string {
+	if x != nil && x.KnownDataVersion != nil {
+		return *x.KnownDataVersion
+	}
+	return ""
+}
+
 // ListSameTrackResponse is the other sessions at the same track, newest
 // first: those whose track id is the session's, where the detector was sure
 // of both (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED, v1's
@@ -1177,7 +1315,12 @@ type ListSameTrackResponse struct {
 	Sessions []*SessionRow `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
 	// A stamp that changes only when the data behind this reply changes: the
 	// pit wall's ETag.
-	DataVersion   string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	DataVersion string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	// The other sessions at the same track, whatever offset and limit.
+	Matched int32 `protobuf:"varint,3,opt,name=matched,proto3" json:"matched,omitempty"`
+	// The caller's known_data_version is still current: every other field
+	// but data_version is absent.
+	Unchanged     bool `protobuf:"varint,4,opt,name=unchanged,proto3" json:"unchanged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1226,11 +1369,25 @@ func (x *ListSameTrackResponse) GetDataVersion() string {
 	return ""
 }
 
+func (x *ListSameTrackResponse) GetMatched() int32 {
+	if x != nil {
+		return x.Matched
+	}
+	return 0
+}
+
+func (x *ListSameTrackResponse) GetUnchanged() bool {
+	if x != nil {
+		return x.Unchanged
+	}
+	return false
+}
+
 var File_twr_store_v1_store_proto protoreflect.FileDescriptor
 
 const file_twr_store_v1_store_proto_rawDesc = "" +
 	"\n" +
-	"\x18twr/store/v1/store.proto\x12\ftwr.store.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x1btwr/events/v1/session.proto\"\x8f\x02\n" +
+	"\x18twr/store/v1/store.proto\x12\ftwr.store.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x1btwr/events/v1/session.proto\"\xf4\x02\n" +
 	"\n" +
 	"SessionRow\x12\x1d\n" +
 	"\n" +
@@ -1240,7 +1397,12 @@ const file_twr_store_v1_store_proto_rawDesc = "" +
 	"\n" +
 	"end_reason\x18\x04 \x01(\x0e2\x18.twr.events.v1.EndReasonR\tendReason\x127\n" +
 	"\asummary\x18\x05 \x01(\v2\x1d.twr.events.v1.SessionSummaryR\asummary\x12@\n" +
-	"\x0ecard_posted_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fcardPostedAt\"\x8a\x01\n" +
+	"\x0ecard_posted_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fcardPostedAt\x12\x1e\n" +
+	"\blast_lap\x18\a \x01(\x05H\x00R\alastLap\x88\x01\x01\x12%\n" +
+	"\ffrom_v1_rows\x18\b \x01(\bH\x01R\n" +
+	"fromV1Rows\x88\x01\x01B\v\n" +
+	"\t_last_lapB\x0f\n" +
+	"\r_from_v1_rows\"\x8a\x01\n" +
 	"\x06LapRow\x12-\n" +
 	"\x03lap\x18\x01 \x01(\v2\x1b.twr.events.v1.LapCompletedR\x03lap\x12\x16\n" +
 	"\x06frames\x18\x02 \x01(\x05R\x06frames\x12'\n" +
@@ -1269,7 +1431,7 @@ const file_twr_store_v1_store_proto_rawDesc = "" +
 	"\fFilterCounts\x12.\n" +
 	"\x05track\x18\x01 \x03(\v2\x18.twr.store.v1.ValueCountR\x05track\x12*\n" +
 	"\x03car\x18\x02 \x03(\v2\x18.twr.store.v1.ValueCountR\x03car\x12+\n" +
-	"\x04kind\x18\x03 \x03(\v2\x17.twr.store.v1.KindCountR\x04kind\"\xaf\x02\n" +
+	"\x04kind\x18\x03 \x03(\v2\x17.twr.store.v1.KindCountR\x04kind\"\xf9\x02\n" +
 	"\x13ListSessionsRequest\x12\x18\n" +
 	"\asources\x18\x01 \x03(\tR\asources\x12\x19\n" +
 	"\x05track\x18\x02 \x01(\tH\x00R\x05track\x88\x01\x01\x12\x15\n" +
@@ -1279,48 +1441,65 @@ const file_twr_store_v1_store_proto_rawDesc = "" +
 	"\x06to_day\x18\x06 \x01(\tR\x05toDay\x12\x1b\n" +
 	"\ttime_zone\x18\a \x01(\tR\btimeZone\x12\x16\n" +
 	"\x06offset\x18\b \x01(\x05R\x06offset\x12\x14\n" +
-	"\x05limit\x18\t \x01(\x05R\x05limitB\b\n" +
+	"\x05limit\x18\t \x01(\x05R\x05limit\x121\n" +
+	"\x12known_data_version\x18\n" +
+	" \x01(\tH\x02R\x10knownDataVersion\x88\x01\x01B\b\n" +
 	"\x06_trackB\x06\n" +
-	"\x04_car\"\xd5\x01\n" +
+	"\x04_carB\x15\n" +
+	"\x13_known_data_version\"\xf3\x01\n" +
 	"\x14ListSessionsResponse\x124\n" +
 	"\bsessions\x18\x01 \x03(\v2\x18.twr.store.v1.SessionRowR\bsessions\x124\n" +
 	"\aoptions\x18\x02 \x01(\v2\x1a.twr.store.v1.FilterCountsR\aoptions\x12\x14\n" +
 	"\x05total\x18\x03 \x01(\x05R\x05total\x12\x18\n" +
 	"\amatched\x18\x04 \x01(\x05R\amatched\x12!\n" +
-	"\fdata_version\x18\x05 \x01(\tR\vdataVersion\"L\n" +
+	"\fdata_version\x18\x05 \x01(\tR\vdataVersion\x12\x1c\n" +
+	"\tunchanged\x18\x06 \x01(\bR\tunchanged\"\x96\x01\n" +
 	"\x11GetSessionRequest\x12\x18\n" +
 	"\asources\x18\x01 \x03(\tR\asources\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\"k\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x121\n" +
+	"\x12known_data_version\x18\x03 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01B\x15\n" +
+	"\x13_known_data_version\"\x89\x01\n" +
 	"\x12GetSessionResponse\x122\n" +
 	"\asession\x18\x01 \x01(\v2\x18.twr.store.v1.SessionRowR\asession\x12!\n" +
-	"\fdata_version\x18\x02 \x01(\tR\vdataVersion\"J\n" +
+	"\fdata_version\x18\x02 \x01(\tR\vdataVersion\x12\x1c\n" +
+	"\tunchanged\x18\x03 \x01(\bR\tunchanged\"\x94\x01\n" +
 	"\x0fListLapsRequest\x12\x18\n" +
 	"\asources\x18\x01 \x03(\tR\asources\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\"\x93\x01\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x121\n" +
+	"\x12known_data_version\x18\x03 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01B\x15\n" +
+	"\x13_known_data_version\"\xb1\x01\n" +
 	"\x10ListLapsResponse\x122\n" +
 	"\asession\x18\x01 \x01(\v2\x18.twr.store.v1.SessionRowR\asession\x12(\n" +
 	"\x04laps\x18\x02 \x03(\v2\x14.twr.store.v1.LapRowR\x04laps\x12!\n" +
-	"\fdata_version\x18\x03 \x01(\tR\vdataVersion\"t\n" +
+	"\fdata_version\x18\x03 \x01(\tR\vdataVersion\x12\x1c\n" +
+	"\tunchanged\x18\x04 \x01(\bR\tunchanged\"\xbe\x01\n" +
 	"\x0fGetTraceRequest\x12\x18\n" +
 	"\asources\x18\x01 \x03(\tR\asources\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x10\n" +
 	"\x03lap\x18\x03 \x01(\x05R\x03lap\x12\x16\n" +
-	"\x06points\x18\x04 \x01(\x05R\x06points\"c\n" +
+	"\x06points\x18\x04 \x01(\x05R\x06points\x121\n" +
+	"\x12known_data_version\x18\x05 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01B\x15\n" +
+	"\x13_known_data_version\"\x81\x01\n" +
 	"\x10GetTraceResponse\x12,\n" +
 	"\x05trace\x18\x01 \x01(\v2\x16.twr.store.v1.LapTraceR\x05trace\x12!\n" +
-	"\fdata_version\x18\x02 \x01(\tR\vdataVersion\"}\n" +
+	"\fdata_version\x18\x02 \x01(\tR\vdataVersion\x12\x1c\n" +
+	"\tunchanged\x18\x03 \x01(\bR\tunchanged\"\xc7\x01\n" +
 	"\x14ListSameTrackRequest\x12\x18\n" +
 	"\asources\x18\x01 \x03(\tR\asources\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x16\n" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\"p\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\x121\n" +
+	"\x12known_data_version\x18\x05 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01B\x15\n" +
+	"\x13_known_data_version\"\xa8\x01\n" +
 	"\x15ListSameTrackResponse\x124\n" +
 	"\bsessions\x18\x01 \x03(\v2\x18.twr.store.v1.SessionRowR\bsessions\x12!\n" +
-	"\fdata_version\x18\x02 \x01(\tR\vdataVersionB\xb0\x01\n" +
+	"\fdata_version\x18\x02 \x01(\tR\vdataVersion\x12\x18\n" +
+	"\amatched\x18\x03 \x01(\x05R\amatched\x12\x1c\n" +
+	"\tunchanged\x18\x04 \x01(\bR\tunchangedB\xb0\x01\n" +
 	"\x10com.twr.store.v1B\n" +
 	"StoreProtoP\x01Z>github.com/those-who-run/contracts/gen/go/twr/store/v1;storev1\xa2\x02\x03TSX\xaa\x02\fTwr.Store.V1\xca\x02\fTwr\\Store\\V1\xe2\x02\x18Twr\\Store\\V1\\GPBMetadata\xea\x02\x0eTwr::Store::V1b\x06proto3"
 
@@ -1389,8 +1568,13 @@ func file_twr_store_v1_store_proto_init() {
 	if File_twr_store_v1_store_proto != nil {
 		return
 	}
+	file_twr_store_v1_store_proto_msgTypes[0].OneofWrappers = []any{}
 	file_twr_store_v1_store_proto_msgTypes[1].OneofWrappers = []any{}
 	file_twr_store_v1_store_proto_msgTypes[6].OneofWrappers = []any{}
+	file_twr_store_v1_store_proto_msgTypes[8].OneofWrappers = []any{}
+	file_twr_store_v1_store_proto_msgTypes[10].OneofWrappers = []any{}
+	file_twr_store_v1_store_proto_msgTypes[12].OneofWrappers = []any{}
+	file_twr_store_v1_store_proto_msgTypes[14].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -76,13 +76,14 @@ var pitwallRetyped = map[string]string{
 // The v1 fields that are never null, but are absent here when they mean
 // nothing, each with why.
 var pitwallNowOptional = map[string]string{
-	"Session.total_laps":           "absent for a timed or open session, where v1 said 0, as SessionSummary's total_laps",
+	"Session.total_laps":           "absent for a timed session, or until the lap total is known, where v1 said 0, as SessionSummary's total_laps; an open lap race has it, as in v1",
 	"EngineStatus.voice_connected": "radio's, in its own live key: absent when radio says nothing of it, so the chip says \"Voice: unknown\" rather than off (paddock#125, R6)",
 }
 
 // The fields here with no v1 field, each with why.
 var pitwallNew = map[string]string{
 	"Session.card_posted_at":          "when the results card was posted, from card.posted (paddock#122's triage)",
+	"Session.from_v1_rows":            "whether an imported session came from v1's rows or was re-derived (ADR 0009)",
 	"GetSessionResponse.session":      "a method's response is its own message (buf's STANDARD lint); v1's body was the Session",
 	"GetTraceResponse.trace":          "a method's response is its own message; v1's body was the Trace",
 	"GetEngineStatusResponse.status":  "a method's response is its own message; v1's body was the EngineStatus",

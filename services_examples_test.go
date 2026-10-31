@@ -52,6 +52,7 @@ func suzukaRow() (*storev1.SessionRow, []*eventsv1.LapCompleted) {
 		EndReason:    ended.GetReason(),
 		Summary:      summary,
 		CardPostedAt: timestamppb.New(time.Date(2026, 10, 18, 13, 28, 3, 250_000_000, time.UTC)),
+		LastLap:      proto.Int32(6),
 	}, laps
 }
 
@@ -102,12 +103,13 @@ func serviceExamples() []struct {
 		want proto.Message
 	}{
 		{"store/v1/list_sessions_request.json", &storev1.ListSessionsRequest{
-			Sources:     []string{"live", "v1-import"},
-			Track:       proto.String("Suzuka Circuit East Course"),
-			SessionType: eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
-			FromDay:     "2026-10-01",
-			TimeZone:    "Europe/Dublin",
-			Limit:       200,
+			Sources:          []string{"live", "v1-import"},
+			Track:            proto.String("Suzuka Circuit East Course"),
+			SessionType:      eventsv1.SessionType_SESSION_TYPE_LAP_RACE,
+			FromDay:          "2026-10-01",
+			TimeZone:         "Europe/Dublin",
+			Limit:            200,
+			KnownDataVersion: proto.String("5:1828"),
 		}},
 		{"store/v1/get_session_response.json", &storev1.GetSessionResponse{
 			Session: row, DataVersion: "5:1829",

@@ -27,7 +27,7 @@ from twr.events.v1 import lap_pb2 as twr_dot_events_dot_v1_dot_lap__pb2
 from twr.events.v1 import session_pb2 as twr_dot_events_dot_v1_dot_session__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18twr/store/v1/store.proto\x12\x0ctwr.store.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x1btwr/events/v1/session.proto\"\x8f\x02\n\nSessionRow\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n\x06source\x18\x02 \x01(\tR\x06source\x12\x16\n\x06\x63losed\x18\x03 \x01(\x08R\x06\x63losed\x12\x37\n\nend_reason\x18\x04 \x01(\x0e\x32\x18.twr.events.v1.EndReasonR\tendReason\x12\x37\n\x07summary\x18\x05 \x01(\x0b\x32\x1d.twr.events.v1.SessionSummaryR\x07summary\x12@\n\x0e\x63\x61rd_posted_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0c\x63\x61rdPostedAt\"\x8a\x01\n\x06LapRow\x12-\n\x03lap\x18\x01 \x01(\x0b\x32\x1b.twr.events.v1.LapCompletedR\x03lap\x12\x16\n\x06\x66rames\x18\x02 \x01(\x05R\x06\x66rames\x12\'\n\rtop_speed_kph\x18\x03 \x01(\x01H\x00R\x0btopSpeedKph\x88\x01\x01\x42\x10\n\x0e_top_speed_kph\"\xe8\x01\n\x08LapTrace\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x10\n\x03lap\x18\x02 \x01(\x05R\x03lap\x12\x0c\n\x01t\x18\x03 \x03(\x01R\x01t\x12\x1b\n\tspeed_kph\x18\x04 \x03(\x01R\x08speedKph\x12!\n\x0cthrottle_pct\x18\x05 \x03(\x01R\x0bthrottlePct\x12\x1b\n\tbrake_pct\x18\x06 \x03(\x01R\x08\x62rakePct\x12\x12\n\x04gear\x18\x07 \x03(\x05R\x04gear\x12\x10\n\x03rpm\x18\x08 \x03(\x01R\x03rpm\x12\x0c\n\x01x\x18\t \x03(\x01R\x01x\x12\x0c\n\x01z\x18\n \x03(\x01R\x01z\"8\n\nValueCount\x12\x14\n\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n\x05\x63ount\x18\x02 \x01(\x05R\x05\x63ount\"`\n\tKindCount\x12=\n\x0csession_type\x18\x01 \x01(\x0e\x32\x1a.twr.events.v1.SessionTypeR\x0bsessionType\x12\x14\n\x05\x63ount\x18\x02 \x01(\x05R\x05\x63ount\"\x97\x01\n\x0c\x46ilterCounts\x12.\n\x05track\x18\x01 \x03(\x0b\x32\x18.twr.store.v1.ValueCountR\x05track\x12*\n\x03\x63\x61r\x18\x02 \x03(\x0b\x32\x18.twr.store.v1.ValueCountR\x03\x63\x61r\x12+\n\x04kind\x18\x03 \x03(\x0b\x32\x17.twr.store.v1.KindCountR\x04kind\"\xaf\x02\n\x13ListSessionsRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x19\n\x05track\x18\x02 \x01(\tH\x00R\x05track\x88\x01\x01\x12\x15\n\x03\x63\x61r\x18\x03 \x01(\tH\x01R\x03\x63\x61r\x88\x01\x01\x12=\n\x0csession_type\x18\x04 \x01(\x0e\x32\x1a.twr.events.v1.SessionTypeR\x0bsessionType\x12\x19\n\x08\x66rom_day\x18\x05 \x01(\tR\x07\x66romDay\x12\x15\n\x06to_day\x18\x06 \x01(\tR\x05toDay\x12\x1b\n\ttime_zone\x18\x07 \x01(\tR\x08timeZone\x12\x16\n\x06offset\x18\x08 \x01(\x05R\x06offset\x12\x14\n\x05limit\x18\t \x01(\x05R\x05limitB\x08\n\x06_trackB\x06\n\x04_car\"\xd5\x01\n\x14ListSessionsResponse\x12\x34\n\x08sessions\x18\x01 \x03(\x0b\x32\x18.twr.store.v1.SessionRowR\x08sessions\x12\x34\n\x07options\x18\x02 \x01(\x0b\x32\x1a.twr.store.v1.FilterCountsR\x07options\x12\x14\n\x05total\x18\x03 \x01(\x05R\x05total\x12\x18\n\x07matched\x18\x04 \x01(\x05R\x07matched\x12!\n\x0c\x64\x61ta_version\x18\x05 \x01(\tR\x0b\x64\x61taVersion\"L\n\x11GetSessionRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"k\n\x12GetSessionResponse\x12\x32\n\x07session\x18\x01 \x01(\x0b\x32\x18.twr.store.v1.SessionRowR\x07session\x12!\n\x0c\x64\x61ta_version\x18\x02 \x01(\tR\x0b\x64\x61taVersion\"J\n\x0fListLapsRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\"\x93\x01\n\x10ListLapsResponse\x12\x32\n\x07session\x18\x01 \x01(\x0b\x32\x18.twr.store.v1.SessionRowR\x07session\x12(\n\x04laps\x18\x02 \x03(\x0b\x32\x14.twr.store.v1.LapRowR\x04laps\x12!\n\x0c\x64\x61ta_version\x18\x03 \x01(\tR\x0b\x64\x61taVersion\"t\n\x0fGetTraceRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\x12\x10\n\x03lap\x18\x03 \x01(\x05R\x03lap\x12\x16\n\x06points\x18\x04 \x01(\x05R\x06points\"c\n\x10GetTraceResponse\x12,\n\x05trace\x18\x01 \x01(\x0b\x32\x16.twr.store.v1.LapTraceR\x05trace\x12!\n\x0c\x64\x61ta_version\x18\x02 \x01(\tR\x0b\x64\x61taVersion\"}\n\x14ListSameTrackRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\x12\x16\n\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x14\n\x05limit\x18\x04 \x01(\x05R\x05limit\"p\n\x15ListSameTrackResponse\x12\x34\n\x08sessions\x18\x01 \x03(\x0b\x32\x18.twr.store.v1.SessionRowR\x08sessions\x12!\n\x0c\x64\x61ta_version\x18\x02 \x01(\tR\x0b\x64\x61taVersionB\xb0\x01\n\x10\x63om.twr.store.v1B\nStoreProtoP\x01Z>github.com/those-who-run/contracts/gen/go/twr/store/v1;storev1\xa2\x02\x03TSX\xaa\x02\x0cTwr.Store.V1\xca\x02\x0cTwr\\Store\\V1\xe2\x02\x18Twr\\Store\\V1\\GPBMetadata\xea\x02\x0eTwr::Store::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18twr/store/v1/store.proto\x12\x0ctwr.store.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x1btwr/events/v1/session.proto\"\xf4\x02\n\nSessionRow\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n\x06source\x18\x02 \x01(\tR\x06source\x12\x16\n\x06\x63losed\x18\x03 \x01(\x08R\x06\x63losed\x12\x37\n\nend_reason\x18\x04 \x01(\x0e\x32\x18.twr.events.v1.EndReasonR\tendReason\x12\x37\n\x07summary\x18\x05 \x01(\x0b\x32\x1d.twr.events.v1.SessionSummaryR\x07summary\x12@\n\x0e\x63\x61rd_posted_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0c\x63\x61rdPostedAt\x12\x1e\n\x08last_lap\x18\x07 \x01(\x05H\x00R\x07lastLap\x88\x01\x01\x12%\n\x0c\x66rom_v1_rows\x18\x08 \x01(\x08H\x01R\nfromV1Rows\x88\x01\x01\x42\x0b\n\t_last_lapB\x0f\n\r_from_v1_rows\"\x8a\x01\n\x06LapRow\x12-\n\x03lap\x18\x01 \x01(\x0b\x32\x1b.twr.events.v1.LapCompletedR\x03lap\x12\x16\n\x06\x66rames\x18\x02 \x01(\x05R\x06\x66rames\x12\'\n\rtop_speed_kph\x18\x03 \x01(\x01H\x00R\x0btopSpeedKph\x88\x01\x01\x42\x10\n\x0e_top_speed_kph\"\xe8\x01\n\x08LapTrace\x12\x1d\n\nsession_id\x18\x01 \x01(\tR\tsessionId\x12\x10\n\x03lap\x18\x02 \x01(\x05R\x03lap\x12\x0c\n\x01t\x18\x03 \x03(\x01R\x01t\x12\x1b\n\tspeed_kph\x18\x04 \x03(\x01R\x08speedKph\x12!\n\x0cthrottle_pct\x18\x05 \x03(\x01R\x0bthrottlePct\x12\x1b\n\tbrake_pct\x18\x06 \x03(\x01R\x08\x62rakePct\x12\x12\n\x04gear\x18\x07 \x03(\x05R\x04gear\x12\x10\n\x03rpm\x18\x08 \x03(\x01R\x03rpm\x12\x0c\n\x01x\x18\t \x03(\x01R\x01x\x12\x0c\n\x01z\x18\n \x03(\x01R\x01z\"8\n\nValueCount\x12\x14\n\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n\x05\x63ount\x18\x02 \x01(\x05R\x05\x63ount\"`\n\tKindCount\x12=\n\x0csession_type\x18\x01 \x01(\x0e\x32\x1a.twr.events.v1.SessionTypeR\x0bsessionType\x12\x14\n\x05\x63ount\x18\x02 \x01(\x05R\x05\x63ount\"\x97\x01\n\x0c\x46ilterCounts\x12.\n\x05track\x18\x01 \x03(\x0b\x32\x18.twr.store.v1.ValueCountR\x05track\x12*\n\x03\x63\x61r\x18\x02 \x03(\x0b\x32\x18.twr.store.v1.ValueCountR\x03\x63\x61r\x12+\n\x04kind\x18\x03 \x03(\x0b\x32\x17.twr.store.v1.KindCountR\x04kind\"\xf9\x02\n\x13ListSessionsRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x19\n\x05track\x18\x02 \x01(\tH\x00R\x05track\x88\x01\x01\x12\x15\n\x03\x63\x61r\x18\x03 \x01(\tH\x01R\x03\x63\x61r\x88\x01\x01\x12=\n\x0csession_type\x18\x04 \x01(\x0e\x32\x1a.twr.events.v1.SessionTypeR\x0bsessionType\x12\x19\n\x08\x66rom_day\x18\x05 \x01(\tR\x07\x66romDay\x12\x15\n\x06to_day\x18\x06 \x01(\tR\x05toDay\x12\x1b\n\ttime_zone\x18\x07 \x01(\tR\x08timeZone\x12\x16\n\x06offset\x18\x08 \x01(\x05R\x06offset\x12\x14\n\x05limit\x18\t \x01(\x05R\x05limit\x12\x31\n\x12known_data_version\x18\n \x01(\tH\x02R\x10knownDataVersion\x88\x01\x01\x42\x08\n\x06_trackB\x06\n\x04_carB\x15\n\x13_known_data_version\"\xf3\x01\n\x14ListSessionsResponse\x12\x34\n\x08sessions\x18\x01 \x03(\x0b\x32\x18.twr.store.v1.SessionRowR\x08sessions\x12\x34\n\x07options\x18\x02 \x01(\x0b\x32\x1a.twr.store.v1.FilterCountsR\x07options\x12\x14\n\x05total\x18\x03 \x01(\x05R\x05total\x12\x18\n\x07matched\x18\x04 \x01(\x05R\x07matched\x12!\n\x0c\x64\x61ta_version\x18\x05 \x01(\tR\x0b\x64\x61taVersion\x12\x1c\n\tunchanged\x18\x06 \x01(\x08R\tunchanged\"\x96\x01\n\x11GetSessionRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\x12\x31\n\x12known_data_version\x18\x03 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01\x42\x15\n\x13_known_data_version\"\x89\x01\n\x12GetSessionResponse\x12\x32\n\x07session\x18\x01 \x01(\x0b\x32\x18.twr.store.v1.SessionRowR\x07session\x12!\n\x0c\x64\x61ta_version\x18\x02 \x01(\tR\x0b\x64\x61taVersion\x12\x1c\n\tunchanged\x18\x03 \x01(\x08R\tunchanged\"\x94\x01\n\x0fListLapsRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\x12\x31\n\x12known_data_version\x18\x03 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01\x42\x15\n\x13_known_data_version\"\xb1\x01\n\x10ListLapsResponse\x12\x32\n\x07session\x18\x01 \x01(\x0b\x32\x18.twr.store.v1.SessionRowR\x07session\x12(\n\x04laps\x18\x02 \x03(\x0b\x32\x14.twr.store.v1.LapRowR\x04laps\x12!\n\x0c\x64\x61ta_version\x18\x03 \x01(\tR\x0b\x64\x61taVersion\x12\x1c\n\tunchanged\x18\x04 \x01(\x08R\tunchanged\"\xbe\x01\n\x0fGetTraceRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\x12\x10\n\x03lap\x18\x03 \x01(\x05R\x03lap\x12\x16\n\x06points\x18\x04 \x01(\x05R\x06points\x12\x31\n\x12known_data_version\x18\x05 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01\x42\x15\n\x13_known_data_version\"\x81\x01\n\x10GetTraceResponse\x12,\n\x05trace\x18\x01 \x01(\x0b\x32\x16.twr.store.v1.LapTraceR\x05trace\x12!\n\x0c\x64\x61ta_version\x18\x02 \x01(\tR\x0b\x64\x61taVersion\x12\x1c\n\tunchanged\x18\x03 \x01(\x08R\tunchanged\"\xc7\x01\n\x14ListSameTrackRequest\x12\x18\n\x07sources\x18\x01 \x03(\tR\x07sources\x12\x1d\n\nsession_id\x18\x02 \x01(\tR\tsessionId\x12\x16\n\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x14\n\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x31\n\x12known_data_version\x18\x05 \x01(\tH\x00R\x10knownDataVersion\x88\x01\x01\x42\x15\n\x13_known_data_version\"\xa8\x01\n\x15ListSameTrackResponse\x12\x34\n\x08sessions\x18\x01 \x03(\x0b\x32\x18.twr.store.v1.SessionRowR\x08sessions\x12!\n\x0c\x64\x61ta_version\x18\x02 \x01(\tR\x0b\x64\x61taVersion\x12\x18\n\x07matched\x18\x03 \x01(\x05R\x07matched\x12\x1c\n\tunchanged\x18\x04 \x01(\x08R\tunchangedB\xb0\x01\n\x10\x63om.twr.store.v1B\nStoreProtoP\x01Z>github.com/those-who-run/contracts/gen/go/twr/store/v1;storev1\xa2\x02\x03TSX\xaa\x02\x0cTwr.Store.V1\xca\x02\x0cTwr\\Store\\V1\xe2\x02\x18Twr\\Store\\V1\\GPBMetadata\xea\x02\x0eTwr::Store::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,35 +36,35 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.twr.store.v1B\nStoreProtoP\001Z>github.com/those-who-run/contracts/gen/go/twr/store/v1;storev1\242\002\003TSX\252\002\014Twr.Store.V1\312\002\014Twr\\Store\\V1\342\002\030Twr\\Store\\V1\\GPBMetadata\352\002\016Twr::Store::V1'
   _globals['_SESSIONROW']._serialized_start=130
-  _globals['_SESSIONROW']._serialized_end=401
-  _globals['_LAPROW']._serialized_start=404
-  _globals['_LAPROW']._serialized_end=542
-  _globals['_LAPTRACE']._serialized_start=545
-  _globals['_LAPTRACE']._serialized_end=777
-  _globals['_VALUECOUNT']._serialized_start=779
-  _globals['_VALUECOUNT']._serialized_end=835
-  _globals['_KINDCOUNT']._serialized_start=837
-  _globals['_KINDCOUNT']._serialized_end=933
-  _globals['_FILTERCOUNTS']._serialized_start=936
-  _globals['_FILTERCOUNTS']._serialized_end=1087
-  _globals['_LISTSESSIONSREQUEST']._serialized_start=1090
-  _globals['_LISTSESSIONSREQUEST']._serialized_end=1393
-  _globals['_LISTSESSIONSRESPONSE']._serialized_start=1396
-  _globals['_LISTSESSIONSRESPONSE']._serialized_end=1609
-  _globals['_GETSESSIONREQUEST']._serialized_start=1611
-  _globals['_GETSESSIONREQUEST']._serialized_end=1687
-  _globals['_GETSESSIONRESPONSE']._serialized_start=1689
-  _globals['_GETSESSIONRESPONSE']._serialized_end=1796
-  _globals['_LISTLAPSREQUEST']._serialized_start=1798
-  _globals['_LISTLAPSREQUEST']._serialized_end=1872
-  _globals['_LISTLAPSRESPONSE']._serialized_start=1875
-  _globals['_LISTLAPSRESPONSE']._serialized_end=2022
-  _globals['_GETTRACEREQUEST']._serialized_start=2024
-  _globals['_GETTRACEREQUEST']._serialized_end=2140
-  _globals['_GETTRACERESPONSE']._serialized_start=2142
-  _globals['_GETTRACERESPONSE']._serialized_end=2241
-  _globals['_LISTSAMETRACKREQUEST']._serialized_start=2243
-  _globals['_LISTSAMETRACKREQUEST']._serialized_end=2368
-  _globals['_LISTSAMETRACKRESPONSE']._serialized_start=2370
-  _globals['_LISTSAMETRACKRESPONSE']._serialized_end=2482
+  _globals['_SESSIONROW']._serialized_end=502
+  _globals['_LAPROW']._serialized_start=505
+  _globals['_LAPROW']._serialized_end=643
+  _globals['_LAPTRACE']._serialized_start=646
+  _globals['_LAPTRACE']._serialized_end=878
+  _globals['_VALUECOUNT']._serialized_start=880
+  _globals['_VALUECOUNT']._serialized_end=936
+  _globals['_KINDCOUNT']._serialized_start=938
+  _globals['_KINDCOUNT']._serialized_end=1034
+  _globals['_FILTERCOUNTS']._serialized_start=1037
+  _globals['_FILTERCOUNTS']._serialized_end=1188
+  _globals['_LISTSESSIONSREQUEST']._serialized_start=1191
+  _globals['_LISTSESSIONSREQUEST']._serialized_end=1568
+  _globals['_LISTSESSIONSRESPONSE']._serialized_start=1571
+  _globals['_LISTSESSIONSRESPONSE']._serialized_end=1814
+  _globals['_GETSESSIONREQUEST']._serialized_start=1817
+  _globals['_GETSESSIONREQUEST']._serialized_end=1967
+  _globals['_GETSESSIONRESPONSE']._serialized_start=1970
+  _globals['_GETSESSIONRESPONSE']._serialized_end=2107
+  _globals['_LISTLAPSREQUEST']._serialized_start=2110
+  _globals['_LISTLAPSREQUEST']._serialized_end=2258
+  _globals['_LISTLAPSRESPONSE']._serialized_start=2261
+  _globals['_LISTLAPSRESPONSE']._serialized_end=2438
+  _globals['_GETTRACEREQUEST']._serialized_start=2441
+  _globals['_GETTRACEREQUEST']._serialized_end=2631
+  _globals['_GETTRACERESPONSE']._serialized_start=2634
+  _globals['_GETTRACERESPONSE']._serialized_end=2763
+  _globals['_LISTSAMETRACKREQUEST']._serialized_start=2766
+  _globals['_LISTSAMETRACKREQUEST']._serialized_end=2965
+  _globals['_LISTSAMETRACKRESPONSE']._serialized_start=2968
+  _globals['_LISTSAMETRACKRESPONSE']._serialized_end=3136
 # @@protoc_insertion_point(module_scope)

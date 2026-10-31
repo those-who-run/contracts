@@ -7,5 +7,6 @@
   "sessionType": "SESSION_TYPE_LAP_RACE",
   "fromDay": "2026-10-01",
   "timeZone": "Europe/Dublin",
-  "limit": 200
+  "limit": 200,
+  "knownDataVersion": "5:1828"
 }

@@ -84,10 +84,11 @@ message Session {
   // v1's own id, such as "20261017-162118" (v1's `session_id`).
   string session_id = 1;
   // The results card title, "Circuit Gilles Villeneuve · 12-lap race" (v1's
-  // `title`), written with contracts' format package, as the card is.
+  // `title`): the same words podium's results card has for the session.
   string title = 2;
   // The results card line, "🚩 Finished P3 of 20 in 21:06.182" (v1's
-  // `result`), written with contracts' format package, as the card is.
+  // `result`): the same words podium's results card has, but "Running, N
+  // laps" for a session still open, as v1 said.
   string result = 3;
   // When the session started (v1's `started_at`, in Unix seconds).
   google.protobuf.Timestamp started_at = 4;
@@ -129,8 +130,8 @@ message Session {
   optional int32 best_lap = 18;
   // The laps completed (v1's `laps_completed`).
   int32 laps_completed = 19;
-  // The laps in the race; absent for a timed or open session (v1's
-  // `total_laps`, 0 there).
+  // The laps in the race; absent for a timed session, or until the lap total
+  // is known (v1's `total_laps`, 0 there). An open lap race has it, as in v1.
   optional int32 total_laps = 20;
   // Fuel use is on; false means the fuel figures mean nothing; absent when
   // not known (v1's `fuel_use`).
@@ -161,6 +162,11 @@ message Session {
   // from card.posted). Absent when no card was posted, or not yet. v1 had no
   // such value.
   google.protobuf.Timestamp card_posted_at = 31;
+  // Whether a session imported from v1 (ADR 0009) was taken from v1's stored
+  // rows, its summary.json and index, rather than re-derived by replaying its
+  // frames through ecu's packages: true from the rows, false re-derived.
+  // Absent for a session v2 saw itself. v1 had no such value.
+  optional bool from_v1_rows = 32;
 }
 
 // LapRow is one lap in the lap table (v1's `LapRow`).
