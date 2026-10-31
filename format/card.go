@@ -123,8 +123,9 @@ func TrackLabel(t *eventsv1.TrackVerdict) string {
 	return "Unknown track"
 }
 
-// PositionShown says whether a position means anything: a field GT7 flags, as
-// the engineer says it.
+// PositionShown says whether a position means anything, as the engineer says
+// it: the kind has a field, and GT7 flags the car on track with data (the
+// cars-on-track flag, which says nothing of other cars).
 func PositionShown(kind *eventsv1.SessionKind) bool {
 	return kind.GetField() && kind.GetCarsOnTrack()
 }
