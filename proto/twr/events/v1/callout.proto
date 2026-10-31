@@ -100,8 +100,11 @@ enum PitLane {
 //   - position: template_gained, template_gained_lead,
 //     template_gained_podium, template_lost and template_lost_lead
 //     (position, previous_position). In a ranked session
-//     (SESSION_TYPE_RANKED), where the place is the rank by lap time,
-//     template_rank_gained and template_rank_lost (the same slots).
+//     (SESSION_TYPE_RANKED), where the place is the rank by lap time, the
+//     first rank called is template_rank (position alone: "That puts you P
+//     four on the timesheet."), and after it template_rank_gained and
+//     template_rank_lost (position, previous_position), against the last
+//     rank called (ecu#72).
 //   - start_brief: template, the brief: v1 spoke one sentence for each slot
 //     set, in this order: template_track (track), template_laps (laps) or
 //     template_laps_to_go (laps_left), template_timed (timed), and

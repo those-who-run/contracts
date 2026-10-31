@@ -3,12 +3,14 @@ package contracts_test
 import (
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/those-who-run/contracts/ce"
+	"github.com/those-who-run/contracts/format"
 	eventsv1 "github.com/those-who-run/contracts/gen/go/twr/events/v1"
 	pitwallv1 "github.com/those-who-run/contracts/gen/go/twr/pitwall/v1"
 	storev1 "github.com/those-who-run/contracts/gen/go/twr/store/v1"
@@ -61,7 +63,7 @@ func suzukaSession() *pitwallv1.Session {
 	return &pitwallv1.Session{
 		SessionId: suzukaSID,
 		Title:     "Suzuka Circuit East Course · 6-lap race",
-		Result:    "Finished P1 of 2 in 6:29.934",
+		Result:    "🚩 Finished P1 of 2 in 6:29.934",
 		StartedAt: timestamppb.New(time.Date(2026, 10, 18, 13, 21, 29, 15_985_000, time.UTC)),
 		EndedAt:   timestamppb.New(time.Date(2026, 10, 18, 13, 28, 1, 176_172_000, time.UTC)),
 		Closed:    true,
@@ -198,5 +200,24 @@ func serviceExamples() []struct {
 		{"pitwall/v1/get_engine_status_offline.json", &pitwallv1.GetEngineStatusResponse{
 			Status: &pitwallv1.EngineStatus{Activity: pitwallv1.Activity_ACTIVITY_OFFLINE},
 		}},
+	}
+}
+
+// The pit wall's examples say what the card says (format.Title, Result and
+// KindLabel, the cases in format-cases.json's cards), from the store's row
+// the pit wall maps them from.
+func TestPitwallExamplesUseTheCardsWords(t *testing.T) {
+	row, _ := suzukaRow()
+	s, summary := suzukaSession(), row.GetSummary()
+	want := map[string][2]string{
+		"title":      {s.GetTitle(), format.Title(summary)},
+		"result":     {s.GetResult(), format.Result(summary, row.GetEndReason(), row.GetClosed(), int(row.GetLastLap()))},
+		"kind_label": {s.GetKindLabel(), format.KindLabel(summary.GetSessionType(), int(summary.GetTotalLaps()))},
+		"track.name": {s.GetTrack().GetName(), format.TrackLabel(summary.GetTrack())},
+	}
+	for field, got := range want {
+		if got[0] != got[1] {
+			t.Errorf("the example's %s is %q, but the card says %q", field, got[0], got[1])
+		}
 	}
 }

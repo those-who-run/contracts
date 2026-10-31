@@ -501,8 +501,10 @@ func (x *KindCount) GetCount() int32 {
 // sources asked for, each with its count.
 type FilterCounts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The track names, as ListSessionsRequest's track takes them: the empty
-	// name for the sessions whose track the detector was not sure of.
+	// The tracks as the card shows them, as ListSessionsRequest's track takes
+	// them: format.TrackLabel's value, the layout's name when the detector was
+	// sure of it, else the circuit's (the family), and the empty name where
+	// TrackLabel says "Unknown track".
 	Track []*ValueCount `protobuf:"bytes,1,rep,name=track,proto3" json:"track,omitempty"`
 	// The car names, as SessionSummary's car_name has them; a session with no
 	// car name has no value here.
@@ -572,9 +574,13 @@ type ListSessionsRequest struct {
 	// The sources to look in, such as `live` and `v1-import` (the pit wall's
 	// TWR_PITWALL_SRC). At least one: none is a bad request (400).
 	Sources []string `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
-	// Only sessions at this track: the summary's track name when the detector
-	// was sure of it (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED),
-	// and the empty name for every other session. Absent matches every track.
+	// Only sessions at this track, by the track the card shows:
+	// format.TrackLabel of the summary's track, the layout's name when the
+	// detector was sure of it (TRACK_CONFIDENCE_PROBABLE or
+	// TRACK_CONFIDENCE_CONFIRMED), else the circuit's (TrackVerdict's family,
+	// such as "Fuji"), else the empty name, where TrackLabel says "Unknown
+	// track". So the filter and the page agree, as v1's filter keyed on the
+	// shown label. Absent matches every track.
 	Track *string `protobuf:"bytes,2,opt,name=track,proto3,oneof" json:"track,omitempty"`
 	// Only sessions in this car, by SessionSummary's car_name. Absent matches
 	// every car.
@@ -869,8 +875,9 @@ type GetSessionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The session.
 	Session *SessionRow `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
-	// A stamp that changes only when the session's data changes: the pit
-	// wall's ETag.
+	// A stamp of the whole store: it changes when anything in the store
+	// changes, not only this session (the maintainer's accepted departure,
+	// 2026-10-31). The pit wall's ETag.
 	DataVersion string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
 	// The caller's known_data_version is still current: every other field
 	// but data_version is absent.
@@ -1002,8 +1009,8 @@ type ListLapsResponse struct {
 	Session *SessionRow `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
 	// Its laps, complete and partial, in the order they ended.
 	Laps []*LapRow `protobuf:"bytes,2,rep,name=laps,proto3" json:"laps,omitempty"`
-	// A stamp that changes only when the session's laps or summary change: the
-	// pit wall's ETag.
+	// A stamp of the whole store, as GetSessionResponse's: it changes when
+	// anything in the store changes. The pit wall's ETag.
 	DataVersion string `protobuf:"bytes,3,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
 	// The caller's known_data_version is still current: every other field
 	// but data_version is absent.

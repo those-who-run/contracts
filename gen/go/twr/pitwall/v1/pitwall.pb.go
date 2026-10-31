@@ -116,8 +116,9 @@ type Track struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// GT7's track id, when the detector named one, sure or not (v1's `id`).
 	TrackId *int32 `protobuf:"varint,1,opt,name=track_id,json=trackId,proto3,oneof" json:"track_id,omitempty"`
-	// The name to show: "Unknown track" when the detector is not sure (v1's
-	// `name`).
+	// The name to show (format.TrackLabel): the layout's name when the
+	// detector is sure, else the circuit's when only that is known, such as
+	// "Fuji", else "Unknown track" (v1's `name`). The track filter takes it.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The detector is sure (probable or confirmed): same-track compare uses it
 	// (v1's `sure`).
