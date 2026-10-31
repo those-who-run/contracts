@@ -209,11 +209,14 @@ type Session struct {
 	// The session has ended (v1's `closed`: summary.json is written).
 	Closed bool `protobuf:"varint,6,opt,name=closed,proto3" json:"closed,omitempty"`
 	// The session kind's key, as the kind filter takes it: "lap_race",
-	// "solo_laps", "timed_field", "solo_timed", or "unknown" when not recorded
-	// (v1's `kind`, sessionkind.Kind). A later kind adds a key.
+	// "solo_laps", "timed_field", "solo_timed", "ranked" (qualifying, or
+	// practice with the field out), or "unknown" when not recorded (v1's
+	// `kind`, sessionkind.Kind; "ranked" is v2's). The key is the session's
+	// twr.events.v1.SessionType without its SESSION_TYPE_ prefix, in lower
+	// case, so a later kind adds a key.
 	Kind string `protobuf:"bytes,7,opt,name=kind,proto3" json:"kind,omitempty"`
-	// The kind as the card names it: "12-lap race", "time trial" (v1's
-	// `kind_label`).
+	// The kind as the card names it: "12-lap race", "time trial",
+	// "qualifying or practice" (v1's `kind_label`).
 	KindLabel string `protobuf:"bytes,8,opt,name=kind_label,json=kindLabel,proto3" json:"kind_label,omitempty"`
 	// Where it was driven (v1's `track`).
 	Track *Track `protobuf:"bytes,9,opt,name=track,proto3" json:"track,omitempty"`
@@ -922,7 +925,8 @@ func (x *FilterOption) GetCount() int32 {
 // count (v1's `KindOption`).
 type KindOption struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The kind's key, as ListSessionsRequest's kind takes it (v1's `value`).
+	// The kind's key, as ListSessionsRequest's kind takes it, such as
+	// "ranked" (v1's `value`).
 	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	// The kind's name (v1's `label`).
 	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
@@ -1058,7 +1062,8 @@ type ListSessionsRequest struct {
 	Track string `protobuf:"bytes,1,opt,name=track,proto3" json:"track,omitempty"`
 	// Only sessions with this car name (v1's `car`).
 	Car string `protobuf:"bytes,2,opt,name=car,proto3" json:"car,omitempty"`
-	// Only sessions of this kind, by its key (v1's `kind`).
+	// Only sessions of this kind, by its key, as Session's kind: "lap_race",
+	// "ranked" (v1's `kind`).
 	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Only sessions started on or after this day, in time_zone: "2026-10-17"
 	// (v1's `from`).

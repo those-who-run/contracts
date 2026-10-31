@@ -143,7 +143,7 @@ func serviceExamples() []struct {
 			Options: &pitwallv1.FilterOptions{
 				Track: []*pitwallv1.FilterOption{{Value: "Suzuka Circuit East Course", Count: 1}, {Value: "Unknown track", Count: 0}},
 				Car:   []*pitwallv1.FilterOption{{Value: "Honda Civic Si Group A version '87", Count: 1}},
-				Kind:  []*pitwallv1.KindOption{{Value: "lap_race", Label: "lap race", Count: 1}, {Value: "solo_timed", Label: "time trial or practice"}},
+				Kind:  []*pitwallv1.KindOption{{Value: "lap_race", Label: "lap race", Count: 1}, {Value: "ranked", Label: "qualifying or practice"}, {Value: "solo_timed", Label: "time trial or practice"}},
 			},
 			Total:   14,
 			Matched: 1,

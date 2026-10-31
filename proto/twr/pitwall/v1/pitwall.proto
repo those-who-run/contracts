@@ -98,11 +98,14 @@ message Session {
   // The session has ended (v1's `closed`: summary.json is written).
   bool closed = 6;
   // The session kind's key, as the kind filter takes it: "lap_race",
-  // "solo_laps", "timed_field", "solo_timed", or "unknown" when not recorded
-  // (v1's `kind`, sessionkind.Kind). A later kind adds a key.
+  // "solo_laps", "timed_field", "solo_timed", "ranked" (qualifying, or
+  // practice with the field out), or "unknown" when not recorded (v1's
+  // `kind`, sessionkind.Kind; "ranked" is v2's). The key is the session's
+  // twr.events.v1.SessionType without its SESSION_TYPE_ prefix, in lower
+  // case, so a later kind adds a key.
   string kind = 7;
-  // The kind as the card names it: "12-lap race", "time trial" (v1's
-  // `kind_label`).
+  // The kind as the card names it: "12-lap race", "time trial",
+  // "qualifying or practice" (v1's `kind_label`).
   string kind_label = 8;
   // Where it was driven (v1's `track`).
   Track track = 9;
@@ -259,7 +262,8 @@ message FilterOption {
 // KindOption is one session kind the kind filter can take, with its name and
 // count (v1's `KindOption`).
 message KindOption {
-  // The kind's key, as ListSessionsRequest's kind takes it (v1's `value`).
+  // The kind's key, as ListSessionsRequest's kind takes it, such as
+  // "ranked" (v1's `value`).
   string value = 1;
   // The kind's name (v1's `label`).
   string label = 2;
@@ -287,7 +291,8 @@ message ListSessionsRequest {
   string track = 1;
   // Only sessions with this car name (v1's `car`).
   string car = 2;
-  // Only sessions of this kind, by its key (v1's `kind`).
+  // Only sessions of this kind, by its key, as Session's kind: "lap_race",
+  // "ranked" (v1's `kind`).
   string kind = 3;
   // Only sessions started on or after this day, in time_zone: "2026-10-17"
   // (v1's `from`).

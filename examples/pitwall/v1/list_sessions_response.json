@@ -62,6 +62,10 @@
         "count": 1
       },
       {
+        "value": "ranked",
+        "label": "qualifying or practice"
+      },
+      {
         "value": "solo_timed",
         "label": "time trial or practice"
       }
