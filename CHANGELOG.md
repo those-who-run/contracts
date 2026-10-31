@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/those-who-run/contracts/compare/v0.2.7...v0.2.8) (2026-10-31)
+
+
+### Features
+
+* **format:** the results card's title, result and kind label ([#43](https://github.com/those-who-run/contracts/issues/43)) ([4c20687](https://github.com/those-who-run/contracts/commit/4c206878cae9c34b06b798dadc058813d4a31d7b))
+
 ## [0.2.7](https://github.com/those-who-run/contracts/compare/v0.2.6...v0.2.7) (2026-10-31)
 
 
