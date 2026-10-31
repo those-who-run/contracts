@@ -105,8 +105,9 @@ const (
 	// A timed session with a field: no lap total, other cars racing for position.
 	// A timed race (v1's `timed_field`, which also covered SESSION_TYPE_RANKED).
 	// ecu sends it, and for a ranked session until it can tell one: on its first
-	// frame, before the place jumps, and all through one it joined part way,
-	// whose start it never saw.
+	// frame, before the place jumps, all through one it joined part way, whose
+	// start it never saw, or one whose place does not rise 2 above its slot in
+	// the start window.
 	SessionType_SESSION_TYPE_TIMED_FIELD SessionType = 7
 	// A solo timed session: no lap total and the car alone. A time trial or
 	// practice alone, which look exactly alike (v1's `solo_timed`). ecu sends it.
