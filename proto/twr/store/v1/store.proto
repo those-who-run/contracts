@@ -207,8 +207,8 @@ message ListSessionsResponse {
   int32 total = 3;
   // The sessions that match the filters, whatever offset and limit.
   int32 matched = 4;
-  // A stamp that changes only when the data behind this reply changes (v1's
-  // index_stamp): the pit wall's ETag.
+  // A stamp of the whole store: it changes when anything in the store
+  // changes, not only the sessions in this reply. The pit wall's ETag.
   string data_version = 5;
   // The caller's known_data_version is still current: every other field
   // but data_version is absent.
@@ -230,9 +230,9 @@ message GetSessionRequest {
 message GetSessionResponse {
   // The session.
   SessionRow session = 1;
-  // A stamp of the whole store: it changes when anything in the store
-  // changes, not only this session (the maintainer's accepted departure,
-  // 2026-10-31). The pit wall's ETag.
+  // A stamp of the whole store, as ListSessionsResponse's: it changes when
+  // anything in the store changes, not only this session. The pit wall's
+  // ETag.
   string data_version = 2;
   // The caller's known_data_version is still current: every other field
   // but data_version is absent.
@@ -256,7 +256,7 @@ message ListLapsResponse {
   SessionRow session = 1;
   // Its laps, complete and partial, in the order they ended.
   repeated LapRow laps = 2;
-  // A stamp of the whole store, as GetSessionResponse's: it changes when
+  // A stamp of the whole store, as ListSessionsResponse's: it changes when
   // anything in the store changes. The pit wall's ETag.
   string data_version = 3;
   // The caller's known_data_version is still current: every other field
@@ -316,8 +316,8 @@ message ListSameTrackRequest {
 message ListSameTrackResponse {
   // The other sessions, newest first, from offset, at most limit of them.
   repeated SessionRow sessions = 1;
-  // A stamp that changes only when the data behind this reply changes: the
-  // pit wall's ETag.
+  // A stamp of the whole store, as ListSessionsResponse's: it changes when
+  // anything in the store changes. The pit wall's ETag.
   string data_version = 2;
   // The other sessions at the same track, whatever offset and limit.
   int32 matched = 3;
