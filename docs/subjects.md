@@ -41,6 +41,7 @@ A subject with no stream is core NATS only, never kept.
 | `twr.v1.<src>.evt._.telemetry.lost` | `twr.events.v1.TelemetryLost` | `run.thosewho.telemetry.lost.v1` | `EVENTS` | ecu | logbook | `<src>:<run>:telemetry.lost:<seq>` |
 | `twr.v1.<src>.evt.<sid>.telemetry.restored` | `twr.events.v1.TelemetryRestored` | `run.thosewho.telemetry.restored.v1` | `EVENTS` | ecu | logbook | `<src>:<sid>:telemetry.restored:<run>:<seq>` |
 | `twr.v1.<src>.evt._.telemetry.restored` | `twr.events.v1.TelemetryRestored` | `run.thosewho.telemetry.restored.v1` | `EVENTS` | ecu | logbook | `<src>:<run>:telemetry.restored:<seq>` |
+| `twr.v1.<src>.evt.<sid>.card.posted` | `twr.events.v1.CardPosted` | `run.thosewho.card.posted.v1` | `EVENTS` | podium | logbook | `<src>:<sid>:card.posted:1` |
 | `twr.v1.<src>.callout.p0` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
 | `twr.v1.<src>.callout.p1` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
 | `twr.v1.<src>.callout.p2` | `twr.events.v1.Callout` | `run.thosewho.callout.raised.v1` | `CALLOUTS` | ecu | radio | `<id>` |
@@ -59,6 +60,7 @@ headers.
 | `live` | `ecu.fuel.<src>` | `twr.state.v1.FuelState` | ecu | pitwall |
 | `live` | `radio.status.<src>` | `twr.state.v1.RadioStatus` | radio | pitwall |
 | `ecu` | `sessions.open.<src>` | `twr.state.v1.OpenSession` | ecu | ecu |
+| `cards` | `<src>.<sid>` | `twr.state.v1.CardRecord` | podium | podium |
 
 ## What each one is
 
@@ -84,6 +86,7 @@ headers.
 - `twr.v1.<src>.evt._.telemetry.lost`: The frames stopped arriving while no session was open.
 - `twr.v1.<src>.evt.<sid>.telemetry.restored`: The frames came back after a loss, with a session open.
 - `twr.v1.<src>.evt._.telemetry.restored`: The frames came back after a loss, with no session open.
+- `twr.v1.<src>.evt.<sid>.card.posted`: podium posted the session's results card to the results channel.
 - `twr.v1.<src>.callout.p0`: A callout with priority under 10, spoken first, such as lost telemetry, critical fuel, the pit call or the start brief.
 - `twr.v1.<src>.callout.p1`: A callout with priority 10 to 19, such as the final lap, a new best, position, temperatures or fuel.
 - `twr.v1.<src>.callout.p2`: A callout with priority 20 or over, such as a lap time or the race summary.
@@ -94,6 +97,7 @@ headers.
 - `live` `ecu.fuel.<src>`: The fuel level, the tank and the laps it lasts; no key while no session is open.
 - `live` `radio.status.<src>`: What radio is doing (the sink, the voice connection, who is listening, when it last spoke), written on change, at most once a second, and at least every 5 s while radio runs.
 - `ecu` `sessions.open.<src>`: The open session and its running summary, which a restarted ecu continues or ends from (paddock#76); ecu's own bucket, which no reader of live sees.
+- `cards` `<src>.<sid>`: Whether the session's results card is being posted or is posted, and its Discord message id; no key for a session that gets no card.
 
 Parts of an event or a value, not events or values themselves, so they have no subject or key: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`, `twr.state.v1.LiveTrack`, `twr.state.v1.OpenLap`.
 

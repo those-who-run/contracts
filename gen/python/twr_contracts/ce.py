@@ -32,6 +32,7 @@ from google.protobuf.message import Message
 from twr.events.v1 import (
     callout_pb2,
     car_pb2,
+    card_pb2,
     lap_pb2,
     pit_pb2,
     race_pb2,
@@ -95,6 +96,7 @@ _TYPES: dict[str, str] = {
     telemetry_pb2.TelemetryLost.DESCRIPTOR.full_name: "run.thosewho.telemetry.lost.v1",
     telemetry_pb2.TelemetryRestored.DESCRIPTOR.full_name: "run.thosewho.telemetry.restored.v1",
     callout_pb2.Callout.DESCRIPTOR.full_name: "run.thosewho.callout.raised.v1",
+    card_pb2.CardPosted.DESCRIPTOR.full_name: "run.thosewho.card.posted.v1",
 }
 
 

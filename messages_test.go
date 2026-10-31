@@ -204,6 +204,12 @@ var examples = []struct {
 		RunId: "01JBBWZ5C8E2H4K7M9P1R3T6VX", LostAt: 52340, GapMs: 1843250, At: 52341,
 		LostPhase: telemetryv1.Phase_PHASE_PAUSED,
 	}},
+	// paddock#67: podium posted the card of session_started.json's race.
+	{"events/v1/card_posted.json", &eventsv1.CardPosted{
+		SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE",
+		PostedAt:  timestamppb.New(time.Date(2026, 10, 26, 19, 48, 12, 500_000_000, time.UTC)),
+		MessageId: "1299876543210987654",
+	}},
 	// paddock#71's callout: AC3's lap time and telemetry callouts, and four of
 	// v1's from the Suzuka no-stop race (callout_test.go).
 	{"events/v1/callout_lap_time.json", &eventsv1.Callout{
@@ -285,6 +291,11 @@ var examples = []struct {
 		Source: "live", Sink: statev1.RadioSink_RADIO_SINK_DISCORD, VoiceConnected: proto.Bool(true), VoiceListeners: proto.Int32(1),
 		LastSpokenAt: timestamppb.New(time.Date(2026, 10, 29, 13, 52, 30, 875_000_000, time.UTC)),
 		UpdatedAt:    timestamppb.New(time.Date(2026, 10, 29, 13, 52, 31, 0, time.UTC)),
+	}},
+	// paddock#67: podium's record of that race's card, once Discord took it.
+	{"state/v1/card_record.json", &statev1.CardRecord{
+		Source: "live", SessionId: "01JB8Z3K5Q9T2M7XW4R6N1PDHE", State: statev1.CardState_CARD_STATE_POSTED,
+		At: timestamppb.New(time.Date(2026, 10, 26, 19, 48, 12, 500_000_000, time.UTC)), MessageId: "1299876543210987654",
 	}},
 }
 

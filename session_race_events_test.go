@@ -23,8 +23,16 @@ var at = map[protoreflect.FullName]protoreflect.Name{
 	"twr.events.v1.SessionEnded":   "last_seq",
 }
 
+// notFromFrames are the events no frame decides, so they have no `at`:
+// podium's card.posted (paddock#67) comes after a session.ended, from a
+// component that reads no frames.
+var notFromFrames = map[protoreflect.FullName]bool{
+	"twr.events.v1.CardPosted": true,
+}
+
 // Every event carries its session (`session_id`, the sid) and its `at`, a
-// uint32 (R3; no 64-bit integers, which make proto checks too).
+// uint32 (R3; no 64-bit integers, which make proto checks too), but for the
+// events no frame decides.
 func TestEveryEventCarriesItsSessionAndAt(t *testing.T) {
 	n := 0
 	for name := range ce.Types() {
@@ -36,6 +44,12 @@ func TestEveryEventCarriesItsSessionAndAt(t *testing.T) {
 		if fd := desc.Fields().ByName("session_id"); fd == nil || fd.Kind() != protoreflect.StringKind || fd.Number() != 1 {
 			t.Errorf("%s has no string session_id as field 1", name)
 		}
+		if notFromFrames[name] {
+			if desc.Fields().ByName("at") != nil {
+				t.Errorf("%s has an at, but no frame decides it", name)
+			}
+			continue
+		}
 		field := protoreflect.Name("at")
 		if f, ok := at[name]; ok {
 			field = f
@@ -44,8 +58,8 @@ func TestEveryEventCarriesItsSessionAndAt(t *testing.T) {
 			t.Errorf("%s has no plain uint32 %s", name, field)
 		}
 	}
-	if n != 20 {
-		t.Errorf("%d events, want 20: v0.1's 3, paddock#69's 10, paddock#70's 6 and paddock#71's callout", n)
+	if n != 21 {
+		t.Errorf("%d events, want 21: v0.1's 3, paddock#69's 10, paddock#70's 6, paddock#71's callout and paddock#67's card.posted", n)
 	}
 }
 
@@ -59,7 +73,7 @@ func descriptorOf(t *testing.T, name protoreflect.FullName) protoreflect.Message
 		&eventsv1.RaceFinished{},
 		&eventsv1.PitEntered{}, &eventsv1.PitExited{}, &eventsv1.PitTeleport{},
 		&eventsv1.CarAlarmRaised{}, &eventsv1.TelemetryLost{}, &eventsv1.TelemetryRestored{},
-		&eventsv1.Callout{},
+		&eventsv1.Callout{}, &eventsv1.CardPosted{},
 	} {
 		if d := m.ProtoReflect().Descriptor(); d.FullName() == name {
 			return d

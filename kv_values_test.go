@@ -10,10 +10,10 @@ import (
 	statev1 "github.com/those-who-run/contracts/gen/go/twr/state/v1"
 )
 
-// The KV values paddock#72 adds, and radio's (paddock#62).
+// The KV values paddock#72 adds, radio's (paddock#62) and podium's (paddock#67).
 var kvValues = []protoreflect.ProtoMessage{
 	&statev1.EcuStatus{}, &statev1.LiveSession{}, &statev1.PitState{}, &statev1.FuelState{}, &statev1.OpenSession{},
-	&statev1.RadioStatus{},
+	&statev1.RadioStatus{}, &statev1.CardRecord{},
 }
 
 // secretish is a field name that would hold a token, a secret, an address or a

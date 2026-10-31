@@ -88,6 +88,8 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"twr.v1.<src>.callout.p0": "twr.events.v1.Callout",
 		"twr.v1.<src>.callout.p1": "twr.events.v1.Callout",
 		"twr.v1.<src>.callout.p2": "twr.events.v1.Callout",
+		// paddock#67: podium's, once a session.
+		"twr.v1.<src>.evt.<sid>.card.posted": "twr.events.v1.CardPosted",
 		// paddock#137: the 20 Hz frame, in no stream.
 		"twr.v1.<src>.frame.gt7.lo": "twr.telemetry.v1.Frame",
 	}
@@ -103,6 +105,8 @@ func TestTheCatalogueChecksOut(t *testing.T) {
 		"live ecu.fuel.<src>":     {"twr.state.v1.FuelState", "ecu", "pitwall"},
 		"live radio.status.<src>": {"twr.state.v1.RadioStatus", "radio", "pitwall"},
 		"ecu sessions.open.<src>": {"twr.state.v1.OpenSession", "ecu", "ecu"},
+		// paddock#67: podium's record of each session's card, for podium alone.
+		"cards <src>.<sid>": {"twr.state.v1.CardRecord", "podium", "podium"},
 	}
 	if len(c.Subjects) != len(want)+len(wantKV) {
 		t.Errorf("%d subjects and keys, want %d", len(c.Subjects), len(want)+len(wantKV))
@@ -518,7 +522,7 @@ func TestAnUnknownKeyFails(t *testing.T) {
 // The event messages are every events-package message but the helpers.
 func TestEventMessages(t *testing.T) {
 	got := load(t, repo, subjects).EventMessages(protoregistry.GlobalFiles)
-	want := "twr.events.v1.Callout twr.events.v1.CarAlarmRaised twr.events.v1.LapBestChanged twr.events.v1.LapCompleted " +
+	want := "twr.events.v1.Callout twr.events.v1.CarAlarmRaised twr.events.v1.CardPosted twr.events.v1.LapBestChanged twr.events.v1.LapCompleted " +
 		"twr.events.v1.PitEntered twr.events.v1.PitExited twr.events.v1.PitTeleport " +
 		"twr.events.v1.RaceFinalLapStarted " +
 		"twr.events.v1.RaceFinished twr.events.v1.RacePositionChanged twr.events.v1.SessionContinued " +

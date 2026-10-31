@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package twr.events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// CardPosted says podium posted a session's results card to the results
+// channel (paddock#67): once per session, after the post is recorded in the
+// `cards` bucket (twr.state.v1.CardRecord). logbook keeps the session's
+// posted_at from it (paddock#122), as v1's store.mark_posted did. A session
+// that gets no card (no full lap) has none.
+message CardPosted {
+  // The session's id, as in its SessionEnded.
+  string session_id = 1;
+  // When the card was posted, in UTC: when Discord took it (v1's
+  // `posted_at`).
+  google.protobuf.Timestamp posted_at = 2;
+  // The Discord message's id. Empty when the card went to podium's console
+  // sink, or when Discord took it but its answer carried no id.
+  string message_id = 3;
+}

@@ -172,10 +172,11 @@ the same values, and back, headers included.
 | `twr.events.v1.CarAlarmRaised` | A tyre, water or oil temperature check raised its alarm. | [`car_alarm.json`](examples/events/v1/car_alarm.json) |
 | `twr.events.v1.TelemetryLost` | The frames stopped arriving, in a session or with none open. | [`telemetry_lost.json`](examples/events/v1/telemetry_lost.json) |
 | `twr.events.v1.TelemetryRestored` | The frames came back after a loss. | [`telemetry_restored.json`](examples/events/v1/telemetry_restored.json) |
+| `twr.events.v1.CardPosted` | podium posted a session's results card: when, and the Discord message's id. | [`card_posted.json`](examples/events/v1/card_posted.json) |
 | `twr.events.v1.Callout` | Something to say to the driver: the rule, the script key (`kind`) and the values that fill it (`slots`), which radio phrases, or a sentence (`text`); its priority, when it goes stale, how long it waits, and what happens to it in the pit lane. | [`callout_lap_time.json`](examples/events/v1/callout_lap_time.json), [`callout_telemetry.json`](examples/events/v1/callout_telemetry.json); from v1's callouts, [`callout_start_brief.json`](examples/events/v1/callout_start_brief.json), [`callout_position.json`](examples/events/v1/callout_position.json), [`callout_new_best.json`](examples/events/v1/callout_new_best.json) and [`callout_race_summary.json`](examples/events/v1/callout_race_summary.json) |
 
-The values ecu keeps in NATS KV, and radio's status, each under a key that
-carries its source (`<src>`), so a replay writes its own keys and never the
+The values ecu keeps in NATS KV, radio's status and podium's cards, each under
+a key that carries its source (`<src>`), so a replay writes its own keys and never the
 live source's:
 
 | Message | Bucket and key | What it is | Example |
@@ -186,6 +187,7 @@ live source's:
 | `twr.state.v1.FuelState` | `live` `ecu.fuel.<src>` | The fuel, the tank, and the laps it lasts. | [`fuel_state.json`](examples/state/v1/fuel_state.json) |
 | `twr.state.v1.RadioStatus` | `live` `radio.status.<src>` | What radio is doing: where it speaks, whether it is in the voice channel, how many are listening, when it last spoke. v1's `voice_connected`. | [`radio_status.json`](examples/state/v1/radio_status.json) |
 | `twr.state.v1.OpenSession` | `ecu` `sessions.open.<src>` | The open session and its running summary, which ecu continues or ends from after a restart. In ecu's own bucket, so a reader of `live` never sees it. | [`open_session.json`](examples/state/v1/open_session.json) |
+| `twr.state.v1.CardRecord` | `cards` `<src>.<sid>` | podium's record of a session's results card: being posted or posted, and its Discord message id, so a `session.ended` delivered again posts nothing. | [`card_record.json`](examples/state/v1/card_record.json) |
 
 `SessionSummary`, `SessionKind`, `TrackVerdict`, `TrackCandidate`,
 `SessionGap`, `PitStop`, `TyreTemp` and `CalloutSlots` are parts of these events, not
