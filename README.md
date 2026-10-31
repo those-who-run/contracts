@@ -85,7 +85,14 @@ A number becomes text in package [`format`](format/format.go), v1's
 `format.ts` in Go, so the results card and the pit wall never show the same
 lap differently (paddock#128). Its cases are
 [`format/format-cases.json`](format/format-cases.json), v1 1.0.0's file byte
-for byte, which its tests check in full. A formatter in another language
+for byte, which its tests check in full, with the results card's cases after
+them in its `cards` member. The card's words for a session are there too:
+`format.Title`, `format.Result` and `format.KindLabel`, from ecu's
+`SessionSummary`, which podium's card and the pit wall's `Session.title`,
+`result` and `kind_label` both write, so the two never name a session
+differently; the `cards` cases are v1's cards for podium's recordings. A
+formatter that reads `cases` alone, such as the pit wall's, is unaffected by
+them. A formatter in another language
 checks the same release's file: the pit wall's `format.ts` test reads
 `format/format-cases.json` from the contracts module its `go.mod` pins (`go
 list -m -f '{{.Dir}}' github.com/those-who-run/contracts`), and a Go consumer

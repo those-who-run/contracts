@@ -147,10 +147,18 @@ func TestEveryCasePasses(t *testing.T) {
 	}
 }
 
+// v1's file is format-cases.json without its "cards" member, the last one,
+// byte for byte: the cards were added after it, and nothing before them moved.
 func TestCasesAreV1sFileByteForByte(t *testing.T) {
-	sum := sha256.Sum256(format.Cases())
+	file := format.Cases()
+	cut := bytes.Index(file, []byte(",\n  \"cards\": {\n"))
+	if cut < 0 {
+		t.Fatal(`format-cases.json has no "cards" member after v1's cases`)
+	}
+	v1 := append(file[:cut:cut], "\n}\n"...)
+	sum := sha256.Sum256(v1)
 	if got := hex.EncodeToString(sum[:]); got != v1Digest {
-		t.Errorf("format-cases.json's SHA-256 is %s, want v1.0.0's %s", got, v1Digest)
+		t.Errorf("format-cases.json before its cards has SHA-256 %s, want v1.0.0's file's %s", got, v1Digest)
 	}
 }
 
