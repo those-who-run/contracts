@@ -109,7 +109,8 @@ var examples = []struct {
 		Kind: &eventsv1.SessionKind{
 			SessionType: eventsv1.SessionType_SESSION_TYPE_LAP_RACE, TotalLaps: proto.Int32(6), Field: true,
 			FuelUse: eventsv1.FuelUse_FUEL_USE_ON, CarsOnTrack: true, Start: eventsv1.StartType_START_TYPE_ROLLING,
-			Evidence: "6 laps, 2 cars; fuel use on; rolling start at 128 km/h",
+			Evidence:      "6 laps, 2 cars; fuel use on; rolling start at 128 km/h",
+			StartSpeedKph: proto.Float64(128.4), StartToLineM: proto.Float64(1.5),
 		},
 		At:    1384,
 		RunId: "01JB9QYR2T6W8Y1A3C5E7G9HKM",

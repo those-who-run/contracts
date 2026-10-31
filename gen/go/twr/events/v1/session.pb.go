@@ -674,7 +674,21 @@ type SessionKind struct {
 	// What decided it, in a sentence for people, such as "6 laps, 2 cars; fuel
 	// use on; rolling start at 128 km/h" (v1's `evidence`). Its wording is not
 	// part of the contract, and a change of wording alone publishes nothing.
-	Evidence      string `protobuf:"bytes,7,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	Evidence string `protobuf:"bytes,7,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	// The start speed: the fastest the car went in the start window, GT7's first
+	// 18 packets of racing, in km/h (v1's start speed in evidence). Under 30
+	// km/h is a grid start; so is a faster one from a grid behind the line,
+	// where lap 1 begins at speed (paddock#148). Absent until the start window
+	// has passed, and when ecu did not see the start (START_TYPE_UNKNOWN).
+	StartSpeedKph *float64 `protobuf:"fixed64,8,opt,name=start_speed_kph,json=startSpeedKph,proto3,oneof" json:"start_speed_kph,omitempty"`
+	// How far the car went from the session's first racing frame (lap 1 on
+	// GT7's counter) to its first crossing of the track's finish line, in
+	// metres (paddock#148). About 0 where GT7 begins lap 1 on the line, as for a
+	// rolling start or a grid behind the line; more where it begins lap 1 away
+	// from it, as for a rolling start that ticks before the line or a grid
+	// ahead of it. Absent until the car crosses the line, when the track's line
+	// is not known, and when ecu did not see the start (START_TYPE_UNKNOWN).
+	StartToLineM  *float64 `protobuf:"fixed64,9,opt,name=start_to_line_m,json=startToLineM,proto3,oneof" json:"start_to_line_m,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -756,6 +770,20 @@ func (x *SessionKind) GetEvidence() string {
 		return x.Evidence
 	}
 	return ""
+}
+
+func (x *SessionKind) GetStartSpeedKph() float64 {
+	if x != nil && x.StartSpeedKph != nil {
+		return *x.StartSpeedKph
+	}
+	return 0
+}
+
+func (x *SessionKind) GetStartToLineM() float64 {
+	if x != nil && x.StartToLineM != nil {
+		return *x.StartToLineM
+	}
+	return 0
 }
 
 // TrackCandidate is one layout the track detector still holds possible.
@@ -2249,7 +2277,7 @@ var File_twr_events_v1_session_proto protoreflect.FileDescriptor
 
 const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"\x1btwr/events/v1/session.proto\x12\rtwr.events.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x17twr/events/v1/pit.proto\"\xb8\x02\n" +
+	"\x1btwr/events/v1/session.proto\x12\rtwr.events.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x17twr/events/v1/pit.proto\"\xb9\x03\n" +
 	"\vSessionKind\x12=\n" +
 	"\fsession_type\x18\x01 \x01(\x0e2\x1a.twr.events.v1.SessionTypeR\vsessionType\x12\"\n" +
 	"\n" +
@@ -2258,8 +2286,12 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\bfuel_use\x18\x04 \x01(\x0e2\x16.twr.events.v1.FuelUseR\afuelUse\x12\"\n" +
 	"\rcars_on_track\x18\x05 \x01(\bR\vcarsOnTrack\x12.\n" +
 	"\x05start\x18\x06 \x01(\x0e2\x18.twr.events.v1.StartTypeR\x05start\x12\x1a\n" +
-	"\bevidence\x18\a \x01(\tR\bevidenceB\r\n" +
-	"\v_total_laps\"t\n" +
+	"\bevidence\x18\a \x01(\tR\bevidence\x12+\n" +
+	"\x0fstart_speed_kph\x18\b \x01(\x01H\x01R\rstartSpeedKph\x88\x01\x01\x12*\n" +
+	"\x0fstart_to_line_m\x18\t \x01(\x01H\x02R\fstartToLineM\x88\x01\x01B\r\n" +
+	"\v_total_lapsB\x12\n" +
+	"\x10_start_speed_kphB\x12\n" +
+	"\x10_start_to_line_m\"t\n" +
 	"\x0eTrackCandidate\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\x05R\atrackId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +

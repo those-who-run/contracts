@@ -186,6 +186,20 @@ message SessionKind {
   // use on; rolling start at 128 km/h" (v1's `evidence`). Its wording is not
   // part of the contract, and a change of wording alone publishes nothing.
   string evidence = 7;
+  // The start speed: the fastest the car went in the start window, GT7's first
+  // 18 packets of racing, in km/h (v1's start speed in evidence). Under 30
+  // km/h is a grid start; so is a faster one from a grid behind the line,
+  // where lap 1 begins at speed (paddock#148). Absent until the start window
+  // has passed, and when ecu did not see the start (START_TYPE_UNKNOWN).
+  optional double start_speed_kph = 8;
+  // How far the car went from the session's first racing frame (lap 1 on
+  // GT7's counter) to its first crossing of the track's finish line, in
+  // metres (paddock#148). About 0 where GT7 begins lap 1 on the line, as for a
+  // rolling start or a grid behind the line; more where it begins lap 1 away
+  // from it, as for a rolling start that ticks before the line or a grid
+  // ahead of it. Absent until the car crosses the line, when the track's line
+  // is not known, and when ecu did not see the start (START_TYPE_UNKNOWN).
+  optional double start_to_line_m = 9;
 }
 
 // TrackConfidence is how sure ecu's track detector is of its verdict (v1's

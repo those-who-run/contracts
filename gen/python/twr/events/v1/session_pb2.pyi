@@ -132,7 +132,7 @@ PAUSE_KIND_FLAGGED: PauseKind
 PAUSE_KIND_FROZEN: PauseKind
 
 class SessionKind(_message.Message):
-    __slots__ = ("session_type", "total_laps", "field", "fuel_use", "cars_on_track", "start", "evidence")
+    __slots__ = ("session_type", "total_laps", "field", "fuel_use", "cars_on_track", "start", "evidence", "start_speed_kph", "start_to_line_m")
     SESSION_TYPE_FIELD_NUMBER: _ClassVar[int]
     TOTAL_LAPS_FIELD_NUMBER: _ClassVar[int]
     FIELD_FIELD_NUMBER: _ClassVar[int]
@@ -140,6 +140,8 @@ class SessionKind(_message.Message):
     CARS_ON_TRACK_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
     EVIDENCE_FIELD_NUMBER: _ClassVar[int]
+    START_SPEED_KPH_FIELD_NUMBER: _ClassVar[int]
+    START_TO_LINE_M_FIELD_NUMBER: _ClassVar[int]
     session_type: SessionType
     total_laps: int
     field: bool
@@ -147,7 +149,9 @@ class SessionKind(_message.Message):
     cars_on_track: bool
     start: StartType
     evidence: str
-    def __init__(self, session_type: _Optional[_Union[SessionType, str]] = ..., total_laps: _Optional[int] = ..., field: _Optional[bool] = ..., fuel_use: _Optional[_Union[FuelUse, str]] = ..., cars_on_track: _Optional[bool] = ..., start: _Optional[_Union[StartType, str]] = ..., evidence: _Optional[str] = ...) -> None: ...
+    start_speed_kph: float
+    start_to_line_m: float
+    def __init__(self, session_type: _Optional[_Union[SessionType, str]] = ..., total_laps: _Optional[int] = ..., field: _Optional[bool] = ..., fuel_use: _Optional[_Union[FuelUse, str]] = ..., cars_on_track: _Optional[bool] = ..., start: _Optional[_Union[StartType, str]] = ..., evidence: _Optional[str] = ..., start_speed_kph: _Optional[float] = ..., start_to_line_m: _Optional[float] = ...) -> None: ...
 
 class TrackCandidate(_message.Message):
     __slots__ = ("track_id", "name", "fit", "line_crossed")
