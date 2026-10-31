@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.7](https://github.com/those-who-run/contracts/compare/v0.2.6...v0.2.7) (2026-10-31)
+
+
+### Features
+
+* SESSION_TYPE_RANKED, qualifying or practice with a field ([#40](https://github.com/those-who-run/contracts/issues/40)) ([131b201](https://github.com/those-who-run/contracts/commit/131b20143c18770e6bb5d2dfdddbbf3a34249aae))
+* the pit wall API (twr.pitwall.v1) and logbook's services (twr.store.v1) ([#41](https://github.com/those-who-run/contracts/issues/41)) ([3353097](https://github.com/those-who-run/contracts/commit/3353097f6efb3fd23d4f8088f1da9bc528fde303))
+
 ## [0.2.6](https://github.com/those-who-run/contracts/compare/v0.2.5...v0.2.6) (2026-10-31)
 
 
