@@ -75,23 +75,24 @@ func (Game) EnumDescriptor() ([]byte, []int) {
 
 // SessionType is what kind of session it is, as far as telemetry can tell. GT7
 // sends no mode, so ecu sorts a session by its lap total and its field of cars,
-// as v1's sessionkind.py did: one value for each of v1's kinds. It cannot tell
-// qualifying from a timed race, or a time trial from practice.
+// as v1's sessionkind.py did: one value for each of v1's kinds, and
+// SESSION_TYPE_RANKED, which v1 read as a timed race. It cannot tell qualifying
+// from practice with a field, or a time trial from practice alone.
 type SessionType int32
 
 const (
 	// Not set.
 	SessionType_SESSION_TYPE_UNSPECIFIED SessionType = 0
-	// A race against other cars. ecu does not send it: telemetry cannot tell a
-	// race from qualifying. A lap race is SESSION_TYPE_LAP_RACE and a timed race
-	// SESSION_TYPE_TIMED_FIELD.
+	// A race against other cars. ecu does not send it: a lap race is
+	// SESSION_TYPE_LAP_RACE and a timed race SESSION_TYPE_TIMED_FIELD.
 	SessionType_SESSION_TYPE_RACE SessionType = 1
 	// A time trial: the car alone, against the clock. ecu does not send it:
-	// telemetry cannot tell a time trial from practice. It is
+	// telemetry cannot tell a time trial from practice alone. It is
 	// SESSION_TYPE_SOLO_TIMED.
 	SessionType_SESSION_TYPE_TIME_TRIAL SessionType = 2
 	// Practice: laps with no result. ecu does not send it: telemetry cannot tell
-	// practice from a time trial. It is SESSION_TYPE_SOLO_TIMED.
+	// practice alone from a time trial, which is SESSION_TYPE_SOLO_TIMED, or
+	// practice with the field out from qualifying, which is SESSION_TYPE_RANKED.
 	SessionType_SESSION_TYPE_PRACTICE SessionType = 3
 	// ecu could not tell: no racing frame to judge by (v1's `unknown`). ecu sends
 	// it.
@@ -102,12 +103,22 @@ const (
 	// Solo laps: a lap total and the car alone (v1's `solo_laps`). ecu sends it.
 	SessionType_SESSION_TYPE_SOLO_LAPS SessionType = 6
 	// A timed session with a field: no lap total, other cars racing for position.
-	// A timed race or qualifying, which look exactly alike (v1's `timed_field`).
-	// ecu sends it.
+	// A timed race (v1's `timed_field`, which also covered SESSION_TYPE_RANKED).
+	// ecu sends it, and for a ranked session until it can tell one: on its first
+	// frame, before the place jumps, all through one it joined part way, whose
+	// start it never saw, or one whose place does not rise 2 above its slot in
+	// the start window.
 	SessionType_SESSION_TYPE_TIMED_FIELD SessionType = 7
 	// A solo timed session: no lap total and the car alone. A time trial or
-	// practice, which look exactly alike (v1's `solo_timed`). ecu sends it.
+	// practice alone, which look exactly alike (v1's `solo_timed`). ecu sends it.
 	SessionType_SESSION_TYPE_SOLO_TIMED SessionType = 8
+	// A ranked session: qualifying, or practice with the field out, where the
+	// place is the rank by best lap. No lap total, other cars, and a place that
+	// leaps from the grid slot as the session opens (slot 20 to P1, slot 16 to
+	// P3), where a timed race keeps its slot. Telemetry cannot tell qualifying
+	// from practice. v1 read it as `timed_field`; ecu names the kind `ranked`.
+	// ecu sends it.
+	SessionType_SESSION_TYPE_RANKED SessionType = 9
 )
 
 // Enum value maps for SessionType.
@@ -122,6 +133,7 @@ var (
 		6: "SESSION_TYPE_SOLO_LAPS",
 		7: "SESSION_TYPE_TIMED_FIELD",
 		8: "SESSION_TYPE_SOLO_TIMED",
+		9: "SESSION_TYPE_RANKED",
 	}
 	SessionType_value = map[string]int32{
 		"SESSION_TYPE_UNSPECIFIED": 0,
@@ -133,6 +145,7 @@ var (
 		"SESSION_TYPE_SOLO_LAPS":   6,
 		"SESSION_TYPE_TIMED_FIELD": 7,
 		"SESSION_TYPE_SOLO_TIMED":  8,
+		"SESSION_TYPE_RANKED":      9,
 	}
 )
 
@@ -650,7 +663,7 @@ type SessionKind struct {
 	// where v1 stored 0.
 	TotalLaps *int32 `protobuf:"varint,2,opt,name=total_laps,json=totalLaps,proto3,oneof" json:"total_laps,omitempty"`
 	// Whether other cars are racing for position (v1's `field`): true for
-	// SESSION_TYPE_LAP_RACE and SESSION_TYPE_TIMED_FIELD.
+	// SESSION_TYPE_LAP_RACE, SESSION_TYPE_TIMED_FIELD and SESSION_TYPE_RANKED.
 	Field bool `protobuf:"varint,3,opt,name=field,proto3" json:"field,omitempty"`
 	// Whether the session uses fuel (FuelUse, v1's `fuel_use`).
 	FuelUse FuelUse `protobuf:"varint,4,opt,name=fuel_use,json=fuelUse,proto3,enum=twr.events.v1.FuelUse" json:"fuel_use,omitempty"`
@@ -2398,7 +2411,7 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\blast_seq\x18\x04 \x01(\rR\alastSeq**\n" +
 	"\x04Game\x12\x14\n" +
 	"\x10GAME_UNSPECIFIED\x10\x00\x12\f\n" +
-	"\bGAME_GT7\x10\x01*\x86\x02\n" +
+	"\bGAME_GT7\x10\x01*\x9f\x02\n" +
 	"\vSessionType\x12\x1c\n" +
 	"\x18SESSION_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11SESSION_TYPE_RACE\x10\x01\x12\x1b\n" +
@@ -2408,7 +2421,8 @@ const file_twr_events_v1_session_proto_rawDesc = "" +
 	"\x15SESSION_TYPE_LAP_RACE\x10\x05\x12\x1a\n" +
 	"\x16SESSION_TYPE_SOLO_LAPS\x10\x06\x12\x1c\n" +
 	"\x18SESSION_TYPE_TIMED_FIELD\x10\a\x12\x1b\n" +
-	"\x17SESSION_TYPE_SOLO_TIMED\x10\b*\xd6\x02\n" +
+	"\x17SESSION_TYPE_SOLO_TIMED\x10\b\x12\x17\n" +
+	"\x13SESSION_TYPE_RANKED\x10\t*\xd6\x02\n" +
 	"\tEndReason\x12\x1a\n" +
 	"\x16END_REASON_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13END_REASON_FINISHED\x10\x01\x12\x13\n" +

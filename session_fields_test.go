@@ -63,6 +63,7 @@ func TestNewFieldAndValueNumbers(t *testing.T) {
 		{eventsv1.SessionType_SESSION_TYPE_SOLO_LAPS, 6},
 		{eventsv1.SessionType_SESSION_TYPE_TIMED_FIELD, 7},
 		{eventsv1.SessionType_SESSION_TYPE_SOLO_TIMED, 8},
+		{eventsv1.SessionType_SESSION_TYPE_RANKED, 9},
 		{eventsv1.EndReason_END_REASON_RESTARTED, 6},
 		{eventsv1.EndReason_END_REASON_NEXT_SESSION_STARTED, 7},
 		{eventsv1.EndReason_END_REASON_INPUT_ENDED, 8},
@@ -135,6 +136,7 @@ func TestNewValuesRoundTrip(t *testing.T) {
 		eventsv1.SessionType_SESSION_TYPE_SOLO_LAPS,
 		eventsv1.SessionType_SESSION_TYPE_TIMED_FIELD,
 		eventsv1.SessionType_SESSION_TYPE_SOLO_TIMED,
+		eventsv1.SessionType_SESSION_TYPE_RANKED,
 	} {
 		t.Run(st.String(), func(t *testing.T) {
 			for _, msg := range []proto.Message{
@@ -247,12 +249,18 @@ func TestCommentsSayWhatEcuSends(t *testing.T) {
 		// new ones are v1's kinds, one to one.
 		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_RACE", []string{"ecu does not send it", "SESSION_TYPE_LAP_RACE", "SESSION_TYPE_TIMED_FIELD"}},
 		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_TIME_TRIAL", []string{"ecu does not send it", "SESSION_TYPE_SOLO_TIMED"}},
-		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_PRACTICE", []string{"ecu does not send it", "SESSION_TYPE_SOLO_TIMED"}},
+		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_PRACTICE", []string{"ecu does not send it", "SESSION_TYPE_SOLO_TIMED", "SESSION_TYPE_RANKED"}},
 		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_UNKNOWN", []string{"v1's `unknown`", "ecu sends it"}},
 		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_LAP_RACE", []string{"v1's `lap_race`", "ecu sends it"}},
 		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_SOLO_LAPS", []string{"v1's `solo_laps`", "ecu sends it"}},
-		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_TIMED_FIELD", []string{"timed race or qualifying", "v1's `timed_field`", "ecu sends it"}},
-		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_SOLO_TIMED", []string{"time trial or practice", "v1's `solo_timed`", "ecu sends it"}},
+		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_TIMED_FIELD", []string{"A timed race", "v1's `timed_field`", "SESSION_TYPE_RANKED", "ecu sends it"}},
+		{"R5", "twr/events/v1/session.proto", "SESSION_TYPE_SOLO_TIMED", []string{"time trial or practice alone", "v1's `solo_timed`", "ecu sends it"}},
+		// The ranked kind (the maintainer's decision, 2026-10-31): qualifying or
+		// practice with a field, told from a timed race by the place's leap at
+		// the start, which v1 read as timed_field.
+		{"ranked", "twr/events/v1/session.proto", "SESSION_TYPE_RANKED", []string{"qualifying, or practice with the field out", "rank by best lap", "grid slot", "a timed race keeps its slot", "cannot tell qualifying from practice", "v1 read it as `timed_field`", "`ranked`", "ecu sends it"}},
+		{"ranked", "twr/events/v1/session.proto", "field = 3", []string{"SESSION_TYPE_RANKED"}},
+		{"ranked", "twr/events/v1/callout.proto", "Callout", []string{"template_rank_gained", "template_rank_lost", "template_ranked (total_cars) is a ranked session's brief", "A ranked session's finish is template_ranked", "solo or ranked session"}},
 		// R6: a finishing position only for a lap race with a field, at the flag.
 		{"R6", "twr/events/v1/session.proto", "finishing_position", []string{"Set only when this summary's session_type is SESSION_TYPE_LAP_RACE", "END_REASON_FINISHED", "qualifying", "solo laps"}},
 		// R5 and R6: the first-frame verdict may change; the summary's is final.

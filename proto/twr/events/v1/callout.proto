@@ -99,7 +99,9 @@ enum PitLane {
 //   - final_lap: template (no slots).
 //   - position: template_gained, template_gained_lead,
 //     template_gained_podium, template_lost and template_lost_lead
-//     (position, previous_position).
+//     (position, previous_position). In a ranked session
+//     (SESSION_TYPE_RANKED), where the place is the rank by lap time,
+//     template_rank_gained and template_rank_lost (the same slots).
 //   - start_brief: template, the brief: v1 spoke one sentence for each slot
 //     set, in this order: template_track (track), template_laps (laps) or
 //     template_laps_to_go (laps_left), template_timed (timed), and
@@ -107,14 +109,18 @@ enum PitLane {
 //     is the track named after the brief. template_joined is the brief of a
 //     session ecu joined part way (lap, and laps when the race has a lap
 //     total), followed by template_joined_position (position and total_cars)
-//     when it has a field.
+//     when it has a field. template_ranked (total_cars) is a ranked session's
+//     brief, in place of template: no laps, and no place, which is no rank
+//     before a lap time.
 //   - race_summary: at the flag, the call is the rule's template ("Chequered
 //     flag. {position} {best}"), and kind is the key of the phrase that
 //     fills its {position}: template_position_win, template_position_podium
 //     or template_position (position, best_lap_ms when there is a best), or
 //     template itself when the race has no field and no position is said
-//     (best_lap_ms). Its {best} is template_best. template_quit is leaving a
-//     solo session (laps, best_lap_ms).
+//     (best_lap_ms). Its {best} is template_best. A ranked session's finish
+//     is template_ranked (position, the rank by lap time; best_lap_ms when
+//     there is a best), a template of its own. template_quit is leaving a
+//     solo or ranked session (laps, best_lap_ms).
 //   - temps: template_tyre_hot (corners), template_tyres_cold,
 //     template_water and template_oil.
 //   - telemetry: template_lost and template_back (no slots).
