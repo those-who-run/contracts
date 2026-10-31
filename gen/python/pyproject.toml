@@ -8,7 +8,7 @@
 [project]
 name = "twr-contracts"
 # release-please moves it with the tag (release-please-config.json).
-version = "0.2.8"
+version = "0.2.9"
 description = "The contracts of Those Who Run v2: the generated protobuf messages and the helpers every Python component uses"
 readme = "README.md"
 license = "GPL-3.0-only"
