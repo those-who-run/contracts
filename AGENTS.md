@@ -52,7 +52,8 @@ and a recording that pins a behaviour where one applies.
   [`internal/dependencies`](internal/dependencies/dependencies_test.go) for the dependency table.
   Fixtures go under `testdata/`, which the `go` command skips.
 - **Tool versions.** The Go version is `go.mod`'s `go` and `toolchain`
-  lines. golangci-lint, govulncheck, `buf` and `protoc-gen-go` are pinned in
+  lines. golangci-lint, govulncheck, `buf`, `protoc-gen-go` and
+  `protoc-gen-connect-go` are pinned in
   [`tools/go.mod`](tools/go.mod), checksummed in `tools/go.sum`, and run with
   `go tool -modfile=tools/go.mod`, as the Makefile does; never a copy
   installed some other way. protoc, for the Python generators, is pinned with
@@ -122,7 +123,10 @@ in paddock mean for a change here:
   under `helpers` if it is only a part of an event or a value: `internal/catalogue`'s test
   fails without one, and on a pattern outside ADR 0001's subject scheme. A new
   placeholder goes in `catalogue.Placeholders`, which the check and the doc
-  both read. `make generate` renders `docs/subjects.md` from the file.
+  both read. A NATS micro endpoint (`svc.<service>.<verb>`) is under
+  `services`, with its request, response and callers; every message in a
+  store package (`twr.store.*`) is one endpoint's request or response, or a
+  helper. `make generate` renders `docs/subjects.md` from the file.
 - **Each message has a JSON example** under `examples/`, which
   [`messages_test.go`](messages_test.go) decodes and round-trips, an unknown
   field included.
@@ -140,7 +144,8 @@ in paddock mean for a change here:
   `protoc-gen-go` in `tools/go.mod`, never behind it, and the two change in the
   same PR. So do protoc in `scripts/protoc.py` and the `protobuf` floor in
   `gen/python/pyproject.toml` and `tests/python-constraints.txt`
-  (`tests/test_python_package.py` checks them).
+  (`tests/test_python_package.py` checks them), and `connectrpc.com/connect/v2`
+  in `go.mod` and `protoc-gen-connect-go` in `tools/go.mod`, at one version.
 - **Go and Python are generated** (Python for `radio`, paddock#265); another
   language waits until a consumer needs it.
 - **Python reads and writes through

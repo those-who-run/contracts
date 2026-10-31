@@ -6,6 +6,7 @@ module github.com/those-who-run/contracts/tools
 go 1.27.0
 
 tool (
+	connectrpc.com/connect/v2/cmd/protoc-gen-connect-go
 	github.com/bufbuild/buf/cmd/buf
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	golang.org/x/vuln/cmd/govulncheck

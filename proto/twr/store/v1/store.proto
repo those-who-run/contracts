@@ -1,0 +1,320 @@
+syntax = "proto3";
+
+// The store: what logbook answers on its NATS micro services
+// (svc.logbook.*, ADR 0003 point 1; paddock#122 and #123), near what it keeps.
+// A session is its row with ecu's own SessionSummary, and a lap its
+// LapCompleted with what logbook counted from its frames: logbook stays dumb
+// and decides nothing, and a reader, such as the pit wall, maps these to its
+// own messages (twr.pitwall.v1). subjects.yaml's services list which subject
+// takes which request and answers which response.
+//
+// Every request and response is protobuf's JSON form, as every message is
+// (ADR 0002, point 2), with no CloudEvents headers: a request and its reply are
+// not events. An error is NATS micro's error headers, Nats-Service-Error-Code
+// and Nats-Service-Error: 400 for a bad request, 404 for a session or lap that
+// does not exist, 500 for logbook's own failure. A read on an empty store
+// answers an empty list, not an error.
+//
+// Every request names the sources to look in; none is a bad request (400).
+// Every response carries a data_version, and a request may carry the one its
+// caller already has, known_data_version: when it is still current, logbook
+// answers unchanged with no other field, so a poll every 5 s costs next to
+// nothing. A list comes in pages logbook caps, so no reply nears NATS's
+// payload limit: limit 0 is 200, and at most 500 (more is a 400). The caller
+// asks again from offset plus what it got until that reaches matched; a page
+// whose data_version is not the first page's means the data changed between
+// them, and the caller starts again.
+package twr.store.v1;
+
+import "google/protobuf/timestamp.proto";
+import "twr/events/v1/lap.proto";
+import "twr/events/v1/session.proto";
+
+// SessionRow is one session as logbook keeps it. A session ecu discarded
+// (SessionDiscarded: a GT7 replay or demo) is never a row.
+message SessionRow {
+  // The session's id, as in its SessionStarted: a ULID ecu minted, or for a
+  // session imported from v1, v1's own id, such as "20261017-162118".
+  string session_id = 1;
+  // Where the session came from, the <src> its events had: `live`,
+  // `v1-import` for v1's history, `parity`, or `replay-` followed by the
+  // replay's name.
+  string source = 2;
+  // Whether the session has ended: logbook has its SessionEnded.
+  bool closed = 3;
+  // Why it ended (EndReason), as in its SessionEnded. Unspecified while it is
+  // open.
+  twr.events.v1.EndReason end_reason = 4;
+  // What it came to: SessionEnded's summary once it has ended. While it is
+  // open, logbook copies into it what its stored events say so far, and
+  // nothing else; it works nothing out:
+  //
+  // - started_at, car_code, car_name, fuel_at_start, fuel_capacity,
+  //   total_laps and joined_on_lap from SessionStarted, total_laps then from
+  //   the last SessionKindChanged's kind;
+  // - session_type and kind from the last SessionKindChanged;
+  // - track from the last SessionTrackChanged, or SessionContinued's carried
+  //   track before one;
+  // - laps_completed, the count of complete LapCompleted;
+  // - best_lap and best_lap_time_ms from the last LapBestChanged;
+  // - gaps from each SessionContinued's gap;
+  // - paused_ms from the last SessionResumed, or the last SessionPaused's
+  //   while a pause is open;
+  // - pit_stops from each PitExited's stop.
+  //
+  // Every other field is absent or zero, ended_at among them. Its laps are
+  // left out, open or closed: ListLapsResponse has them, and a list of
+  // sessions stays small; last_lap says how far it got.
+  twr.events.v1.SessionSummary summary = 5;
+  // When podium posted the session's results card (CardPosted's posted_at).
+  // Absent when no card was posted, or not yet.
+  google.protobuf.Timestamp card_posted_at = 6;
+  // The highest lap number logbook stored a LapCompleted for, complete or
+  // partial, so a reader can tell the lap a session stopped in without its
+  // laps (podium's StoppedResult). Absent before the first.
+  optional int32 last_lap = 7;
+  // Whether a session imported from v1 (ADR 0009) was taken from v1's stored
+  // rows, its summary.json and index, rather than re-derived by replaying its
+  // frames through ecu's packages: true from the rows, false re-derived.
+  // Absent for a session v2 saw itself.
+  optional bool from_v1_rows = 8;
+}
+
+// LapRow is one lap as logbook keeps it.
+message LapRow {
+  // The lap as ecu published it.
+  twr.events.v1.LapCompleted lap = 1;
+  // The telemetry frames logbook stored for the lap.
+  int32 frames = 2;
+  // The lap's top speed, in km/h, from its stored frames. Absent when logbook
+  // has none of its frames.
+  optional double top_speed_kph = 3;
+}
+
+// LapTrace is one lap's channels against time from the lap's first frame,
+// thinned to the points asked for as v1's lap_trace thins them (paddock#123):
+// each stretch keeps its slowest and its fastest frame, the first and last
+// frames are always kept, and both frames either side of a jump in position
+// (the pit cut-scene) are kept on top of the points. One value per kept frame
+// in each channel, in time order, all of the same length.
+message LapTrace {
+  // The session's id.
+  string session_id = 1;
+  // The lap's number, from 1.
+  int32 lap = 2;
+  // Seconds from the lap's first frame, with each gap over 0.1 s counted as
+  // 0.1 s, rounded to 1 ms.
+  repeated double t = 3;
+  // The speed, in km/h.
+  repeated double speed_kph = 4;
+  // The throttle, 0 to 100 (GT7's 0 to 255 scaled), rounded to 0.1.
+  repeated double throttle_pct = 5;
+  // The brake, 0 to 100 (GT7's 0 to 255 scaled), rounded to 0.1.
+  repeated double brake_pct = 6;
+  // The gear; 0 is neutral or reverse.
+  repeated int32 gear = 7;
+  // The engine speed, in revolutions a minute.
+  repeated double rpm = 8;
+  // The car's position on GT7's x axis, in metres, rounded to 0.1 m.
+  repeated double x = 9;
+  // The car's position on GT7's z axis, in metres, rounded to 0.1 m.
+  repeated double z = 10;
+}
+
+// ValueCount is one value a filter can take, and how many sessions it would
+// leave with the other filters applied, not its own.
+message ValueCount {
+  // The value, as the request's filter takes it.
+  string value = 1;
+  // The sessions it would leave.
+  int32 count = 2;
+}
+
+// KindCount is one session kind the kind filter can take, and how many
+// sessions it would leave with the other filters applied, not its own.
+message KindCount {
+  // The kind (SessionType), as SessionSummary's session_type has it.
+  twr.events.v1.SessionType session_type = 1;
+  // The sessions it would leave.
+  int32 count = 2;
+}
+
+// FilterCounts is the values each filter can take, from every session of the
+// sources asked for, each with its count.
+message FilterCounts {
+  // The track names, as ListSessionsRequest's track takes them: the empty
+  // name for the sessions whose track the detector was not sure of.
+  repeated ValueCount track = 1;
+  // The car names, as SessionSummary's car_name has them; a session with no
+  // car name has no value here.
+  repeated ValueCount car = 2;
+  // The session kinds.
+  repeated KindCount kind = 3;
+}
+
+// ListSessionsRequest asks for the sessions of some sources, newest first,
+// filtered (svc.logbook.sessions.list). Its filters are applied in the query,
+// so a reply carries only what matched.
+message ListSessionsRequest {
+  // The sources to look in, such as `live` and `v1-import` (the pit wall's
+  // TWR_PITWALL_SRC). At least one: none is a bad request (400).
+  repeated string sources = 1;
+  // Only sessions at this track: the summary's track name when the detector
+  // was sure of it (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED),
+  // and the empty name for every other session. Absent matches every track.
+  optional string track = 2;
+  // Only sessions in this car, by SessionSummary's car_name. Absent matches
+  // every car.
+  optional string car = 3;
+  // Only sessions of this kind, by SessionSummary's session_type. Unspecified
+  // matches every kind.
+  twr.events.v1.SessionType session_type = 4;
+  // Only sessions started on or after this day, in time_zone, such as
+  // "2026-10-17". Empty is no lower bound.
+  string from_day = 5;
+  // Only sessions started on or before this day, in time_zone. Empty is no
+  // upper bound.
+  string to_day = 6;
+  // The time zone from_day and to_day are days in, an IANA name such as
+  // "Europe/Dublin". Empty is UTC.
+  string time_zone = 7;
+  // The matching sessions to skip, newest first: the sessions the pages
+  // before this one answered.
+  int32 offset = 8;
+  // The most sessions to answer: 0 is logbook's default, 200, and more than
+  // 500 is a bad request (400).
+  int32 limit = 9;
+  // The data_version the caller already has. When it is still current,
+  // logbook answers unchanged with no other field.
+  optional string known_data_version = 10;
+}
+
+// ListSessionsResponse is the sessions that match, newest first, and what the
+// filters can take.
+message ListSessionsResponse {
+  // The matching sessions, newest first, from offset, at most limit of them
+  // (200 by default).
+  repeated SessionRow sessions = 1;
+  // The values each filter can take, from every session of the sources.
+  FilterCounts options = 2;
+  // The sessions of the sources, whatever the filters.
+  int32 total = 3;
+  // The sessions that match the filters, whatever offset and limit.
+  int32 matched = 4;
+  // A stamp that changes only when the data behind this reply changes (v1's
+  // index_stamp): the pit wall's ETag.
+  string data_version = 5;
+  // The caller's known_data_version is still current: every other field
+  // but data_version is absent.
+  bool unchanged = 6;
+}
+
+// GetSessionRequest asks for one session (svc.logbook.sessions.get).
+message GetSessionRequest {
+  // The sources to look in, as ListSessionsRequest's: at least one.
+  repeated string sources = 1;
+  // The session's id. The first of sources, in their order, that has it
+  // answers; none answers 404.
+  string session_id = 2;
+  // The data_version the caller already has, as ListSessionsRequest's.
+  optional string known_data_version = 3;
+}
+
+// GetSessionResponse is one session.
+message GetSessionResponse {
+  // The session.
+  SessionRow session = 1;
+  // A stamp that changes only when the session's data changes: the pit
+  // wall's ETag.
+  string data_version = 2;
+  // The caller's known_data_version is still current: every other field
+  // but data_version is absent.
+  bool unchanged = 3;
+}
+
+// ListLapsRequest asks for a session's laps (svc.logbook.laps.list).
+message ListLapsRequest {
+  // The sources to look in, as GetSessionRequest's.
+  repeated string sources = 1;
+  // The session's id; one that no source has answers 404.
+  string session_id = 2;
+  // The data_version the caller already has, as ListSessionsRequest's.
+  optional string known_data_version = 3;
+}
+
+// ListLapsResponse is a session's laps, with the session, which the laps'
+// flags are read from (its best lap, its restarts, its fuel use).
+message ListLapsResponse {
+  // The session.
+  SessionRow session = 1;
+  // Its laps, complete and partial, in the order they ended.
+  repeated LapRow laps = 2;
+  // A stamp that changes only when the session's laps or summary change: the
+  // pit wall's ETag.
+  string data_version = 3;
+  // The caller's known_data_version is still current: every other field
+  // but data_version is absent.
+  bool unchanged = 4;
+}
+
+// GetTraceRequest asks for one lap's trace (svc.logbook.laps.trace).
+message GetTraceRequest {
+  // The sources to look in, as GetSessionRequest's.
+  repeated string sources = 1;
+  // The session's id.
+  string session_id = 2;
+  // The lap's number, from 1. A lap that does not exist, or whose frames
+  // logbook does not have, answers 404, never an empty trace.
+  int32 lap = 3;
+  // The most points to keep, from 1 to 10000, both frames either side of
+  // each jump in position kept on top of them; 0 is 1500. Under four points,
+  // every n-th frame instead.
+  int32 points = 4;
+  // The data_version the caller already has, as ListSessionsRequest's.
+  optional string known_data_version = 5;
+}
+
+// GetTraceResponse is one lap's trace.
+message GetTraceResponse {
+  // The trace.
+  LapTrace trace = 1;
+  // A stamp that changes only when the lap's frames change: the pit wall's
+  // ETag.
+  string data_version = 2;
+  // The caller's known_data_version is still current: every other field
+  // but data_version is absent.
+  bool unchanged = 3;
+}
+
+// ListSameTrackRequest asks for the other sessions at a session's track
+// (svc.logbook.sessions.same_track).
+message ListSameTrackRequest {
+  // The sources to look in, as GetSessionRequest's.
+  repeated string sources = 1;
+  // The session's id; one that no source has answers 404.
+  string session_id = 2;
+  // The matching sessions to skip, newest first, as ListSessionsRequest's.
+  int32 offset = 3;
+  // The most sessions to answer, as ListSessionsRequest's: 0 is 200, and
+  // more than 500 is a bad request.
+  int32 limit = 4;
+  // The data_version the caller already has, as ListSessionsRequest's.
+  optional string known_data_version = 5;
+}
+
+// ListSameTrackResponse is the other sessions at the same track, newest
+// first: those whose track id is the session's, where the detector was sure
+// of both (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED, v1's
+// same_track). None when it was not sure of the session's own.
+message ListSameTrackResponse {
+  // The other sessions, newest first, from offset, at most limit of them.
+  repeated SessionRow sessions = 1;
+  // A stamp that changes only when the data behind this reply changes: the
+  // pit wall's ETag.
+  string data_version = 2;
+  // The other sessions at the same track, whatever offset and limit.
+  int32 matched = 3;
+  // The caller's known_data_version is still current: every other field
+  // but data_version is absent.
+  bool unchanged = 4;
+}

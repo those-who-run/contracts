@@ -1,5 +1,5 @@
-// Package catalogue reads subjects.yaml, the catalogue of NATS subjects and KV
-// keys, checks it against ADR 0001's subject scheme, ADR 0002's rules and the
+// Package catalogue reads subjects.yaml, the catalogue of NATS subjects, KV
+// keys and NATS micro services, checks it against ADR 0001's subject scheme, ADR 0002's rules and the
 // generated messages, and renders it as docs/subjects.md
 // (those-who-run/paddock#25).
 package catalogue
@@ -45,12 +45,28 @@ func (s Subject) name() string {
 	return s.Pattern
 }
 
+// Service is one entry of subjects.yaml's services: a NATS micro endpoint
+// (ADR 0001, point 2: svc.<service>.<verb>), the request it takes and the
+// response it answers. subjects.yaml's header says what each key holds.
+type Service struct {
+	Subject     string   `yaml:"subject"`
+	Service     string   `yaml:"service"`
+	Request     string   `yaml:"request"`
+	Response    string   `yaml:"response"`
+	ContentType string   `yaml:"content_type"`
+	Callers     []string `yaml:"callers"`
+	Description string   `yaml:"description"`
+}
+
 // Catalogue is subjects.yaml.
 type Catalogue struct {
 	Subjects []Subject `yaml:"subjects"`
-	// Helpers are the messages in an events or state package that are not
-	// events or values, only parts of one, such as SessionSummary: they need no
-	// entry.
+	// Services are the NATS micro endpoints, each with its request and
+	// response (paddock#121).
+	Services []Service `yaml:"services"`
+	// Helpers are the messages in an events, state or store package that are
+	// not events, values, requests or responses, only parts of one, such as
+	// SessionSummary: they need no entry.
 	Helpers []string `yaml:"helpers"`
 }
 
@@ -78,6 +94,11 @@ const EventsPackages = "twr.events."
 // each message there is a KV value and needs a KV entry, unless it is a
 // helper (paddock#72).
 const StatePackages = "twr.state."
+
+// StorePackages is the prefix of every store package, whatever its version:
+// each message there is a service's request or response, unless it is a
+// helper (paddock#121).
+const StorePackages = "twr.store."
 
 // NoSession is the token an event subject has in place of <sid> when it is
 // published while no session is open (paddock#70).
@@ -130,6 +151,10 @@ var (
 		{"callout", regexp.MustCompile(`^twr\.v1\.<src>\.callout\.p[0-2]$`), "CALLOUTS"},
 	}
 	placeholder = regexp.MustCompile(`<[^<>]*>`)
+	// ADR 0001, point 2: a NATS micro endpoint is svc.<service>.<verb>, where
+	// the verb may be more than one token, such as sessions.list. No
+	// placeholders: a request names what it asks for in its message.
+	serviceSubject = regexp.MustCompile(`^svc\.([a-z0-9]+)((\.` + word + `)+)$`)
 	// An event's msg_id (paddock#25, 2026-10-26, with the source in front from
 	// paddock#279): its source, its session, its ce-type's <area>.<what>, then
 	// one or more parts, each a word or a placeholder.
@@ -201,16 +226,17 @@ func (c *Catalogue) Check(messages Messages) error {
 			fail("no description")
 		}
 	}
+	served := c.checkServices(messages, &p)
 	for _, h := range c.Helpers {
-		if !strings.HasPrefix(h, EventsPackages) && !strings.HasPrefix(h, StatePackages) {
-			p = append(p, fmt.Errorf("helper %s is not in an events package or a state package", h))
+		if !strings.HasPrefix(h, EventsPackages) && !strings.HasPrefix(h, StatePackages) && !strings.HasPrefix(h, StorePackages) {
+			p = append(p, fmt.Errorf("helper %s is not in an events, state or store package", h))
 		} else if d, err := messages.FindDescriptorByName(protoreflect.FullName(h)); err != nil {
 			p = append(p, fmt.Errorf("helper %s is not in the generated code", h))
 		} else if _, ok := d.(protoreflect.MessageDescriptor); !ok {
 			p = append(p, fmt.Errorf("helper %s is not a message", h))
 		}
-		if listed[h] || values[h] {
-			p = append(p, fmt.Errorf("helper %s has an entry: a helper is not an event or a value", h))
+		if listed[h] || values[h] || served[h] {
+			p = append(p, fmt.Errorf("helper %s has an entry: a helper is not an event, a value, a request or a response", h))
 		}
 	}
 	for _, name := range c.EventMessages(messages) {
@@ -223,7 +249,68 @@ func (c *Catalogue) Check(messages Messages) error {
 			p = append(p, fmt.Errorf("state message %s has no KV entry in the catalogue, and is not a helper", name))
 		}
 	}
+	for _, name := range c.StoreMessages(messages) {
+		if !served[string(name)] {
+			p = append(p, fmt.Errorf("store message %s is no service's request or response, and is not a helper", name))
+		}
+	}
 	return errors.Join(p...)
+}
+
+// checkServices checks each service entry, and returns the messages they
+// take and answer.
+func (c *Catalogue) checkServices(messages Messages, p *problems) map[string]bool {
+	served := map[string]bool{}
+	seen := map[string]int{}
+	usedBy := map[string]string{}
+	for i, s := range c.Services {
+		fail := func(format string, args ...any) {
+			*p = append(*p, fmt.Errorf("services[%d] (%s): %s", i, s.Subject, fmt.Sprintf(format, args...)))
+		}
+		if first, ok := seen[s.Subject]; ok {
+			fail("services[%d] is the same subject", first)
+		}
+		seen[s.Subject] = i
+		switch m := serviceSubject.FindStringSubmatch(s.Subject); {
+		case m == nil:
+			fail("the subject is not svc.<service>.<verb> (ADR 0001, point 2), lower-case words with no placeholders")
+		case m[1] != s.Service:
+			fail("the subject's service is %s, but its service is %q", m[1], s.Service)
+		}
+		for _, f := range [...]struct{ role, name string }{{"request", s.Request}, {"response", s.Response}} {
+			checkServed(f.role, f.name, messages, fail)
+			if f.name == "" {
+				continue
+			}
+			// One endpoint per message: a request or response names its
+			// endpoint, so a reader never mistakes one for another.
+			if other, ok := usedBy[f.name]; ok {
+				fail("%s %s is %s's too: a message is the request or response of one endpoint", f.role, f.name, other)
+			}
+			usedBy[f.name] = s.Subject
+			served[f.name] = true
+		}
+		if s.ContentType != ContentType {
+			fail("content_type %q is not %s", s.ContentType, ContentType)
+		}
+		if len(s.Callers) == 0 {
+			fail("no callers")
+		}
+		if s.Description == "" {
+			fail("no description")
+		}
+	}
+	return served
+}
+
+func checkServed(role, name string, messages Messages, fail func(string, ...any)) {
+	if name == "" {
+		fail("no %s", role)
+	} else if d, err := messages.FindDescriptorByName(protoreflect.FullName(name)); err != nil {
+		fail("%s %s is not in the generated code", role, name)
+	} else if _, ok := d.(protoreflect.MessageDescriptor); !ok {
+		fail("%s %s is not a message", role, name)
+	}
 }
 
 func checkMessage(s Subject, messages Messages, fail func(string, ...any)) {
@@ -424,6 +511,12 @@ func (c *Catalogue) StateMessages(messages Messages) []protoreflect.FullName {
 	return c.messagesIn(messages, StatePackages)
 }
 
+// StoreMessages are the messages in every store package, whatever its
+// version, that are not helpers: each is a service's request or response.
+func (c *Catalogue) StoreMessages(messages Messages) []protoreflect.FullName {
+	return c.messagesIn(messages, StorePackages)
+}
+
 // messagesIn are the messages in every package with the prefix that are not
 // helpers, sorted.
 func (c *Catalogue) messagesIn(messages Messages, prefix string) []protoreflect.FullName {
@@ -488,6 +581,18 @@ func (c *Catalogue) Render() []byte {
 				s.KV, s.Key, s.Message, strings.Join(s.Producers, ", "), strings.Join(s.Consumers, ", "))
 		}
 	}
+	if len(c.Services) > 0 {
+		b.WriteString("\n## Services\n\n")
+		b.WriteString("NATS micro endpoints: a caller sends the request and gets the response, each as\n")
+		b.WriteString("protobuf's JSON form with no CloudEvents headers. An error is NATS micro's error\n")
+		b.WriteString("headers, `Nats-Service-Error-Code` and `Nats-Service-Error`.\n\n")
+		b.WriteString("| Subject | Service | Request | Response | Callers |\n")
+		b.WriteString("| --- | --- | --- | --- | --- |\n")
+		for _, s := range c.Services {
+			fmt.Fprintf(&b, "| `%s` | %s | `%s` | `%s` | %s |\n",
+				s.Subject, s.Service, s.Request, s.Response, strings.Join(s.Callers, ", "))
+		}
+	}
 	b.WriteString("\n## What each one is\n\n")
 	for _, s := range c.Subjects {
 		name := "`" + s.Pattern + "`"
@@ -496,8 +601,11 @@ func (c *Catalogue) Render() []byte {
 		}
 		fmt.Fprintf(&b, "- %s: %s\n", name, s.Description)
 	}
+	for _, s := range c.Services {
+		fmt.Fprintf(&b, "- `%s`: %s\n", s.Subject, s.Description)
+	}
 	if len(c.Helpers) > 0 {
-		b.WriteString("\nParts of an event or a value, not events or values themselves, so they have no subject or key: ")
+		b.WriteString("\nParts of an event, a value, a request or a response, not one themselves, so they have no subject, key or service: ")
 		b.WriteString("`" + strings.Join(c.Helpers, "`, `") + "`.\n")
 	}
 	b.WriteString("\n## Placeholders\n\n")
