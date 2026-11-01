@@ -26,12 +26,15 @@
 // Every response carries a data_version, and a read may carry the one its
 // caller already has, known_data_version: when it is still current, logbook
 // answers unchanged with no other field, so a poll every 5 s costs next to
-// nothing. A write that changes a session changes the store's data_version,
-// so every read's stamp, and the pit wall's ETags, change with it. A list comes in pages logbook caps, so no reply nears NATS's
-// payload limit: limit 0 is 200, and at most 500 (more is a 400). The caller
-// asks again from offset plus what it got until that reaches matched; a page
-// whose data_version is not the first page's means the data changed between
-// them, and the caller starts again.
+// nothing. A write that changes a session changes the store-wide stamp that
+// sessions.list, sessions.get, laps.list and sessions.same_track answer, so
+// the pit wall's session list's and session page's ETags change with it;
+// laps.trace's stamp, which follows only the lap's frames, does not. A list
+// comes in pages logbook caps, so no reply nears NATS's payload limit: limit
+// 0 is 200, and at most 500 (more is a 400). The caller asks again from
+// offset plus what it got until that reaches matched; a page whose
+// data_version is not the first page's means the data changed between them,
+// and the caller starts again.
 
 package storev1
 
@@ -106,7 +109,9 @@ type SessionRow struct {
 	// Absent for a session that is not deleted, or was restored. A deleted
 	// session is left out of svc.logbook.sessions.list, with its filter values
 	// and counts, and out of svc.logbook.sessions.same_track; sessions.get,
-	// laps.list and laps.trace still answer for it, with this set.
+	// laps.list and laps.trace still answer for it, with this set. A later
+	// write of the session (a redelivered event, a rerun of the v1 import)
+	// keeps deleted_at; only svc.logbook.sessions.restore clears it.
 	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -516,7 +521,7 @@ func (x *KindCount) GetCount() int32 {
 }
 
 // FilterCounts is the values each filter can take, from every session of the
-// sources asked for, each with its count.
+// sources asked for that is not deleted, each with its count.
 type FilterCounts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The tracks as the card shows them, as ListSessionsRequest's track takes
@@ -735,9 +740,10 @@ type ListSessionsResponse struct {
 	// The matching sessions, newest first, from offset, at most limit of them
 	// (200 by default).
 	Sessions []*SessionRow `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
-	// The values each filter can take, from every session of the sources.
+	// The values each filter can take, from every session of the sources that
+	// is not deleted.
 	Options *FilterCounts `protobuf:"bytes,2,opt,name=options,proto3" json:"options,omitempty"`
-	// The sessions of the sources, whatever the filters.
+	// The sessions of the sources that are not deleted, whatever the filters.
 	Total int32 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
 	// The sessions that match the filters, whatever offset and limit.
 	Matched int32 `protobuf:"varint,4,opt,name=matched,proto3" json:"matched,omitempty"`
@@ -1333,15 +1339,19 @@ func (x *ListSameTrackRequest) GetKnownDataVersion() string {
 // ListSameTrackResponse is the other sessions at the same track, newest
 // first: those whose track id is the session's, where the detector was sure
 // of both (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED, v1's
-// same_track). None when it was not sure of the session's own.
+// same_track). None when it was not sure of the session's own. Deleted
+// sessions are left out; a session asked for that is itself deleted is
+// answered as usual, its other sessions without the deleted ones.
 type ListSameTrackResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The other sessions, newest first, from offset, at most limit of them.
+	// The other sessions not deleted, newest first, from offset, at most limit
+	// of them.
 	Sessions []*SessionRow `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
 	// A stamp of the whole store, as ListSessionsResponse's: it changes when
 	// anything in the store changes. The pit wall's ETag.
 	DataVersion string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
-	// The other sessions at the same track, whatever offset and limit.
+	// The other sessions at the same track not deleted, whatever offset and
+	// limit.
 	Matched int32 `protobuf:"varint,3,opt,name=matched,proto3" json:"matched,omitempty"`
 	// The caller's known_data_version is still current: every other field
 	// but data_version is absent.
@@ -1411,7 +1421,9 @@ func (x *ListSameTrackResponse) GetUnchanged() bool {
 // DeleteSessionRequest asks logbook to delete one session
 // (svc.logbook.sessions.delete): a soft delete, which sets the row's
 // deleted_at and keeps every row and lap file. Deleting a session already
-// deleted succeeds and changes nothing, its deleted_at kept. An open session
+// deleted succeeds and changes nothing, its deleted_at kept. A later write of
+// the session (a redelivered event, a rerun of the v1 import) keeps
+// deleted_at; only svc.logbook.sessions.restore clears it. An open session
 // (not closed) cannot be deleted: 409. A session no source has answers 404.
 type DeleteSessionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`

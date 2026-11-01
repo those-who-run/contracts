@@ -213,7 +213,9 @@ messages. Beside the queries are two writes, a soft delete of a closed session
 and its restore (ADR 0014 in paddock): a deleted session keeps its rows and
 lap files and has `deleted_at` set, is left out of `sessions.list` and
 `sessions.same_track`, and is still answered by `sessions.get`, `laps.list`
-and `laps.trace`. Each answer carries a `data_version` stamp for an `ETag`:
+and `laps.trace`. A later write of the session (a redelivered event, a rerun
+of the v1 import) keeps `deleted_at`; only `sessions.restore` clears it. Each
+answer carries a `data_version` stamp for an `ETag`:
 
 | Subject | Request and response | What it answers | Example |
 | --- | --- | --- | --- |
@@ -223,7 +225,7 @@ and `laps.trace`. Each answer carries a `data_version` stamp for an `ETag`:
 | `svc.logbook.laps.trace` | `twr.store.v1.GetTraceRequest`, `GetTraceResponse` | One lap's trace, thinned keeping peaks and position jumps. | [`get_trace_response.json`](examples/store/v1/get_trace_response.json) |
 | `svc.logbook.sessions.same_track` | `twr.store.v1.ListSameTrackRequest`, `ListSameTrackResponse` | The other sessions at a session's sure track. | |
 | `svc.logbook.sessions.delete` | `twr.store.v1.DeleteSessionRequest`, `DeleteSessionResponse` | Deletes a closed session, softly; again changes nothing, an open one is 409. | [`delete_session_request.json`](examples/store/v1/delete_session_request.json), [`delete_session_response.json`](examples/store/v1/delete_session_response.json) |
-| `svc.logbook.sessions.restore` | `twr.store.v1.RestoreSessionRequest`, `RestoreSessionResponse` | Restores a deleted session; one not deleted changes nothing. | [`restore_session_response.json`](examples/store/v1/restore_session_response.json) |
+| `svc.logbook.sessions.restore` | `twr.store.v1.RestoreSessionRequest`, `RestoreSessionResponse` | Restores a deleted session; one not deleted changes nothing. | [`restore_session_request.json`](examples/store/v1/restore_session_request.json), [`restore_session_response.json`](examples/store/v1/restore_session_response.json) |
 
 `SessionRow`, `LapRow`, `LapTrace`, `FilterCounts`, `ValueCount` and
 `KindCount` are parts of these answers.

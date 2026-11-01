@@ -339,6 +339,12 @@ class GetEngineStatusRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GetEngineStatusResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: EngineStatus
+    def __init__(self, status: _Optional[_Union[EngineStatus, _Mapping]] = ...) -> None: ...
+
 class DeleteSessionRequest(_message.Message):
     __slots__ = ("session_id",)
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -362,9 +368,3 @@ class RestoreSessionResponse(_message.Message):
     SESSION_FIELD_NUMBER: _ClassVar[int]
     session: Session
     def __init__(self, session: _Optional[_Union[Session, _Mapping]] = ...) -> None: ...
-
-class GetEngineStatusResponse(_message.Message):
-    __slots__ = ("status",)
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    status: EngineStatus
-    def __init__(self, status: _Optional[_Union[EngineStatus, _Mapping]] = ...) -> None: ...

@@ -1001,8 +1001,8 @@ func (x *KindOption) GetCount() int32 {
 	return 0
 }
 
-// FilterOptions is the values each filter can take, from every session, each
-// with a count (v1's `FilterOptions`).
+// FilterOptions is the values each filter can take, from every session not
+// deleted, each with a count (v1's `FilterOptions`).
 type FilterOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The track names, as Session's track.name has them (v1's `track`).
@@ -1171,9 +1171,10 @@ type ListSessionsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The sessions that match, newest first (v1's `sessions`).
 	Sessions []*Session `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
-	// The filter values from every session, not just these (v1's `options`).
+	// The filter values from every session not deleted, not just these (v1's
+	// `options`).
 	Options *FilterOptions `protobuf:"bytes,2,opt,name=options,proto3" json:"options,omitempty"`
-	// The sessions in the store (v1's `total`).
+	// The sessions in the store not deleted (v1's `total`).
 	Total int32 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
 	// The sessions that match the filters: the length of sessions (v1's
 	// `matched`).
@@ -1593,10 +1594,13 @@ func (x *ListSameTrackRequest) GetSessionId() string {
 
 // ListSameTrackResponse is the other sessions at the same track (v1's
 // `SameTrack`). Two sessions are at the same track only when the detector
-// was sure of both.
+// was sure of both. Deleted sessions are left out; a session asked for that
+// is itself deleted is answered as usual, its other sessions without the
+// deleted ones.
 type ListSameTrackResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The other sessions at the same track, newest first (v1's `sessions`).
+	// The other sessions at the same track not deleted, newest first (v1's
+	// `sessions`).
 	Sessions      []*Session `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2020,6 +2024,52 @@ func (*GetEngineStatusRequest) Descriptor() ([]byte, []int) {
 	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{21}
 }
 
+// GetEngineStatusResponse is the engineer's status.
+type GetEngineStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The status (v1's body was the EngineStatus itself).
+	Status        *EngineStatus `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEngineStatusResponse) Reset() {
+	*x = GetEngineStatusResponse{}
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEngineStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEngineStatusResponse) ProtoMessage() {}
+
+func (x *GetEngineStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEngineStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetEngineStatusResponse) Descriptor() ([]byte, []int) {
+	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *GetEngineStatusResponse) GetStatus() *EngineStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
 // DeleteSessionRequest names the session to delete.
 type DeleteSessionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2031,7 +2081,7 @@ type DeleteSessionRequest struct {
 
 func (x *DeleteSessionRequest) Reset() {
 	*x = DeleteSessionRequest{}
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[22]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2043,7 +2093,7 @@ func (x *DeleteSessionRequest) String() string {
 func (*DeleteSessionRequest) ProtoMessage() {}
 
 func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[22]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2056,7 +2106,7 @@ func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSessionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSessionRequest) Descriptor() ([]byte, []int) {
-	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{22}
+	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DeleteSessionRequest) GetSessionId() string {
@@ -2077,7 +2127,7 @@ type DeleteSessionResponse struct {
 
 func (x *DeleteSessionResponse) Reset() {
 	*x = DeleteSessionResponse{}
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[23]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2089,7 +2139,7 @@ func (x *DeleteSessionResponse) String() string {
 func (*DeleteSessionResponse) ProtoMessage() {}
 
 func (x *DeleteSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[23]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2102,7 +2152,7 @@ func (x *DeleteSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSessionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSessionResponse) Descriptor() ([]byte, []int) {
-	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{23}
+	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DeleteSessionResponse) GetSession() *Session {
@@ -2123,7 +2173,7 @@ type RestoreSessionRequest struct {
 
 func (x *RestoreSessionRequest) Reset() {
 	*x = RestoreSessionRequest{}
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[24]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2135,7 +2185,7 @@ func (x *RestoreSessionRequest) String() string {
 func (*RestoreSessionRequest) ProtoMessage() {}
 
 func (x *RestoreSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[24]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2148,7 +2198,7 @@ func (x *RestoreSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreSessionRequest.ProtoReflect.Descriptor instead.
 func (*RestoreSessionRequest) Descriptor() ([]byte, []int) {
-	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{24}
+	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RestoreSessionRequest) GetSessionId() string {
@@ -2169,7 +2219,7 @@ type RestoreSessionResponse struct {
 
 func (x *RestoreSessionResponse) Reset() {
 	*x = RestoreSessionResponse{}
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[25]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2181,7 +2231,7 @@ func (x *RestoreSessionResponse) String() string {
 func (*RestoreSessionResponse) ProtoMessage() {}
 
 func (x *RestoreSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[25]
+	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2194,58 +2244,12 @@ func (x *RestoreSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreSessionResponse.ProtoReflect.Descriptor instead.
 func (*RestoreSessionResponse) Descriptor() ([]byte, []int) {
-	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{25}
+	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RestoreSessionResponse) GetSession() *Session {
 	if x != nil {
 		return x.Session
-	}
-	return nil
-}
-
-// GetEngineStatusResponse is the engineer's status.
-type GetEngineStatusResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The status (v1's body was the EngineStatus itself).
-	Status        *EngineStatus `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetEngineStatusResponse) Reset() {
-	*x = GetEngineStatusResponse{}
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[26]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetEngineStatusResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetEngineStatusResponse) ProtoMessage() {}
-
-func (x *GetEngineStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_twr_pitwall_v1_pitwall_proto_msgTypes[26]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetEngineStatusResponse.ProtoReflect.Descriptor instead.
-func (*GetEngineStatusResponse) Descriptor() ([]byte, []int) {
-	return file_twr_pitwall_v1_pitwall_proto_rawDescGZIP(), []int{26}
-}
-
-func (x *GetEngineStatusResponse) GetStatus() *EngineStatus {
-	if x != nil {
-		return x.Status
 	}
 	return nil
 }
@@ -2448,7 +2452,9 @@ const file_twr_pitwall_v1_pitwall_proto_rawDesc = "" +
 	"\x0fvoice_connected\x18\x06 \x01(\bH\x00R\x0evoiceConnected\x88\x01\x01\x125\n" +
 	"\asession\x18\a \x01(\v2\x1b.twr.pitwall.v1.LiveSessionR\asessionB\x12\n" +
 	"\x10_voice_connected\"\x18\n" +
-	"\x16GetEngineStatusRequest\"5\n" +
+	"\x16GetEngineStatusRequest\"O\n" +
+	"\x17GetEngineStatusResponse\x124\n" +
+	"\x06status\x18\x01 \x01(\v2\x1c.twr.pitwall.v1.EngineStatusR\x06status\"5\n" +
 	"\x14DeleteSessionRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"J\n" +
@@ -2458,9 +2464,7 @@ const file_twr_pitwall_v1_pitwall_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"K\n" +
 	"\x16RestoreSessionResponse\x121\n" +
-	"\asession\x18\x01 \x01(\v2\x17.twr.pitwall.v1.SessionR\asession\"O\n" +
-	"\x17GetEngineStatusResponse\x124\n" +
-	"\x06status\x18\x01 \x01(\v2\x1c.twr.pitwall.v1.EngineStatusR\x06status*\xa0\x01\n" +
+	"\asession\x18\x01 \x01(\v2\x17.twr.pitwall.v1.SessionR\asession*\xa0\x01\n" +
 	"\bActivity\x12\x18\n" +
 	"\x14ACTIVITY_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rACTIVITY_IDLE\x10\x01\x12\x14\n" +
@@ -2519,11 +2523,11 @@ var file_twr_pitwall_v1_pitwall_proto_goTypes = []any{
 	(*LiveSession)(nil),             // 20: twr.pitwall.v1.LiveSession
 	(*EngineStatus)(nil),            // 21: twr.pitwall.v1.EngineStatus
 	(*GetEngineStatusRequest)(nil),  // 22: twr.pitwall.v1.GetEngineStatusRequest
-	(*DeleteSessionRequest)(nil),    // 23: twr.pitwall.v1.DeleteSessionRequest
-	(*DeleteSessionResponse)(nil),   // 24: twr.pitwall.v1.DeleteSessionResponse
-	(*RestoreSessionRequest)(nil),   // 25: twr.pitwall.v1.RestoreSessionRequest
-	(*RestoreSessionResponse)(nil),  // 26: twr.pitwall.v1.RestoreSessionResponse
-	(*GetEngineStatusResponse)(nil), // 27: twr.pitwall.v1.GetEngineStatusResponse
+	(*GetEngineStatusResponse)(nil), // 23: twr.pitwall.v1.GetEngineStatusResponse
+	(*DeleteSessionRequest)(nil),    // 24: twr.pitwall.v1.DeleteSessionRequest
+	(*DeleteSessionResponse)(nil),   // 25: twr.pitwall.v1.DeleteSessionResponse
+	(*RestoreSessionRequest)(nil),   // 26: twr.pitwall.v1.RestoreSessionRequest
+	(*RestoreSessionResponse)(nil),  // 27: twr.pitwall.v1.RestoreSessionResponse
 	(*timestamppb.Timestamp)(nil),   // 28: google.protobuf.Timestamp
 }
 var file_twr_pitwall_v1_pitwall_proto_depIdxs = []int32{
@@ -2546,25 +2550,25 @@ var file_twr_pitwall_v1_pitwall_proto_depIdxs = []int32{
 	0,  // 16: twr.pitwall.v1.EngineStatus.activity:type_name -> twr.pitwall.v1.Activity
 	18, // 17: twr.pitwall.v1.EngineStatus.telemetry:type_name -> twr.pitwall.v1.TelemetryLink
 	20, // 18: twr.pitwall.v1.EngineStatus.session:type_name -> twr.pitwall.v1.LiveSession
-	2,  // 19: twr.pitwall.v1.DeleteSessionResponse.session:type_name -> twr.pitwall.v1.Session
-	2,  // 20: twr.pitwall.v1.RestoreSessionResponse.session:type_name -> twr.pitwall.v1.Session
-	21, // 21: twr.pitwall.v1.GetEngineStatusResponse.status:type_name -> twr.pitwall.v1.EngineStatus
+	21, // 19: twr.pitwall.v1.GetEngineStatusResponse.status:type_name -> twr.pitwall.v1.EngineStatus
+	2,  // 20: twr.pitwall.v1.DeleteSessionResponse.session:type_name -> twr.pitwall.v1.Session
+	2,  // 21: twr.pitwall.v1.RestoreSessionResponse.session:type_name -> twr.pitwall.v1.Session
 	8,  // 22: twr.pitwall.v1.PitwallService.ListSessions:input_type -> twr.pitwall.v1.ListSessionsRequest
 	10, // 23: twr.pitwall.v1.PitwallService.GetSession:input_type -> twr.pitwall.v1.GetSessionRequest
 	12, // 24: twr.pitwall.v1.PitwallService.ListLaps:input_type -> twr.pitwall.v1.ListLapsRequest
 	14, // 25: twr.pitwall.v1.PitwallService.GetTrace:input_type -> twr.pitwall.v1.GetTraceRequest
 	16, // 26: twr.pitwall.v1.PitwallService.ListSameTrack:input_type -> twr.pitwall.v1.ListSameTrackRequest
 	22, // 27: twr.pitwall.v1.PitwallService.GetEngineStatus:input_type -> twr.pitwall.v1.GetEngineStatusRequest
-	23, // 28: twr.pitwall.v1.PitwallService.DeleteSession:input_type -> twr.pitwall.v1.DeleteSessionRequest
-	25, // 29: twr.pitwall.v1.PitwallService.RestoreSession:input_type -> twr.pitwall.v1.RestoreSessionRequest
+	24, // 28: twr.pitwall.v1.PitwallService.DeleteSession:input_type -> twr.pitwall.v1.DeleteSessionRequest
+	26, // 29: twr.pitwall.v1.PitwallService.RestoreSession:input_type -> twr.pitwall.v1.RestoreSessionRequest
 	9,  // 30: twr.pitwall.v1.PitwallService.ListSessions:output_type -> twr.pitwall.v1.ListSessionsResponse
 	11, // 31: twr.pitwall.v1.PitwallService.GetSession:output_type -> twr.pitwall.v1.GetSessionResponse
 	13, // 32: twr.pitwall.v1.PitwallService.ListLaps:output_type -> twr.pitwall.v1.ListLapsResponse
 	15, // 33: twr.pitwall.v1.PitwallService.GetTrace:output_type -> twr.pitwall.v1.GetTraceResponse
 	17, // 34: twr.pitwall.v1.PitwallService.ListSameTrack:output_type -> twr.pitwall.v1.ListSameTrackResponse
-	27, // 35: twr.pitwall.v1.PitwallService.GetEngineStatus:output_type -> twr.pitwall.v1.GetEngineStatusResponse
-	24, // 36: twr.pitwall.v1.PitwallService.DeleteSession:output_type -> twr.pitwall.v1.DeleteSessionResponse
-	26, // 37: twr.pitwall.v1.PitwallService.RestoreSession:output_type -> twr.pitwall.v1.RestoreSessionResponse
+	23, // 35: twr.pitwall.v1.PitwallService.GetEngineStatus:output_type -> twr.pitwall.v1.GetEngineStatusResponse
+	25, // 36: twr.pitwall.v1.PitwallService.DeleteSession:output_type -> twr.pitwall.v1.DeleteSessionResponse
+	27, // 37: twr.pitwall.v1.PitwallService.RestoreSession:output_type -> twr.pitwall.v1.RestoreSessionResponse
 	30, // [30:38] is the sub-list for method output_type
 	22, // [22:30] is the sub-list for method input_type
 	22, // [22:22] is the sub-list for extension type_name

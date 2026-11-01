@@ -24,13 +24,17 @@ import "google/protobuf/timestamp.proto";
 // pit wall answers an ETag and a 304 as v1 did (every read but
 // GetEngineStatus, which is never cached). Its two writes, DeleteSession and
 // RestoreSession (ADR 0014 in paddock), have side effects, so Connect serves
-// them as POST, and they are never cached; a write that changes a session
-// changes every read's ETag, the session list's among them. A session or lap
+// them as POST, and they are never cached. A write that changes a session
+// changes the ETags of ListSessions, GetSession, ListLaps and ListSameTrack,
+// which follow the store-wide stamp, so the session list's and the session
+// page's ETags change; GetTrace's, which follows only the lap's frames, does
+// not. A session or lap
 // that does not exist answers Connect's not_found, a bad argument
 // invalid_argument, deleting an open session failed_precondition, and logbook
 // not answering unavailable.
 service PitwallService {
-  // ListSessions is the session list: every session, newest first, filtered,
+  // ListSessions is the session list: every session not deleted, newest
+  // first, filtered,
   // with the values each filter can take and their counts (v1's
   // `GET /api/v1/sessions`).
   rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
@@ -67,8 +71,10 @@ service PitwallService {
   // DeleteSession deletes a closed session, softly (logbook's
   // svc.logbook.sessions.delete): it keeps everything, so RestoreSession
   // brings it back. A deleted session is left out of ListSessions, its
-  // filter values and counts, and ListSameTrack; GetSession, ListLaps and
-  // GetTrace still answer for it, with deleted_at set. Deleting a deleted
+  // filter values and counts, and ListSameTrack; GetSession still answers for
+  // it with deleted_at set, and ListLaps and GetTrace still answer for it. A
+  // later write of the session (a redelivered event, a rerun of the v1
+  // import) keeps deleted_at; only RestoreSession clears it. Deleting a deleted
   // session succeeds and changes nothing. An open session answers
   // failed_precondition, and one that does not exist not_found. v1 had no
   // such route.
@@ -297,8 +303,8 @@ message KindOption {
   int32 count = 3;
 }
 
-// FilterOptions is the values each filter can take, from every session, each
-// with a count (v1's `FilterOptions`).
+// FilterOptions is the values each filter can take, from every session not
+// deleted, each with a count (v1's `FilterOptions`).
 message FilterOptions {
   // The track names, as Session's track.name has them (v1's `track`).
   repeated FilterOption track = 1;
@@ -337,9 +343,10 @@ message ListSessionsRequest {
 message ListSessionsResponse {
   // The sessions that match, newest first (v1's `sessions`).
   repeated Session sessions = 1;
-  // The filter values from every session, not just these (v1's `options`).
+  // The filter values from every session not deleted, not just these (v1's
+  // `options`).
   FilterOptions options = 2;
-  // The sessions in the store (v1's `total`).
+  // The sessions in the store not deleted (v1's `total`).
   int32 total = 3;
   // The sessions that match the filters: the length of sessions (v1's
   // `matched`).
@@ -398,9 +405,12 @@ message ListSameTrackRequest {
 
 // ListSameTrackResponse is the other sessions at the same track (v1's
 // `SameTrack`). Two sessions are at the same track only when the detector
-// was sure of both.
+// was sure of both. Deleted sessions are left out; a session asked for that
+// is itself deleted is answered as usual, its other sessions without the
+// deleted ones.
 message ListSameTrackResponse {
-  // The other sessions at the same track, newest first (v1's `sessions`).
+  // The other sessions at the same track not deleted, newest first (v1's
+  // `sessions`).
   repeated Session sessions = 1;
 }
 
@@ -501,6 +511,12 @@ message EngineStatus {
 // GetEngineStatusRequest asks for the engineer's status. It has no fields.
 message GetEngineStatusRequest {}
 
+// GetEngineStatusResponse is the engineer's status.
+message GetEngineStatusResponse {
+  // The status (v1's body was the EngineStatus itself).
+  EngineStatus status = 1;
+}
+
 // DeleteSessionRequest names the session to delete.
 message DeleteSessionRequest {
   // The session id, such as "20261017-162118".
@@ -523,10 +539,4 @@ message RestoreSessionRequest {
 message RestoreSessionResponse {
   // The session, its deleted_at absent.
   Session session = 1;
-}
-
-// GetEngineStatusResponse is the engineer's status.
-message GetEngineStatusResponse {
-  // The status (v1's body was the EngineStatus itself).
-  EngineStatus status = 1;
 }

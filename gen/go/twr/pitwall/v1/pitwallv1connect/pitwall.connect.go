@@ -129,7 +129,8 @@ var (
 
 // PitwallServiceClient is a client for the twr.pitwall.v1.PitwallService service.
 type PitwallServiceClient interface {
-	// ListSessions is the session list: every session, newest first, filtered,
+	// ListSessions is the session list: every session not deleted, newest
+	// first, filtered,
 	// with the values each filter can take and their counts (v1's
 	// `GET /api/v1/sessions`).
 	ListSessions(context.Context, *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error)
@@ -154,8 +155,10 @@ type PitwallServiceClient interface {
 	// DeleteSession deletes a closed session, softly (logbook's
 	// svc.logbook.sessions.delete): it keeps everything, so RestoreSession
 	// brings it back. A deleted session is left out of ListSessions, its
-	// filter values and counts, and ListSameTrack; GetSession, ListLaps and
-	// GetTrace still answer for it, with deleted_at set. Deleting a deleted
+	// filter values and counts, and ListSameTrack; GetSession still answers for
+	// it with deleted_at set, and ListLaps and GetTrace still answer for it. A
+	// later write of the session (a redelivered event, a rerun of the v1
+	// import) keeps deleted_at; only RestoreSession clears it. Deleting a deleted
 	// session succeeds and changes nothing. An open session answers
 	// failed_precondition, and one that does not exist not_found. v1 had no
 	// such route.
@@ -176,7 +179,8 @@ func NewPitwallServiceClient(client *connect.Client) PitwallServiceClient {
 
 // PitwallServiceHandler is an implementation of the twr.pitwall.v1.PitwallService service.
 type PitwallServiceHandler interface {
-	// ListSessions is the session list: every session, newest first, filtered,
+	// ListSessions is the session list: every session not deleted, newest
+	// first, filtered,
 	// with the values each filter can take and their counts (v1's
 	// `GET /api/v1/sessions`).
 	ListSessions(context.Context, *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error)
@@ -201,8 +205,10 @@ type PitwallServiceHandler interface {
 	// DeleteSession deletes a closed session, softly (logbook's
 	// svc.logbook.sessions.delete): it keeps everything, so RestoreSession
 	// brings it back. A deleted session is left out of ListSessions, its
-	// filter values and counts, and ListSameTrack; GetSession, ListLaps and
-	// GetTrace still answer for it, with deleted_at set. Deleting a deleted
+	// filter values and counts, and ListSameTrack; GetSession still answers for
+	// it with deleted_at set, and ListLaps and GetTrace still answer for it. A
+	// later write of the session (a redelivered event, a rerun of the v1
+	// import) keeps deleted_at; only RestoreSession clears it. Deleting a deleted
 	// session succeeds and changes nothing. An open session answers
 	// failed_precondition, and one that does not exist not_found. v1 had no
 	// such route.

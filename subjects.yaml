@@ -479,7 +479,7 @@ services:
     response: twr.store.v1.DeleteSessionResponse
     content_type: application/json
     callers: [pitwall]
-    description: Deletes a closed session, softly, setting its deleted_at and keeping its rows and lap files; deleting it again changes nothing, an open session is 409 and one no source has 404.
+    description: Deletes a closed session, softly, setting its deleted_at and keeping its rows and lap files; a later write of the session (a redelivered event, a rerun of the v1 import) keeps deleted_at, which only svc.logbook.sessions.restore clears; deleting it again changes nothing, an open session is 409 and one no source has 404.
   - subject: svc.logbook.sessions.restore
     service: logbook
     request: twr.store.v1.RestoreSessionRequest

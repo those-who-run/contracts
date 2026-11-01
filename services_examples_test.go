@@ -153,6 +153,9 @@ func serviceExamples() []struct {
 		{"store/v1/delete_session_response.json", &storev1.DeleteSessionResponse{
 			Session: deletedRow, DataVersion: "5:1830",
 		}},
+		{"store/v1/restore_session_request.json", &storev1.RestoreSessionRequest{
+			Sources: []string{"live", "v1-import"}, SessionId: suzukaSID,
+		}},
 		{"store/v1/restore_session_response.json", &storev1.RestoreSessionResponse{
 			Session: row, DataVersion: "5:1831",
 		}},
