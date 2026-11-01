@@ -5,7 +5,9 @@
 // source: twr/store/v1/store.proto
 
 // The store: what logbook answers on its NATS micro services
-// (svc.logbook.*, ADR 0003 point 1; paddock#122 and #123), near what it keeps.
+// (svc.logbook.*, ADR 0003 point 1; paddock#122 and #123), near what it keeps,
+// and the two writes the pit wall asks of it, deleting a session and restoring
+// it (ADR 0014 in paddock).
 // A session is its row with ecu's own SessionSummary, and a lap its
 // LapCompleted with what logbook counted from its frames: logbook stays dumb
 // and decides nothing, and a reader, such as the pit wall, maps these to its
@@ -16,14 +18,16 @@
 // (ADR 0002, point 2), with no CloudEvents headers: a request and its reply are
 // not events. An error is NATS micro's error headers, Nats-Service-Error-Code
 // and Nats-Service-Error: 400 for a bad request, 404 for a session or lap that
-// does not exist, 500 for logbook's own failure. A read on an empty store
+// does not exist, 409 for a write the session's state refuses (deleting an
+// open session), 500 for logbook's own failure. A read on an empty store
 // answers an empty list, not an error.
 //
 // Every request names the sources to look in; none is a bad request (400).
-// Every response carries a data_version, and a request may carry the one its
+// Every response carries a data_version, and a read may carry the one its
 // caller already has, known_data_version: when it is still current, logbook
 // answers unchanged with no other field, so a poll every 5 s costs next to
-// nothing. A list comes in pages logbook caps, so no reply nears NATS's
+// nothing. A write that changes a session changes the store's data_version,
+// so every read's stamp, and the pit wall's ETags, change with it. A list comes in pages logbook caps, so no reply nears NATS's
 // payload limit: limit 0 is 200, and at most 500 (more is a 400). The caller
 // asks again from offset plus what it got until that reaches matched; a page
 // whose data_version is not the first page's means the data changed between
@@ -96,7 +100,14 @@ type SessionRow struct {
 	// rows, its summary.json and index, rather than re-derived by replaying its
 	// frames through ecu's packages: true from the rows, false re-derived.
 	// Absent for a session v2 saw itself.
-	FromV1Rows    *bool `protobuf:"varint,8,opt,name=from_v1_rows,json=fromV1Rows,proto3,oneof" json:"from_v1_rows,omitempty"`
+	FromV1Rows *bool `protobuf:"varint,8,opt,name=from_v1_rows,json=fromV1Rows,proto3,oneof" json:"from_v1_rows,omitempty"`
+	// When the session was deleted (svc.logbook.sessions.delete): a soft
+	// delete, which keeps every row and lap file, so a restore brings it back.
+	// Absent for a session that is not deleted, or was restored. A deleted
+	// session is left out of svc.logbook.sessions.list, with its filter values
+	// and counts, and out of svc.logbook.sessions.same_track; sessions.get,
+	// laps.list and laps.trace still answer for it, with this set.
+	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -185,6 +196,13 @@ func (x *SessionRow) GetFromV1Rows() bool {
 		return *x.FromV1Rows
 	}
 	return false
+}
+
+func (x *SessionRow) GetDeletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DeletedAt
+	}
+	return nil
 }
 
 // LapRow is one lap as logbook keeps it.
@@ -1390,11 +1408,244 @@ func (x *ListSameTrackResponse) GetUnchanged() bool {
 	return false
 }
 
+// DeleteSessionRequest asks logbook to delete one session
+// (svc.logbook.sessions.delete): a soft delete, which sets the row's
+// deleted_at and keeps every row and lap file. Deleting a session already
+// deleted succeeds and changes nothing, its deleted_at kept. An open session
+// (not closed) cannot be deleted: 409. A session no source has answers 404.
+type DeleteSessionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The sources to look in, as GetSessionRequest's: at least one.
+	Sources []string `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
+	// The session's id. The first of sources, in their order, that has it is
+	// the one deleted, as GetSessionRequest's; none answers 404.
+	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSessionRequest) Reset() {
+	*x = DeleteSessionRequest{}
+	mi := &file_twr_store_v1_store_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSessionRequest) ProtoMessage() {}
+
+func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_store_v1_store_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSessionRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSessionRequest) Descriptor() ([]byte, []int) {
+	return file_twr_store_v1_store_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DeleteSessionRequest) GetSources() []string {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
+func (x *DeleteSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// DeleteSessionResponse is the session, deleted.
+type DeleteSessionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session, its deleted_at set.
+	Session *SessionRow `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	// A stamp of the whole store, as ListSessionsResponse's, after the delete:
+	// a new one when the delete changed the session, the same one when it was
+	// already deleted.
+	DataVersion   string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSessionResponse) Reset() {
+	*x = DeleteSessionResponse{}
+	mi := &file_twr_store_v1_store_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSessionResponse) ProtoMessage() {}
+
+func (x *DeleteSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_store_v1_store_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSessionResponse.ProtoReflect.Descriptor instead.
+func (*DeleteSessionResponse) Descriptor() ([]byte, []int) {
+	return file_twr_store_v1_store_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *DeleteSessionResponse) GetSession() *SessionRow {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+func (x *DeleteSessionResponse) GetDataVersion() string {
+	if x != nil {
+		return x.DataVersion
+	}
+	return ""
+}
+
+// RestoreSessionRequest asks logbook to restore one deleted session
+// (svc.logbook.sessions.restore): it clears the row's deleted_at, so the
+// session is listed again. Restoring a session that is not deleted succeeds
+// and changes nothing. A session no source has answers 404.
+type RestoreSessionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The sources to look in, as GetSessionRequest's: at least one.
+	Sources []string `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
+	// The session's id. The first of sources, in their order, that has it is
+	// the one restored, as GetSessionRequest's; none answers 404.
+	SessionId     string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreSessionRequest) Reset() {
+	*x = RestoreSessionRequest{}
+	mi := &file_twr_store_v1_store_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreSessionRequest) ProtoMessage() {}
+
+func (x *RestoreSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_store_v1_store_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreSessionRequest.ProtoReflect.Descriptor instead.
+func (*RestoreSessionRequest) Descriptor() ([]byte, []int) {
+	return file_twr_store_v1_store_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *RestoreSessionRequest) GetSources() []string {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
+func (x *RestoreSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+// RestoreSessionResponse is the session, restored.
+type RestoreSessionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session, its deleted_at absent.
+	Session *SessionRow `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	// A stamp of the whole store, as ListSessionsResponse's, after the
+	// restore: a new one when the restore changed the session, the same one
+	// when it was not deleted.
+	DataVersion   string `protobuf:"bytes,2,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreSessionResponse) Reset() {
+	*x = RestoreSessionResponse{}
+	mi := &file_twr_store_v1_store_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreSessionResponse) ProtoMessage() {}
+
+func (x *RestoreSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_twr_store_v1_store_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreSessionResponse.ProtoReflect.Descriptor instead.
+func (*RestoreSessionResponse) Descriptor() ([]byte, []int) {
+	return file_twr_store_v1_store_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RestoreSessionResponse) GetSession() *SessionRow {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+func (x *RestoreSessionResponse) GetDataVersion() string {
+	if x != nil {
+		return x.DataVersion
+	}
+	return ""
+}
+
 var File_twr_store_v1_store_proto protoreflect.FileDescriptor
 
 const file_twr_store_v1_store_proto_rawDesc = "" +
 	"\n" +
-	"\x18twr/store/v1/store.proto\x12\ftwr.store.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x1btwr/events/v1/session.proto\"\xf4\x02\n" +
+	"\x18twr/store/v1/store.proto\x12\ftwr.store.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17twr/events/v1/lap.proto\x1a\x1btwr/events/v1/session.proto\"\xaf\x03\n" +
 	"\n" +
 	"SessionRow\x12\x1d\n" +
 	"\n" +
@@ -1407,7 +1658,9 @@ const file_twr_store_v1_store_proto_rawDesc = "" +
 	"\x0ecard_posted_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fcardPostedAt\x12\x1e\n" +
 	"\blast_lap\x18\a \x01(\x05H\x00R\alastLap\x88\x01\x01\x12%\n" +
 	"\ffrom_v1_rows\x18\b \x01(\bH\x01R\n" +
-	"fromV1Rows\x88\x01\x01B\v\n" +
+	"fromV1Rows\x88\x01\x01\x129\n" +
+	"\n" +
+	"deleted_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAtB\v\n" +
 	"\t_last_lapB\x0f\n" +
 	"\r_from_v1_rows\"\x8a\x01\n" +
 	"\x06LapRow\x12-\n" +
@@ -1506,7 +1759,21 @@ const file_twr_store_v1_store_proto_rawDesc = "" +
 	"\bsessions\x18\x01 \x03(\v2\x18.twr.store.v1.SessionRowR\bsessions\x12!\n" +
 	"\fdata_version\x18\x02 \x01(\tR\vdataVersion\x12\x18\n" +
 	"\amatched\x18\x03 \x01(\x05R\amatched\x12\x1c\n" +
-	"\tunchanged\x18\x04 \x01(\bR\tunchangedB\xb0\x01\n" +
+	"\tunchanged\x18\x04 \x01(\bR\tunchanged\"O\n" +
+	"\x14DeleteSessionRequest\x12\x18\n" +
+	"\asources\x18\x01 \x03(\tR\asources\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"n\n" +
+	"\x15DeleteSessionResponse\x122\n" +
+	"\asession\x18\x01 \x01(\v2\x18.twr.store.v1.SessionRowR\asession\x12!\n" +
+	"\fdata_version\x18\x02 \x01(\tR\vdataVersion\"P\n" +
+	"\x15RestoreSessionRequest\x12\x18\n" +
+	"\asources\x18\x01 \x03(\tR\asources\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"o\n" +
+	"\x16RestoreSessionResponse\x122\n" +
+	"\asession\x18\x01 \x01(\v2\x18.twr.store.v1.SessionRowR\asession\x12!\n" +
+	"\fdata_version\x18\x02 \x01(\tR\vdataVersionB\xb0\x01\n" +
 	"\x10com.twr.store.v1B\n" +
 	"StoreProtoP\x01Z>github.com/those-who-run/contracts/gen/go/twr/store/v1;storev1\xa2\x02\x03TSX\xaa\x02\fTwr.Store.V1\xca\x02\fTwr\\Store\\V1\xe2\x02\x18Twr\\Store\\V1\\GPBMetadata\xea\x02\x0eTwr::Store::V1b\x06proto3"
 
@@ -1522,52 +1789,59 @@ func file_twr_store_v1_store_proto_rawDescGZIP() []byte {
 	return file_twr_store_v1_store_proto_rawDescData
 }
 
-var file_twr_store_v1_store_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_twr_store_v1_store_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_twr_store_v1_store_proto_goTypes = []any{
-	(*SessionRow)(nil),            // 0: twr.store.v1.SessionRow
-	(*LapRow)(nil),                // 1: twr.store.v1.LapRow
-	(*LapTrace)(nil),              // 2: twr.store.v1.LapTrace
-	(*ValueCount)(nil),            // 3: twr.store.v1.ValueCount
-	(*KindCount)(nil),             // 4: twr.store.v1.KindCount
-	(*FilterCounts)(nil),          // 5: twr.store.v1.FilterCounts
-	(*ListSessionsRequest)(nil),   // 6: twr.store.v1.ListSessionsRequest
-	(*ListSessionsResponse)(nil),  // 7: twr.store.v1.ListSessionsResponse
-	(*GetSessionRequest)(nil),     // 8: twr.store.v1.GetSessionRequest
-	(*GetSessionResponse)(nil),    // 9: twr.store.v1.GetSessionResponse
-	(*ListLapsRequest)(nil),       // 10: twr.store.v1.ListLapsRequest
-	(*ListLapsResponse)(nil),      // 11: twr.store.v1.ListLapsResponse
-	(*GetTraceRequest)(nil),       // 12: twr.store.v1.GetTraceRequest
-	(*GetTraceResponse)(nil),      // 13: twr.store.v1.GetTraceResponse
-	(*ListSameTrackRequest)(nil),  // 14: twr.store.v1.ListSameTrackRequest
-	(*ListSameTrackResponse)(nil), // 15: twr.store.v1.ListSameTrackResponse
-	(v1.EndReason)(0),             // 16: twr.events.v1.EndReason
-	(*v1.SessionSummary)(nil),     // 17: twr.events.v1.SessionSummary
-	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
-	(*v1.LapCompleted)(nil),       // 19: twr.events.v1.LapCompleted
-	(v1.SessionType)(0),           // 20: twr.events.v1.SessionType
+	(*SessionRow)(nil),             // 0: twr.store.v1.SessionRow
+	(*LapRow)(nil),                 // 1: twr.store.v1.LapRow
+	(*LapTrace)(nil),               // 2: twr.store.v1.LapTrace
+	(*ValueCount)(nil),             // 3: twr.store.v1.ValueCount
+	(*KindCount)(nil),              // 4: twr.store.v1.KindCount
+	(*FilterCounts)(nil),           // 5: twr.store.v1.FilterCounts
+	(*ListSessionsRequest)(nil),    // 6: twr.store.v1.ListSessionsRequest
+	(*ListSessionsResponse)(nil),   // 7: twr.store.v1.ListSessionsResponse
+	(*GetSessionRequest)(nil),      // 8: twr.store.v1.GetSessionRequest
+	(*GetSessionResponse)(nil),     // 9: twr.store.v1.GetSessionResponse
+	(*ListLapsRequest)(nil),        // 10: twr.store.v1.ListLapsRequest
+	(*ListLapsResponse)(nil),       // 11: twr.store.v1.ListLapsResponse
+	(*GetTraceRequest)(nil),        // 12: twr.store.v1.GetTraceRequest
+	(*GetTraceResponse)(nil),       // 13: twr.store.v1.GetTraceResponse
+	(*ListSameTrackRequest)(nil),   // 14: twr.store.v1.ListSameTrackRequest
+	(*ListSameTrackResponse)(nil),  // 15: twr.store.v1.ListSameTrackResponse
+	(*DeleteSessionRequest)(nil),   // 16: twr.store.v1.DeleteSessionRequest
+	(*DeleteSessionResponse)(nil),  // 17: twr.store.v1.DeleteSessionResponse
+	(*RestoreSessionRequest)(nil),  // 18: twr.store.v1.RestoreSessionRequest
+	(*RestoreSessionResponse)(nil), // 19: twr.store.v1.RestoreSessionResponse
+	(v1.EndReason)(0),              // 20: twr.events.v1.EndReason
+	(*v1.SessionSummary)(nil),      // 21: twr.events.v1.SessionSummary
+	(*timestamppb.Timestamp)(nil),  // 22: google.protobuf.Timestamp
+	(*v1.LapCompleted)(nil),        // 23: twr.events.v1.LapCompleted
+	(v1.SessionType)(0),            // 24: twr.events.v1.SessionType
 }
 var file_twr_store_v1_store_proto_depIdxs = []int32{
-	16, // 0: twr.store.v1.SessionRow.end_reason:type_name -> twr.events.v1.EndReason
-	17, // 1: twr.store.v1.SessionRow.summary:type_name -> twr.events.v1.SessionSummary
-	18, // 2: twr.store.v1.SessionRow.card_posted_at:type_name -> google.protobuf.Timestamp
-	19, // 3: twr.store.v1.LapRow.lap:type_name -> twr.events.v1.LapCompleted
-	20, // 4: twr.store.v1.KindCount.session_type:type_name -> twr.events.v1.SessionType
-	3,  // 5: twr.store.v1.FilterCounts.track:type_name -> twr.store.v1.ValueCount
-	3,  // 6: twr.store.v1.FilterCounts.car:type_name -> twr.store.v1.ValueCount
-	4,  // 7: twr.store.v1.FilterCounts.kind:type_name -> twr.store.v1.KindCount
-	20, // 8: twr.store.v1.ListSessionsRequest.session_type:type_name -> twr.events.v1.SessionType
-	0,  // 9: twr.store.v1.ListSessionsResponse.sessions:type_name -> twr.store.v1.SessionRow
-	5,  // 10: twr.store.v1.ListSessionsResponse.options:type_name -> twr.store.v1.FilterCounts
-	0,  // 11: twr.store.v1.GetSessionResponse.session:type_name -> twr.store.v1.SessionRow
-	0,  // 12: twr.store.v1.ListLapsResponse.session:type_name -> twr.store.v1.SessionRow
-	1,  // 13: twr.store.v1.ListLapsResponse.laps:type_name -> twr.store.v1.LapRow
-	2,  // 14: twr.store.v1.GetTraceResponse.trace:type_name -> twr.store.v1.LapTrace
-	0,  // 15: twr.store.v1.ListSameTrackResponse.sessions:type_name -> twr.store.v1.SessionRow
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	20, // 0: twr.store.v1.SessionRow.end_reason:type_name -> twr.events.v1.EndReason
+	21, // 1: twr.store.v1.SessionRow.summary:type_name -> twr.events.v1.SessionSummary
+	22, // 2: twr.store.v1.SessionRow.card_posted_at:type_name -> google.protobuf.Timestamp
+	22, // 3: twr.store.v1.SessionRow.deleted_at:type_name -> google.protobuf.Timestamp
+	23, // 4: twr.store.v1.LapRow.lap:type_name -> twr.events.v1.LapCompleted
+	24, // 5: twr.store.v1.KindCount.session_type:type_name -> twr.events.v1.SessionType
+	3,  // 6: twr.store.v1.FilterCounts.track:type_name -> twr.store.v1.ValueCount
+	3,  // 7: twr.store.v1.FilterCounts.car:type_name -> twr.store.v1.ValueCount
+	4,  // 8: twr.store.v1.FilterCounts.kind:type_name -> twr.store.v1.KindCount
+	24, // 9: twr.store.v1.ListSessionsRequest.session_type:type_name -> twr.events.v1.SessionType
+	0,  // 10: twr.store.v1.ListSessionsResponse.sessions:type_name -> twr.store.v1.SessionRow
+	5,  // 11: twr.store.v1.ListSessionsResponse.options:type_name -> twr.store.v1.FilterCounts
+	0,  // 12: twr.store.v1.GetSessionResponse.session:type_name -> twr.store.v1.SessionRow
+	0,  // 13: twr.store.v1.ListLapsResponse.session:type_name -> twr.store.v1.SessionRow
+	1,  // 14: twr.store.v1.ListLapsResponse.laps:type_name -> twr.store.v1.LapRow
+	2,  // 15: twr.store.v1.GetTraceResponse.trace:type_name -> twr.store.v1.LapTrace
+	0,  // 16: twr.store.v1.ListSameTrackResponse.sessions:type_name -> twr.store.v1.SessionRow
+	0,  // 17: twr.store.v1.DeleteSessionResponse.session:type_name -> twr.store.v1.SessionRow
+	0,  // 18: twr.store.v1.RestoreSessionResponse.session:type_name -> twr.store.v1.SessionRow
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_twr_store_v1_store_proto_init() }
@@ -1588,7 +1862,7 @@ func file_twr_store_v1_store_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_twr_store_v1_store_proto_rawDesc), len(file_twr_store_v1_store_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

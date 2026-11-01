@@ -12,7 +12,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class SessionRow(_message.Message):
-    __slots__ = ("session_id", "source", "closed", "end_reason", "summary", "card_posted_at", "last_lap", "from_v1_rows")
+    __slots__ = ("session_id", "source", "closed", "end_reason", "summary", "card_posted_at", "last_lap", "from_v1_rows", "deleted_at")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FIELD_NUMBER: _ClassVar[int]
     CLOSED_FIELD_NUMBER: _ClassVar[int]
@@ -21,6 +21,7 @@ class SessionRow(_message.Message):
     CARD_POSTED_AT_FIELD_NUMBER: _ClassVar[int]
     LAST_LAP_FIELD_NUMBER: _ClassVar[int]
     FROM_V1_ROWS_FIELD_NUMBER: _ClassVar[int]
+    DELETED_AT_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     source: str
     closed: bool
@@ -29,7 +30,8 @@ class SessionRow(_message.Message):
     card_posted_at: _timestamp_pb2.Timestamp
     last_lap: int
     from_v1_rows: bool
-    def __init__(self, session_id: _Optional[str] = ..., source: _Optional[str] = ..., closed: _Optional[bool] = ..., end_reason: _Optional[_Union[_session_pb2.EndReason, str]] = ..., summary: _Optional[_Union[_session_pb2.SessionSummary, _Mapping]] = ..., card_posted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_lap: _Optional[int] = ..., from_v1_rows: _Optional[bool] = ...) -> None: ...
+    deleted_at: _timestamp_pb2.Timestamp
+    def __init__(self, session_id: _Optional[str] = ..., source: _Optional[str] = ..., closed: _Optional[bool] = ..., end_reason: _Optional[_Union[_session_pb2.EndReason, str]] = ..., summary: _Optional[_Union[_session_pb2.SessionSummary, _Mapping]] = ..., card_posted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_lap: _Optional[int] = ..., from_v1_rows: _Optional[bool] = ..., deleted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class LapRow(_message.Message):
     __slots__ = ("lap", "frames", "top_speed_kph")
@@ -222,3 +224,35 @@ class ListSameTrackResponse(_message.Message):
     matched: int
     unchanged: bool
     def __init__(self, sessions: _Optional[_Iterable[_Union[SessionRow, _Mapping]]] = ..., data_version: _Optional[str] = ..., matched: _Optional[int] = ..., unchanged: _Optional[bool] = ...) -> None: ...
+
+class DeleteSessionRequest(_message.Message):
+    __slots__ = ("sources", "session_id")
+    SOURCES_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    sources: _containers.RepeatedScalarFieldContainer[str]
+    session_id: str
+    def __init__(self, sources: _Optional[_Iterable[str]] = ..., session_id: _Optional[str] = ...) -> None: ...
+
+class DeleteSessionResponse(_message.Message):
+    __slots__ = ("session", "data_version")
+    SESSION_FIELD_NUMBER: _ClassVar[int]
+    DATA_VERSION_FIELD_NUMBER: _ClassVar[int]
+    session: SessionRow
+    data_version: str
+    def __init__(self, session: _Optional[_Union[SessionRow, _Mapping]] = ..., data_version: _Optional[str] = ...) -> None: ...
+
+class RestoreSessionRequest(_message.Message):
+    __slots__ = ("sources", "session_id")
+    SOURCES_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    sources: _containers.RepeatedScalarFieldContainer[str]
+    session_id: str
+    def __init__(self, sources: _Optional[_Iterable[str]] = ..., session_id: _Optional[str] = ...) -> None: ...
+
+class RestoreSessionResponse(_message.Message):
+    __slots__ = ("session", "data_version")
+    SESSION_FIELD_NUMBER: _ClassVar[int]
+    DATA_VERSION_FIELD_NUMBER: _ClassVar[int]
+    session: SessionRow
+    data_version: str
+    def __init__(self, session: _Optional[_Union[SessionRow, _Mapping]] = ..., data_version: _Optional[str] = ...) -> None: ...

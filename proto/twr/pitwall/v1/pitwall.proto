@@ -19,12 +19,16 @@ package twr.pitwall.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// PitwallService is the pit wall's read-only API. Every method has no side
-// effects, so Connect serves it as GET, with the request in the query string,
-// and the pit wall answers an ETag and a 304 as v1 did (every method but
-// GetEngineStatus, which is never cached). A session or lap that does not
-// exist answers Connect's not_found, a bad argument invalid_argument, and
-// logbook not answering unavailable.
+// PitwallService is the pit wall's API. Its reads have no side effects, so
+// Connect serves them as GET, with the request in the query string, and the
+// pit wall answers an ETag and a 304 as v1 did (every read but
+// GetEngineStatus, which is never cached). Its two writes, DeleteSession and
+// RestoreSession (ADR 0014 in paddock), have side effects, so Connect serves
+// them as POST, and they are never cached; a write that changes a session
+// changes every read's ETag, the session list's among them. A session or lap
+// that does not exist answers Connect's not_found, a bad argument
+// invalid_argument, deleting an open session failed_precondition, and logbook
+// not answering unavailable.
 service PitwallService {
   // ListSessions is the session list: every session, newest first, filtered,
   // with the values each filter can take and their counts (v1's
@@ -60,6 +64,21 @@ service PitwallService {
   rpc GetEngineStatus(GetEngineStatusRequest) returns (GetEngineStatusResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // DeleteSession deletes a closed session, softly (logbook's
+  // svc.logbook.sessions.delete): it keeps everything, so RestoreSession
+  // brings it back. A deleted session is left out of ListSessions, its
+  // filter values and counts, and ListSameTrack; GetSession, ListLaps and
+  // GetTrace still answer for it, with deleted_at set. Deleting a deleted
+  // session succeeds and changes nothing. An open session answers
+  // failed_precondition, and one that does not exist not_found. v1 had no
+  // such route.
+  rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse);
+  // RestoreSession brings a deleted session back (logbook's
+  // svc.logbook.sessions.restore): it clears deleted_at, so the session is
+  // listed again. Restoring a session that is not deleted succeeds and
+  // changes nothing; one that does not exist answers not_found. v1 had no
+  // such route.
+  rpc RestoreSession(RestoreSessionRequest) returns (RestoreSessionResponse);
 }
 
 // Track is the track as the detector placed it (v1's `Track`).
@@ -171,6 +190,11 @@ message Session {
   // frames through ecu's packages: true from the rows, false re-derived.
   // Absent for a session v2 saw itself. v1 had no such value.
   optional bool from_v1_rows = 32;
+  // When the session was deleted (DeleteSession); absent for a session that
+  // is not deleted, or was restored. Only GetSession, and DeleteSession's
+  // and RestoreSession's responses, can carry it: ListSessions and
+  // ListSameTrack leave a deleted session out. v1 had no such value.
+  google.protobuf.Timestamp deleted_at = 33;
 }
 
 // LapRow is one lap in the lap table (v1's `LapRow`).
@@ -476,6 +500,30 @@ message EngineStatus {
 
 // GetEngineStatusRequest asks for the engineer's status. It has no fields.
 message GetEngineStatusRequest {}
+
+// DeleteSessionRequest names the session to delete.
+message DeleteSessionRequest {
+  // The session id, such as "20261017-162118".
+  string session_id = 1;
+}
+
+// DeleteSessionResponse is the session, deleted.
+message DeleteSessionResponse {
+  // The session, its deleted_at set.
+  Session session = 1;
+}
+
+// RestoreSessionRequest names the deleted session to restore.
+message RestoreSessionRequest {
+  // The session id, such as "20261017-162118".
+  string session_id = 1;
+}
+
+// RestoreSessionResponse is the session, restored.
+message RestoreSessionResponse {
+  // The session, its deleted_at absent.
+  Session session = 1;
+}
 
 // GetEngineStatusResponse is the engineer's status.
 message GetEngineStatusResponse {

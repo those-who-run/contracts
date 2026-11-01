@@ -610,9 +610,10 @@ func TestAgreesSkipsKVAndRepeats(t *testing.T) {
 	}
 }
 
-// The services (paddock#121): logbook's five queries, each a NATS micro
-// endpoint with its request and response, pass every check, and every
-// store-package message is a request, a response or a helper.
+// The services (paddock#121): logbook's five queries and its two writes
+// (ADR 0014), each a NATS micro endpoint with its request and response, pass
+// every check, and every store-package message is a request, a response or a
+// helper.
 func TestServices(t *testing.T) {
 	c := load(t, repo, subjects)
 	var got []string
@@ -622,6 +623,7 @@ func TestServices(t *testing.T) {
 	want := []string{
 		"svc.logbook.sessions.list", "svc.logbook.sessions.get", "svc.logbook.laps.list",
 		"svc.logbook.laps.trace", "svc.logbook.sessions.same_track",
+		"svc.logbook.sessions.delete", "svc.logbook.sessions.restore",
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("services are %v, want %v", got, want)

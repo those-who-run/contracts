@@ -75,6 +75,8 @@ headers, `Nats-Service-Error-Code` and `Nats-Service-Error`.
 | `svc.logbook.laps.list` | logbook | `twr.store.v1.ListLapsRequest` | `twr.store.v1.ListLapsResponse` | pitwall |
 | `svc.logbook.laps.trace` | logbook | `twr.store.v1.GetTraceRequest` | `twr.store.v1.GetTraceResponse` | pitwall |
 | `svc.logbook.sessions.same_track` | logbook | `twr.store.v1.ListSameTrackRequest` | `twr.store.v1.ListSameTrackResponse` | pitwall |
+| `svc.logbook.sessions.delete` | logbook | `twr.store.v1.DeleteSessionRequest` | `twr.store.v1.DeleteSessionResponse` | pitwall |
+| `svc.logbook.sessions.restore` | logbook | `twr.store.v1.RestoreSessionRequest` | `twr.store.v1.RestoreSessionResponse` | pitwall |
 
 ## What each one is
 
@@ -117,6 +119,8 @@ headers, `Nats-Service-Error-Code` and `Nats-Service-Error`.
 - `svc.logbook.laps.list`: A session's laps in order, each with its frame count and top speed, and the session they belong to.
 - `svc.logbook.laps.trace`: One lap's trace, thinned keeping peaks and both frames either side of a jump in position; 404 for a lap or lap file that does not exist.
 - `svc.logbook.sessions.same_track`: The other sessions at a session's track, newest first, where the detector was sure of both.
+- `svc.logbook.sessions.delete`: Deletes a closed session, softly, setting its deleted_at and keeping its rows and lap files; deleting it again changes nothing, an open session is 409 and one no source has 404.
+- `svc.logbook.sessions.restore`: Restores a deleted session, clearing its deleted_at so it is listed again; restoring one not deleted changes nothing, and one no source has is 404.
 
 Parts of an event, a value, a request or a response, not one themselves, so they have no subject, key or service: `twr.events.v1.CalloutSlots`, `twr.events.v1.PitStop`, `twr.events.v1.SessionGap`, `twr.events.v1.SessionKind`, `twr.events.v1.SessionSummary`, `twr.events.v1.TrackCandidate`, `twr.events.v1.TrackVerdict`, `twr.events.v1.TyreTemp`, `twr.state.v1.LiveTrack`, `twr.state.v1.OpenLap`, `twr.store.v1.FilterCounts`, `twr.store.v1.KindCount`, `twr.store.v1.LapRow`, `twr.store.v1.LapTrace`, `twr.store.v1.SessionRow`, `twr.store.v1.ValueCount`.
 

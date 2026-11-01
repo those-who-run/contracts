@@ -82,24 +82,29 @@ var pitwallNowOptional = map[string]string{
 
 // The fields here with no v1 field, each with why.
 var pitwallNew = map[string]string{
-	"Session.card_posted_at":          "when the results card was posted, from card.posted (paddock#122's triage)",
-	"Session.from_v1_rows":            "whether an imported session came from v1's rows or was re-derived (ADR 0009)",
-	"GetSessionResponse.session":      "a method's response is its own message (buf's STANDARD lint); v1's body was the Session",
-	"GetTraceResponse.trace":          "a method's response is its own message; v1's body was the Trace",
-	"GetEngineStatusResponse.status":  "a method's response is its own message; v1's body was the EngineStatus",
-	"ListSessionsRequest.track":       "v1's track query parameter",
-	"ListSessionsRequest.car":         "v1's car query parameter",
-	"ListSessionsRequest.kind":        "v1's kind query parameter",
-	"ListSessionsRequest.from_day":    "v1's from query parameter, renamed: from is a keyword in Python",
-	"ListSessionsRequest.to_day":      "v1's to query parameter, renamed as from_day",
-	"ListSessionsRequest.time_zone":   "v1's tz query parameter",
-	"GetSessionRequest.session_id":    "v1's id path parameter",
-	"ListLapsRequest.session_id":      "v1's id path parameter",
-	"GetTraceRequest.session_id":      "v1's id path parameter",
-	"GetTraceRequest.lap":             "v1's lap path parameter",
-	"GetTraceRequest.points":          "v1's points query parameter",
-	"ListSameTrackRequest.session_id": "v1's id path parameter",
-	"Activity.ACTIVITY_OFFLINE":       "the engineer cannot be reached: v1's proxy answered 502, and the web app called it offline",
+	"Session.card_posted_at":           "when the results card was posted, from card.posted (paddock#122's triage)",
+	"Session.from_v1_rows":             "whether an imported session came from v1's rows or was re-derived (ADR 0009)",
+	"Session.deleted_at":               "when the session was deleted, soft and restorable (ADR 0014)",
+	"DeleteSessionRequest.session_id":  "DeleteSession's, a write v1 did not have (ADR 0014)",
+	"DeleteSessionResponse.session":    "DeleteSession's, the session deleted",
+	"RestoreSessionRequest.session_id": "RestoreSession's, a write v1 did not have (ADR 0014)",
+	"RestoreSessionResponse.session":   "RestoreSession's, the session restored",
+	"GetSessionResponse.session":       "a method's response is its own message (buf's STANDARD lint); v1's body was the Session",
+	"GetTraceResponse.trace":           "a method's response is its own message; v1's body was the Trace",
+	"GetEngineStatusResponse.status":   "a method's response is its own message; v1's body was the EngineStatus",
+	"ListSessionsRequest.track":        "v1's track query parameter",
+	"ListSessionsRequest.car":          "v1's car query parameter",
+	"ListSessionsRequest.kind":         "v1's kind query parameter",
+	"ListSessionsRequest.from_day":     "v1's from query parameter, renamed: from is a keyword in Python",
+	"ListSessionsRequest.to_day":       "v1's to query parameter, renamed as from_day",
+	"ListSessionsRequest.time_zone":    "v1's tz query parameter",
+	"GetSessionRequest.session_id":     "v1's id path parameter",
+	"ListLapsRequest.session_id":       "v1's id path parameter",
+	"GetTraceRequest.session_id":       "v1's id path parameter",
+	"GetTraceRequest.lap":              "v1's lap path parameter",
+	"GetTraceRequest.points":           "v1's points query parameter",
+	"ListSameTrackRequest.session_id":  "v1's id path parameter",
+	"Activity.ACTIVITY_OFFLINE":        "the engineer cannot be reached: v1's proxy answered 502, and the web app called it offline",
 }
 
 // v1's routes, each with its method and its parameters' request fields.
@@ -115,6 +120,13 @@ var pitwallRoutes = map[string]struct {
 	"/api/v1/sessions/{id}/laps/{lap}/trace": {"GetTrace", map[string]string{"id": "session_id", "lap": "lap", "points": "points"}},
 	"/api/v1/sessions/{id}/same-track":       {"ListSameTrack", map[string]string{"id": "session_id"}},
 	"/api/engine/status":                     {"GetEngineStatus", nil},
+}
+
+// The methods with no v1 route, each with why: writes, which have side effects,
+// so Connect serves them as POST and nothing caches them.
+var pitwallWrites = map[string]string{
+	"DeleteSession":  "deletes a session, softly and restorably (ADR 0014)",
+	"RestoreSession": "brings a deleted session back (ADR 0014)",
 }
 
 // v1's routes with no method, each with why.
@@ -337,8 +349,10 @@ func TestPitwallCarriesV1sModels(t *testing.T) {
 }
 
 // Every v1 route is a method, and each of its parameters a field of the
-// method's request; every method is read-only, so Connect serves it as GET
-// and the pit wall can answer a 304 (R1).
+// method's request; every such method is read-only, so Connect serves it as
+// GET and the pit wall can answer a 304 (R1). Every other method is a write
+// in pitwallWrites, never NO_SIDE_EFFECTS, so Connect serves it as POST and
+// nothing caches it (ADR 0014).
 func TestPitwallMethodsAreV1sRoutes(t *testing.T) {
 	api := loadPitwallOpenAPI(t)
 	service := pitwallFile.Services().ByName("PitwallService")
@@ -370,20 +384,29 @@ func TestPitwallMethodsAreV1sRoutes(t *testing.T) {
 			}
 		}
 	}
+	writes := map[string]bool{}
 	for i := range service.Methods().Len() {
 		m := service.Methods().Get(i)
-		if !methods[string(m.Name())] {
-			t.Errorf("%s is no v1 route", m.Name())
-		}
 		opts, _ := m.Options().(*descriptorpb.MethodOptions)
-		if opts.GetIdempotencyLevel() != descriptorpb.MethodOptions_NO_SIDE_EFFECTS {
+		readOnly := opts.GetIdempotencyLevel() == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
+		switch _, write := pitwallWrites[string(m.Name())]; {
+		case write:
+			writes[string(m.Name())] = true
+			if readOnly {
+				t.Errorf("%s is a write, but NO_SIDE_EFFECTS, so Connect would serve it as GET", m.Name())
+			}
+		case !methods[string(m.Name())]:
+			t.Errorf("%s is no v1 route, and is not in pitwallWrites", m.Name())
+		case !readOnly:
 			t.Errorf("%s is not NO_SIDE_EFFECTS, so Connect would not serve it as GET", m.Name())
 		}
 	}
 	want := []string{"GetEngineStatus", "GetSession", "GetTrace", "ListLaps", "ListSameTrack", "ListSessions"}
-	got := keys(methods)
-	if !slices.Equal(got, want) {
+	if got := keys(methods); !slices.Equal(got, want) {
 		t.Errorf("methods %v, want %v", got, want)
+	}
+	if got, want := keys(writes), keys(pitwallWrites); !slices.Equal(got, want) {
+		t.Errorf("writes %v, want %v", got, want)
 	}
 }
 
