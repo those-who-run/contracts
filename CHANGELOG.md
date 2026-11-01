@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.10](https://github.com/those-who-run/contracts/compare/v0.2.9...v0.2.10) (2026-11-01)
+
+
+### Features
+
+* delete and restore a session, softly (store and pit wall) ([#49](https://github.com/those-who-run/contracts/issues/49)) ([d88fc1b](https://github.com/those-who-run/contracts/commit/d88fc1b713f525d3570d1633c71217b7a99feed9))
+
 ## [0.2.9](https://github.com/those-who-run/contracts/compare/v0.2.8...v0.2.9) (2026-10-31)
 
 
