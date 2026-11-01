@@ -26,6 +26,9 @@ func init() {
 
 const suzukaSID = "01JB9QZ4V3X8M2K7T5R1N6PDWA"
 
+// suzukaDeletedAt is when the examples' delete (ADR 0014) deleted the race.
+var suzukaDeletedAt = time.Date(2026, 11, 1, 19, 42, 7, 512_000_000, time.UTC)
+
 // suzukaPitStop is session_ended_suzuka_pit_stop.json, the event the store's
 // row is kept from.
 func suzukaPitStop() *eventsv1.SessionEnded {
@@ -100,6 +103,10 @@ func serviceExamples() []struct {
 	want proto.Message
 } {
 	row, laps := suzukaRow()
+	deletedRow := proto.CloneOf(row)
+	deletedRow.DeletedAt = timestamppb.New(suzukaDeletedAt)
+	deletedSession := suzukaSession()
+	deletedSession.DeletedAt = timestamppb.New(suzukaDeletedAt)
 	return []struct {
 		file string
 		want proto.Message
@@ -139,7 +146,22 @@ func serviceExamples() []struct {
 			},
 			DataVersion: "5:1829:lap-5",
 		}},
+		// ADR 0014's writes: the race deleted, then restored.
+		{"store/v1/delete_session_request.json", &storev1.DeleteSessionRequest{
+			Sources: []string{"live", "v1-import"}, SessionId: suzukaSID,
+		}},
+		{"store/v1/delete_session_response.json", &storev1.DeleteSessionResponse{
+			Session: deletedRow, DataVersion: "5:1830",
+		}},
+		{"store/v1/restore_session_request.json", &storev1.RestoreSessionRequest{
+			Sources: []string{"live", "v1-import"}, SessionId: suzukaSID,
+		}},
+		{"store/v1/restore_session_response.json", &storev1.RestoreSessionResponse{
+			Session: row, DataVersion: "5:1831",
+		}},
 		{"pitwall/v1/get_session_response.json", &pitwallv1.GetSessionResponse{Session: suzukaSession()}},
+		{"pitwall/v1/delete_session_response.json", &pitwallv1.DeleteSessionResponse{Session: deletedSession}},
+		{"pitwall/v1/restore_session_response.json", &pitwallv1.RestoreSessionResponse{Session: suzukaSession()}},
 		{"pitwall/v1/list_sessions_response.json", &pitwallv1.ListSessionsResponse{
 			Sessions: []*pitwallv1.Session{suzukaSession()},
 			Options: &pitwallv1.FilterOptions{

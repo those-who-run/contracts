@@ -1,7 +1,9 @@
 syntax = "proto3";
 
 // The store: what logbook answers on its NATS micro services
-// (svc.logbook.*, ADR 0003 point 1; paddock#122 and #123), near what it keeps.
+// (svc.logbook.*, ADR 0003 point 1; paddock#122 and #123), near what it keeps,
+// and the two writes the pit wall asks of it, deleting a session and restoring
+// it (ADR 0014 in paddock).
 // A session is its row with ecu's own SessionSummary, and a lap its
 // LapCompleted with what logbook counted from its frames: logbook stays dumb
 // and decides nothing, and a reader, such as the pit wall, maps these to its
@@ -12,18 +14,23 @@ syntax = "proto3";
 // (ADR 0002, point 2), with no CloudEvents headers: a request and its reply are
 // not events. An error is NATS micro's error headers, Nats-Service-Error-Code
 // and Nats-Service-Error: 400 for a bad request, 404 for a session or lap that
-// does not exist, 500 for logbook's own failure. A read on an empty store
+// does not exist, 409 for a write the session's state refuses (deleting an
+// open session), 500 for logbook's own failure. A read on an empty store
 // answers an empty list, not an error.
 //
 // Every request names the sources to look in; none is a bad request (400).
-// Every response carries a data_version, and a request may carry the one its
+// Every response carries a data_version, and a read may carry the one its
 // caller already has, known_data_version: when it is still current, logbook
 // answers unchanged with no other field, so a poll every 5 s costs next to
-// nothing. A list comes in pages logbook caps, so no reply nears NATS's
-// payload limit: limit 0 is 200, and at most 500 (more is a 400). The caller
-// asks again from offset plus what it got until that reaches matched; a page
-// whose data_version is not the first page's means the data changed between
-// them, and the caller starts again.
+// nothing. A write that changes a session changes the store-wide stamp that
+// sessions.list, sessions.get, laps.list and sessions.same_track answer, so
+// the pit wall's session list's and session page's ETags change with it;
+// laps.trace's stamp, which follows only the lap's frames, does not. A list
+// comes in pages logbook caps, so no reply nears NATS's payload limit: limit
+// 0 is 200, and at most 500 (more is a 400). The caller asks again from
+// offset plus what it got until that reaches matched; a page whose
+// data_version is not the first page's means the data changed between them,
+// and the caller starts again.
 package twr.store.v1;
 
 import "google/protobuf/timestamp.proto";
@@ -78,6 +85,15 @@ message SessionRow {
   // frames through ecu's packages: true from the rows, false re-derived.
   // Absent for a session v2 saw itself.
   optional bool from_v1_rows = 8;
+  // When the session was deleted (svc.logbook.sessions.delete): a soft
+  // delete, which keeps every row and lap file, so a restore brings it back.
+  // Absent for a session that is not deleted, or was restored. A deleted
+  // session is left out of svc.logbook.sessions.list, with its filter values
+  // and counts, and out of svc.logbook.sessions.same_track; sessions.get,
+  // laps.list and laps.trace still answer for it, with this set. A later
+  // write of the session (a redelivered event, a rerun of the v1 import)
+  // keeps deleted_at; only svc.logbook.sessions.restore clears it.
+  google.protobuf.Timestamp deleted_at = 9;
 }
 
 // LapRow is one lap as logbook keeps it.
@@ -140,7 +156,7 @@ message KindCount {
 }
 
 // FilterCounts is the values each filter can take, from every session of the
-// sources asked for, each with its count.
+// sources asked for that is not deleted, each with its count.
 message FilterCounts {
   // The tracks as the card shows them, as ListSessionsRequest's track takes
   // them: format.TrackLabel's value, the layout's name when the detector was
@@ -201,9 +217,10 @@ message ListSessionsResponse {
   // The matching sessions, newest first, from offset, at most limit of them
   // (200 by default).
   repeated SessionRow sessions = 1;
-  // The values each filter can take, from every session of the sources.
+  // The values each filter can take, from every session of the sources that
+  // is not deleted.
   FilterCounts options = 2;
-  // The sessions of the sources, whatever the filters.
+  // The sessions of the sources that are not deleted, whatever the filters.
   int32 total = 3;
   // The sessions that match the filters, whatever offset and limit.
   int32 matched = 4;
@@ -312,16 +329,67 @@ message ListSameTrackRequest {
 // ListSameTrackResponse is the other sessions at the same track, newest
 // first: those whose track id is the session's, where the detector was sure
 // of both (TRACK_CONFIDENCE_PROBABLE or TRACK_CONFIDENCE_CONFIRMED, v1's
-// same_track). None when it was not sure of the session's own.
+// same_track). None when it was not sure of the session's own. Deleted
+// sessions are left out; a session asked for that is itself deleted is
+// answered as usual, its other sessions without the deleted ones.
 message ListSameTrackResponse {
-  // The other sessions, newest first, from offset, at most limit of them.
+  // The other sessions not deleted, newest first, from offset, at most limit
+  // of them.
   repeated SessionRow sessions = 1;
   // A stamp of the whole store, as ListSessionsResponse's: it changes when
   // anything in the store changes. The pit wall's ETag.
   string data_version = 2;
-  // The other sessions at the same track, whatever offset and limit.
+  // The other sessions at the same track not deleted, whatever offset and
+  // limit.
   int32 matched = 3;
   // The caller's known_data_version is still current: every other field
   // but data_version is absent.
   bool unchanged = 4;
+}
+
+// DeleteSessionRequest asks logbook to delete one session
+// (svc.logbook.sessions.delete): a soft delete, which sets the row's
+// deleted_at and keeps every row and lap file. Deleting a session already
+// deleted succeeds and changes nothing, its deleted_at kept. A later write of
+// the session (a redelivered event, a rerun of the v1 import) keeps
+// deleted_at; only svc.logbook.sessions.restore clears it. An open session
+// (not closed) cannot be deleted: 409. A session no source has answers 404.
+message DeleteSessionRequest {
+  // The sources to look in, as GetSessionRequest's: at least one.
+  repeated string sources = 1;
+  // The session's id. The first of sources, in their order, that has it is
+  // the one deleted, as GetSessionRequest's; none answers 404.
+  string session_id = 2;
+}
+
+// DeleteSessionResponse is the session, deleted.
+message DeleteSessionResponse {
+  // The session, its deleted_at set.
+  SessionRow session = 1;
+  // A stamp of the whole store, as ListSessionsResponse's, after the delete:
+  // a new one when the delete changed the session, the same one when it was
+  // already deleted.
+  string data_version = 2;
+}
+
+// RestoreSessionRequest asks logbook to restore one deleted session
+// (svc.logbook.sessions.restore): it clears the row's deleted_at, so the
+// session is listed again. Restoring a session that is not deleted succeeds
+// and changes nothing. A session no source has answers 404.
+message RestoreSessionRequest {
+  // The sources to look in, as GetSessionRequest's: at least one.
+  repeated string sources = 1;
+  // The session's id. The first of sources, in their order, that has it is
+  // the one restored, as GetSessionRequest's; none answers 404.
+  string session_id = 2;
+}
+
+// RestoreSessionResponse is the session, restored.
+message RestoreSessionResponse {
+  // The session, its deleted_at absent.
+  SessionRow session = 1;
+  // A stamp of the whole store, as ListSessionsResponse's, after the
+  // restore: a new one when the restore changed the session, the same one
+  // when it was not deleted.
+  string data_version = 2;
 }

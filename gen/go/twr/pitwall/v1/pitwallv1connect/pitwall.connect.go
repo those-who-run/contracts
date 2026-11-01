@@ -54,6 +54,12 @@ const (
 	// PitwallServiceGetEngineStatusProcedure is the procedure name of the PitwallService's
 	// GetEngineStatus RPC.
 	PitwallServiceGetEngineStatusProcedure = "/twr.pitwall.v1.PitwallService/GetEngineStatus"
+	// PitwallServiceDeleteSessionProcedure is the procedure name of the PitwallService's DeleteSession
+	// RPC.
+	PitwallServiceDeleteSessionProcedure = "/twr.pitwall.v1.PitwallService/DeleteSession"
+	// PitwallServiceRestoreSessionProcedure is the procedure name of the PitwallService's
+	// RestoreSession RPC.
+	PitwallServiceRestoreSessionProcedure = "/twr.pitwall.v1.PitwallService/RestoreSession"
 )
 
 var (
@@ -105,11 +111,26 @@ var (
 			IdempotencyLevel: connect.IdempotencyNoSideEffects,
 		}
 	})
+	pitwallServiceDeleteSessionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("DeleteSession"),
+			Procedure:  PitwallServiceDeleteSessionProcedure,
+		}
+	})
+	pitwallServiceRestoreSessionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_twr_pitwall_v1_pitwall_proto.Services().ByName("PitwallService").Methods().ByName("RestoreSession"),
+			Procedure:  PitwallServiceRestoreSessionProcedure,
+		}
+	})
 )
 
 // PitwallServiceClient is a client for the twr.pitwall.v1.PitwallService service.
 type PitwallServiceClient interface {
-	// ListSessions is the session list: every session, newest first, filtered,
+	// ListSessions is the session list: every session not deleted, newest
+	// first, filtered,
 	// with the values each filter can take and their counts (v1's
 	// `GET /api/v1/sessions`).
 	ListSessions(context.Context, *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error)
@@ -131,6 +152,23 @@ type PitwallServiceClient interface {
 	// `live` bucket (paddock#125). It never fails for the engineer being gone:
 	// that is ACTIVITY_OFFLINE. Never cached.
 	GetEngineStatus(context.Context, *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error)
+	// DeleteSession deletes a closed session, softly (logbook's
+	// svc.logbook.sessions.delete): it keeps everything, so RestoreSession
+	// brings it back. A deleted session is left out of ListSessions, its
+	// filter values and counts, and ListSameTrack; GetSession still answers for
+	// it with deleted_at set, and ListLaps and GetTrace still answer for it. A
+	// later write of the session (a redelivered event, a rerun of the v1
+	// import) keeps deleted_at; only RestoreSession clears it. Deleting a deleted
+	// session succeeds and changes nothing. An open session answers
+	// failed_precondition, and one that does not exist not_found. v1 had no
+	// such route.
+	DeleteSession(context.Context, *v1.DeleteSessionRequest) (*v1.DeleteSessionResponse, error)
+	// RestoreSession brings a deleted session back (logbook's
+	// svc.logbook.sessions.restore): it clears deleted_at, so the session is
+	// listed again. Restoring a session that is not deleted succeeds and
+	// changes nothing; one that does not exist answers not_found. v1 had no
+	// such route.
+	RestoreSession(context.Context, *v1.RestoreSessionRequest) (*v1.RestoreSessionResponse, error)
 }
 
 // NewPitwallServiceClient constructs a client for the twr.pitwall.v1.PitwallService service.
@@ -141,7 +179,8 @@ func NewPitwallServiceClient(client *connect.Client) PitwallServiceClient {
 
 // PitwallServiceHandler is an implementation of the twr.pitwall.v1.PitwallService service.
 type PitwallServiceHandler interface {
-	// ListSessions is the session list: every session, newest first, filtered,
+	// ListSessions is the session list: every session not deleted, newest
+	// first, filtered,
 	// with the values each filter can take and their counts (v1's
 	// `GET /api/v1/sessions`).
 	ListSessions(context.Context, *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error)
@@ -163,6 +202,23 @@ type PitwallServiceHandler interface {
 	// `live` bucket (paddock#125). It never fails for the engineer being gone:
 	// that is ACTIVITY_OFFLINE. Never cached.
 	GetEngineStatus(context.Context, *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error)
+	// DeleteSession deletes a closed session, softly (logbook's
+	// svc.logbook.sessions.delete): it keeps everything, so RestoreSession
+	// brings it back. A deleted session is left out of ListSessions, its
+	// filter values and counts, and ListSameTrack; GetSession still answers for
+	// it with deleted_at set, and ListLaps and GetTrace still answer for it. A
+	// later write of the session (a redelivered event, a rerun of the v1
+	// import) keeps deleted_at; only RestoreSession clears it. Deleting a deleted
+	// session succeeds and changes nothing. An open session answers
+	// failed_precondition, and one that does not exist not_found. v1 had no
+	// such route.
+	DeleteSession(context.Context, *v1.DeleteSessionRequest) (*v1.DeleteSessionResponse, error)
+	// RestoreSession brings a deleted session back (logbook's
+	// svc.logbook.sessions.restore): it clears deleted_at, so the session is
+	// listed again. Restoring a session that is not deleted succeeds and
+	// changes nothing; one that does not exist answers not_found. v1 had no
+	// such route.
+	RestoreSession(context.Context, *v1.RestoreSessionRequest) (*v1.RestoreSessionResponse, error)
 }
 
 // RegisterPitwallServiceHandler registers svc as the twr.pitwall.v1.PitwallService implementation
@@ -176,6 +232,8 @@ func RegisterPitwallServiceHandler(server *connect.Server, svc PitwallServiceHan
 		connect.Method{Spec: pitwallServiceGetTraceSpec(), Handler: adapter.getTrace},
 		connect.Method{Spec: pitwallServiceListSameTrackSpec(), Handler: adapter.listSameTrack},
 		connect.Method{Spec: pitwallServiceGetEngineStatusSpec(), Handler: adapter.getEngineStatus},
+		connect.Method{Spec: pitwallServiceDeleteSessionSpec(), Handler: adapter.deleteSession},
+		connect.Method{Spec: pitwallServiceRestoreSessionSpec(), Handler: adapter.restoreSession},
 	)
 }
 
@@ -204,6 +262,14 @@ func (UnimplementedPitwallServiceHandler) ListSameTrack(context.Context, *v1.Lis
 
 func (UnimplementedPitwallServiceHandler) GetEngineStatus(context.Context, *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.GetEngineStatus is not implemented")
+}
+
+func (UnimplementedPitwallServiceHandler) DeleteSession(context.Context, *v1.DeleteSessionRequest) (*v1.DeleteSessionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.DeleteSession is not implemented")
+}
+
+func (UnimplementedPitwallServiceHandler) RestoreSession(context.Context, *v1.RestoreSessionRequest) (*v1.RestoreSessionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "twr.pitwall.v1.PitwallService.RestoreSession is not implemented")
 }
 
 type pitwallServiceClient struct {
@@ -253,6 +319,22 @@ func (c *pitwallServiceClient) ListSameTrack(ctx context.Context, req *v1.ListSa
 func (c *pitwallServiceClient) GetEngineStatus(ctx context.Context, req *v1.GetEngineStatusRequest) (*v1.GetEngineStatusResponse, error) {
 	var res v1.GetEngineStatusResponse
 	if err := c.client.CallUnary(ctx, pitwallServiceGetEngineStatusSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *pitwallServiceClient) DeleteSession(ctx context.Context, req *v1.DeleteSessionRequest) (*v1.DeleteSessionResponse, error) {
+	var res v1.DeleteSessionResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceDeleteSessionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *pitwallServiceClient) RestoreSession(ctx context.Context, req *v1.RestoreSessionRequest) (*v1.RestoreSessionResponse, error) {
+	var res v1.RestoreSessionResponse
+	if err := c.client.CallUnary(ctx, pitwallServiceRestoreSessionSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -326,6 +408,30 @@ func (h pitwallServiceHandler) getEngineStatus(ctx context.Context, _ connect.Sp
 		return err
 	}
 	res, err := h.svc.GetEngineStatus(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h pitwallServiceHandler) deleteSession(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.DeleteSessionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.DeleteSession(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h pitwallServiceHandler) restoreSession(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.RestoreSessionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.RestoreSession(ctx, &req)
 	if err != nil {
 		return err
 	}
