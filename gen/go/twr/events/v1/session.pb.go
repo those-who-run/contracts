@@ -667,7 +667,11 @@ type SessionKind struct {
 	Field bool `protobuf:"varint,3,opt,name=field,proto3" json:"field,omitempty"`
 	// Whether the session uses fuel (FuelUse, v1's `fuel_use`).
 	FuelUse FuelUse `protobuf:"varint,4,opt,name=fuel_use,json=fuelUse,proto3,enum=twr.events.v1.FuelUse" json:"fuel_use,omitempty"`
-	// GT7's cars-on-track flag, as last reported (v1's `cars_on_track`).
+	// GT7's cars-on-track flag, as last reported (v1's `cars_on_track`). It
+	// means the car is on track with data, in a drive rather than a replay or
+	// the attract-mode demo, not that other cars are racing: it is set in a
+	// time trial too. Whether there is a field comes from the kind, in field
+	// (paddock#146).
 	CarsOnTrack bool `protobuf:"varint,5,opt,name=cars_on_track,json=carsOnTrack,proto3" json:"cars_on_track,omitempty"`
 	// How the session started (StartType, v1's `start`).
 	Start StartType `protobuf:"varint,6,opt,name=start,proto3,enum=twr.events.v1.StartType" json:"start,omitempty"`

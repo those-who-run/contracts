@@ -228,7 +228,8 @@ type Frame struct {
 	// The packet's flags word, as received (a 16-bit field in the packet). Its
 	// named bits, such as paused, loading and cars on track, are what decides
 	// `phase`; bits nobody has named yet are kept here, so a later rule can use
-	// them without new recordings.
+	// them without new recordings. The cars-on-track bit means the car is on
+	// track with data, not that other cars are racing (paddock#146).
 	Flags         uint32 `protobuf:"varint,51,opt,name=flags,proto3" json:"flags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -178,7 +178,11 @@ message SessionKind {
   bool field = 3;
   // Whether the session uses fuel (FuelUse, v1's `fuel_use`).
   FuelUse fuel_use = 4;
-  // GT7's cars-on-track flag, as last reported (v1's `cars_on_track`).
+  // GT7's cars-on-track flag, as last reported (v1's `cars_on_track`). It
+  // means the car is on track with data, in a drive rather than a replay or
+  // the attract-mode demo, not that other cars are racing: it is set in a
+  // time trial too. Whether there is a field comes from the kind, in field
+  // (paddock#146).
   bool cars_on_track = 5;
   // How the session started (StartType, v1's `start`).
   StartType start = 6;
