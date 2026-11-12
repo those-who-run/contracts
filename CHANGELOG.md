@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.11](https://github.com/those-who-run/contracts/compare/v0.2.10...v0.2.11) (2026-11-12)
+
+
+### Dependencies
+
+* Go 1.27.4 ([#55](https://github.com/those-who-run/contracts/issues/55)) ([377be10](https://github.com/those-who-run/contracts/commit/377be101c9b4d27215efa0ae78d9ef4496c86f09))
+
 ## [0.2.10](https://github.com/those-who-run/contracts/compare/v0.2.9...v0.2.10) (2026-11-01)
 
 
